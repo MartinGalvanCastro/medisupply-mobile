@@ -1,0 +1,47 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "strictNullChecks": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "bundler",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "jsx": "react-native",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/components": ["src/components"],
+      "@/components/*": ["src/components/*"],
+      "@/screens": ["src/screens"],
+      "@/screens/*": ["src/screens/*"],
+      "@/hooks": ["src/hooks"],
+      "@/hooks/*": ["src/hooks/*"],
+      "@/services": ["src/services"],
+      "@/services/*": ["src/services/*"],
+      "@/api": ["src/api"],
+      "@/api/*": ["src/api/*"],
+      "@/types": ["src/types"],
+      "@/types/*": ["src/types/*"],
+      "@/utils": ["src/utils"],
+      "@/utils/*": ["src/utils/*"],
+      "@/store": ["src/store"],
+      "@/store/*": ["src/store/*"],
+      "@/constants": ["src/constants"],
+      "@/constants/*": ["src/constants/*"],
+      "@/providers": ["src/providers"],
+      "@/providers/*": ["src/providers/*"]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
