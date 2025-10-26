@@ -1,8 +1,5 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 export interface I18nProviderProps {
-  /**
-   * Child components
-   */
   children: ReactNode;
 }

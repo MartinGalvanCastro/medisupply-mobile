@@ -1,83 +1,226 @@
-import { renderHook, act } from '@testing-library/react-hooks';
+import { renderHook, act } from '@testing-library/react-native';
 import { useSettingsStore } from './useSettingsStore';
-
-// Mock MMKV
-jest.mock('react-native-mmkv', () => ({
-  MMKV: jest.fn().mockImplementation(() => ({
-    set: jest.fn(),
-    getString: jest.fn(),
-    delete: jest.fn(),
-    clearAll: jest.fn(),
-    contains: jest.fn(),
-    getAllKeys: jest.fn(() => []),
-  })),
-}));
+import type { Theme, Language, NotificationSettings, AppearanceSettings } from './types';
 
 describe('useSettingsStore', () => {
   beforeEach(() => {
-    // Reset store state before each test
-    const { result } = renderHook(() => useSettingsStore());
+    // Reset store before each test
     act(() => {
-      result.current.reset();
+      useSettingsStore.getState().resetSettings();
     });
   });
 
-  it('should have default values', () => {
+  it('should have initial state', () => {
     const { result } = renderHook(() => useSettingsStore());
 
-    expect(result.current.theme).toBe('system');
-    expect(result.current.notificationsEnabled).toBe(true);
-    expect(result.current.hasCompletedOnboarding).toBe(false);
-    expect(result.current.lastSyncDate).toBe(null);
+    expect(result.current.theme).toBe('light');
+    expect(result.current.language).toBe('en');
+    expect(result.current.notifications).toEqual({
+      enabled: true,
+      email: true,
+      push: true,
+    });
+    expect(result.current.appearance).toEqual({
+      fontSize: 'medium',
+      colorScheme: 'default',
+    });
   });
 
-  it('should update theme', () => {
-    const { result } = renderHook(() => useSettingsStore());
+  describe('setTheme', () => {
+    it('should set theme to dark', () => {
+      const { result } = renderHook(() => useSettingsStore());
 
-    act(() => {
-      result.current.setTheme('dark');
+      act(() => {
+        result.current.setTheme('dark');
+      });
+
+      expect(result.current.theme).toBe('dark');
     });
 
-    expect(result.current.theme).toBe('dark');
+    it('should set theme to auto', () => {
+      const { result } = renderHook(() => useSettingsStore());
+
+      act(() => {
+        result.current.setTheme('auto');
+      });
+
+      expect(result.current.theme).toBe('auto');
+    });
+
+    it('should update theme from light to dark', () => {
+      const { result } = renderHook(() => useSettingsStore());
+
+      act(() => {
+        result.current.setTheme('light');
+        result.current.setTheme('dark');
+      });
+
+      expect(result.current.theme).toBe('dark');
+    });
   });
 
-  it('should toggle notifications', () => {
-    const { result } = renderHook(() => useSettingsStore());
+  describe('setLanguage', () => {
+    it('should set language to Spanish', () => {
+      const { result } = renderHook(() => useSettingsStore());
 
-    act(() => {
-      result.current.setNotificationsEnabled(false);
+      act(() => {
+        result.current.setLanguage('es');
+      });
+
+      expect(result.current.language).toBe('es');
     });
 
-    expect(result.current.notificationsEnabled).toBe(false);
+    it('should set language to English', () => {
+      const { result } = renderHook(() => useSettingsStore());
+
+      act(() => {
+        result.current.setLanguage('en');
+      });
+
+      expect(result.current.language).toBe('en');
+    });
   });
 
-  it('should mark onboarding as completed', () => {
-    const { result } = renderHook(() => useSettingsStore());
+  describe('setNotifications', () => {
+    it('should update notification enabled status', () => {
+      const { result } = renderHook(() => useSettingsStore());
 
-    act(() => {
-      result.current.setHasCompletedOnboarding(true);
+      act(() => {
+        result.current.setNotifications({ enabled: false });
+      });
+
+      expect(result.current.notifications.enabled).toBe(false);
+      expect(result.current.notifications.email).toBe(true);
+      expect(result.current.notifications.push).toBe(true);
     });
 
-    expect(result.current.hasCompletedOnboarding).toBe(true);
+    it('should update email notification setting', () => {
+      const { result } = renderHook(() => useSettingsStore());
+
+      act(() => {
+        result.current.setNotifications({ email: false });
+      });
+
+      expect(result.current.notifications.email).toBe(false);
+      expect(result.current.notifications.enabled).toBe(true);
+    });
+
+    it('should update multiple notification settings', () => {
+      const { result } = renderHook(() => useSettingsStore());
+
+      act(() => {
+        result.current.setNotifications({
+          email: false,
+          push: false,
+        });
+      });
+
+      expect(result.current.notifications.email).toBe(false);
+      expect(result.current.notifications.push).toBe(false);
+      expect(result.current.notifications.enabled).toBe(true);
+    });
+
+    it('should disable all notifications', () => {
+      const { result } = renderHook(() => useSettingsStore());
+
+      act(() => {
+        result.current.setNotifications({
+          enabled: false,
+          email: false,
+          push: false,
+        });
+      });
+
+      expect(result.current.notifications).toEqual({
+        enabled: false,
+        email: false,
+        push: false,
+      });
+    });
   });
 
-  it('should reset to defaults', () => {
-    const { result } = renderHook(() => useSettingsStore());
+  describe('setAppearance', () => {
+    it('should update font size', () => {
+      const { result } = renderHook(() => useSettingsStore());
 
-    // Change some values
-    act(() => {
-      result.current.setTheme('dark');
-      result.current.setNotificationsEnabled(false);
-      result.current.setHasCompletedOnboarding(true);
+      act(() => {
+        result.current.setAppearance({ fontSize: 'large' });
+      });
+
+      expect(result.current.appearance.fontSize).toBe('large');
+      expect(result.current.appearance.colorScheme).toBe('default');
     });
 
-    // Reset
-    act(() => {
-      result.current.reset();
+    it('should update color scheme', () => {
+      const { result } = renderHook(() => useSettingsStore());
+
+      act(() => {
+        result.current.setAppearance({ colorScheme: 'blue' });
+      });
+
+      expect(result.current.appearance.colorScheme).toBe('blue');
+      expect(result.current.appearance.fontSize).toBe('medium');
     });
 
-    expect(result.current.theme).toBe('system');
-    expect(result.current.notificationsEnabled).toBe(true);
-    expect(result.current.hasCompletedOnboarding).toBe(false);
+    it('should update both font size and color scheme', () => {
+      const { result } = renderHook(() => useSettingsStore());
+
+      act(() => {
+        result.current.setAppearance({
+          fontSize: 'small',
+          colorScheme: 'purple',
+        });
+      });
+
+      expect(result.current.appearance).toEqual({
+        fontSize: 'small',
+        colorScheme: 'purple',
+      });
+    });
+  });
+
+  describe('resetSettings', () => {
+    it('should reset all settings to initial state', () => {
+      const { result } = renderHook(() => useSettingsStore());
+
+      act(() => {
+        result.current.setTheme('dark');
+        result.current.setLanguage('es');
+        result.current.setNotifications({ enabled: false });
+        result.current.setAppearance({ fontSize: 'large' });
+        result.current.resetSettings();
+      });
+
+      expect(result.current.theme).toBe('light');
+      expect(result.current.language).toBe('en');
+      expect(result.current.notifications).toEqual({
+        enabled: true,
+        email: true,
+        push: true,
+      });
+      expect(result.current.appearance).toEqual({
+        fontSize: 'medium',
+        colorScheme: 'default',
+      });
+    });
+  });
+
+  describe('complex scenarios', () => {
+    it('should handle multiple updates in sequence', () => {
+      const { result } = renderHook(() => useSettingsStore());
+
+      act(() => {
+        result.current.setTheme('dark');
+        result.current.setLanguage('es');
+        result.current.setNotifications({ push: false });
+        result.current.setAppearance({ fontSize: 'large', colorScheme: 'blue' });
+      });
+
+      expect(result.current.theme).toBe('dark');
+      expect(result.current.language).toBe('es');
+      expect(result.current.notifications.push).toBe(false);
+      expect(result.current.appearance.fontSize).toBe('large');
+      expect(result.current.appearance.colorScheme).toBe('blue');
+    });
   });
 });

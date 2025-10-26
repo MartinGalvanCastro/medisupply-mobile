@@ -1,4 +1,3 @@
-// Barrel export for storage utilities
-export * from './storage';
-export * from './types';
-export * from './zustand-mmkv';
+export { storage, storageUtils, mmkvStorage } from './storage';
+export { zustandStorage } from './zustand-mmkv';
+export type { StorageAdapter, TypedStorage } from './types';

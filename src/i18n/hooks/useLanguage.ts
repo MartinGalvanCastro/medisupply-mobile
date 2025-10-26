@@ -1,31 +1,19 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Language, LANGUAGES } from '../config';
+import type { SupportedLanguage } from '../config';
 
-/**
- * Hook for managing language settings
- */
 export const useLanguage = () => {
   const { i18n } = useTranslation();
 
-  const currentLanguage = i18n.language as Language;
-
   const changeLanguage = useCallback(
-    async (language: Language) => {
+    async (language: SupportedLanguage) => {
       await i18n.changeLanguage(language);
     },
     [i18n]
   );
 
-  const availableLanguages = Object.entries(LANGUAGES).map(([code, info]) => ({
-    code: code as Language,
-    ...info,
-  }));
-
   return {
-    currentLanguage,
+    currentLanguage: i18n.language as SupportedLanguage,
     changeLanguage,
-    availableLanguages,
-    languages: LANGUAGES,
   };
 };

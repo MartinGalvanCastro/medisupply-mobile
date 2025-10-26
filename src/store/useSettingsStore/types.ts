@@ -1,26 +1,32 @@
-/**
- * Settings store types
- */
+export type Theme = 'light' | 'dark' | 'auto';
+export type Language = 'en' | 'es';
+export type FontSize = 'small' | 'medium' | 'large';
+export type ColorScheme = 'default' | 'blue' | 'green' | 'purple';
 
-export type ThemeMode = 'light' | 'dark' | 'system';
+export interface NotificationSettings {
+  enabled: boolean;
+  email: boolean;
+  push: boolean;
+}
 
-export type SettingsState = {
-  // Theme settings
-  theme: ThemeMode;
-  setTheme: (theme: ThemeMode) => void;
+export interface AppearanceSettings {
+  fontSize: FontSize;
+  colorScheme: ColorScheme;
+}
 
-  // Notification settings
-  notificationsEnabled: boolean;
-  setNotificationsEnabled: (enabled: boolean) => void;
+export interface SettingsState {
+  theme: Theme;
+  language: Language;
+  notifications: NotificationSettings;
+  appearance: AppearanceSettings;
+}
 
-  // Onboarding
-  hasCompletedOnboarding: boolean;
-  setHasCompletedOnboarding: (completed: boolean) => void;
+export interface SettingsActions {
+  setTheme: (theme: Theme) => void;
+  setLanguage: (language: Language) => void;
+  setNotifications: (notifications: Partial<NotificationSettings>) => void;
+  setAppearance: (appearance: Partial<AppearanceSettings>) => void;
+  resetSettings: () => void;
+}
 
-  // Last sync timestamp
-  lastSyncDate: string | null;
-  setLastSyncDate: (date: string) => void;
-
-  // Reset all settings
-  reset: () => void;
-};
+export type SettingsStore = SettingsState & SettingsActions;

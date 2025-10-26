@@ -1,0 +1,150 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Background colors - Light blue theme */
+  --color-background-0: 240 248 255; /* #f0f8ff - Alice blue */
+  --color-background-50: 224 242 254; /* #e0f2fe - Light sky blue */
+
+  /* Primary colors - Emerald green */
+  --color-primary-0: 240 253 244; /* Very light green */
+  --color-primary-50: 209 250 229; /* #d1fae5 */
+  --color-primary-100: 167 243 208;
+  --color-primary-200: 110 231 183;
+  --color-primary-300: 52 211 153;
+  --color-primary-400: 16 185 129;
+  --color-primary-500: 5 150 105;
+  --color-primary-600: 4 120 87; /* #047857 */
+  --color-primary-700: 6 95 70; /* #065f46 - Primary */
+  --color-primary-800: 6 78 59;
+  --color-primary-900: 6 78 59;
+  --color-primary-950: 2 44 34; /* #022c22 */
+
+  /* Secondary colors - Light blue/cyan */
+  --color-secondary-0: 236 254 255;
+  --color-secondary-50: 224 242 254; /* #e0f2fe */
+  --color-secondary-100: 186 230 253;
+  --color-secondary-200: 125 211 252;
+  --color-secondary-300: 56 189 248;
+  --color-secondary-400: 14 165 233;
+  --color-secondary-500: 2 132 199;
+  --color-secondary-600: 3 105 161;
+  --color-secondary-700: 7 89 133;
+  --color-secondary-800: 12 74 110;
+  --color-secondary-900: 8 47 73;
+
+  /* Typography colors - Gray scale */
+  --color-typography-0: 255 255 255; /* White */
+  --color-typography-50: 249 250 251;
+  --color-typography-100: 243 244 246; /* #f3f4f6 - Muted */
+  --color-typography-200: 229 231 235; /* #e5e7eb - Border */
+  --color-typography-300: 209 213 219;
+  --color-typography-400: 156 163 175;
+  --color-typography-500: 107 114 128; /* #6b7280 - Muted foreground */
+  --color-typography-600: 75 85 99; /* #4b5563 - Secondary foreground */
+  --color-typography-700: 55 65 81; /* #374151 - Foreground */
+  --color-typography-800: 31 41 55;
+  --color-typography-900: 17 24 39;
+  --color-typography-950: 3 7 18;
+
+  /* Error/Destructive colors - Red */
+  --color-error-0: 254 242 242;
+  --color-error-50: 254 226 226;
+  --color-error-100: 254 202 202;
+  --color-error-200: 252 165 165;
+  --color-error-300: 248 113 113;
+  --color-error-400: 239 68 68;
+  --color-error-500: 220 38 38;
+  --color-error-600: 185 28 28;
+  --color-error-700: 153 27 27; /* #991b1b - Destructive */
+  --color-error-800: 127 29 29;
+  --color-error-900: 69 10 10; /* #450a0a */
+
+  /* Success colors - Green */
+  --color-success-0: 240 253 244;
+  --color-success-50: 220 252 231;
+  --color-success-100: 187 247 208;
+  --color-success-200: 134 239 172;
+  --color-success-300: 34 197 94; /* #22c55e */
+  --color-success-400: 22 163 74;
+  --color-success-500: 16 185 129; /* #10b981 */
+  --color-success-600: 5 150 105; /* #059669 */
+  --color-success-700: 4 120 87; /* #047857 */
+  --color-success-800: 6 95 70; /* #065f46 */
+  --color-success-900: 20 83 45;
+
+  /* Outline/Border colors */
+  --color-outline-0: 255 255 255;
+  --color-outline-100: 243 244 246;
+  --color-outline-200: 229 231 235; /* #e5e7eb - Border */
+  --color-outline-300: 209 213 219;
+  --color-outline-400: 156 163 175;
+  --color-outline-500: 107 114 128;
+}
+
+.dark {
+  /* Background colors - Dark slate */
+  --color-background-0: 15 23 42; /* #0f172a - Background */
+  --color-background-50: 30 41 59; /* #1e293b - Card */
+  --color-background-100: 51 65 85;
+  --color-background-200: 71 85 105;
+
+  /* Primary colors - Light emerald for dark mode */
+  --color-primary-0: 2 44 34; /* #022c22 - Primary foreground */
+  --color-primary-50: 6 78 59;
+  --color-primary-100: 6 95 70;
+  --color-primary-200: 4 120 87;
+  --color-primary-300: 5 150 105;
+  --color-primary-400: 16 185 129;
+  --color-primary-500: 52 211 153;
+  --color-primary-600: 110 231 183; /* #6ee7b7 - Primary */
+  --color-primary-700: 167 243 208;
+  --color-primary-800: 209 250 229;
+  --color-primary-900: 236 253 245;
+
+  /* Secondary colors - Dark blue/gray */
+  --color-secondary-0: 15 23 42;
+  --color-secondary-50: 30 41 59;
+  --color-secondary-100: 45 55 72; /* #2d3748 */
+  --color-secondary-200: 55 65 81; /* #374151 - Accent */
+  --color-secondary-300: 75 85 99;
+  --color-secondary-400: 107 114 128;
+
+  /* Typography colors - Light gray for dark mode */
+  --color-typography-0: 3 7 18;
+  --color-typography-100: 31 41 55;
+  --color-typography-200: 55 65 81;
+  --color-typography-300: 75 85 99; /* #4b5563 */
+  --color-typography-400: 107 114 128; /* #6b7280 */
+  --color-typography-500: 156 163 175; /* #9ca3af */
+  --color-typography-600: 161 161 170; /* #a1a1aa - Secondary/Accent foreground */
+  --color-typography-700: 209 213 219; /* #d1d5db - Foreground */
+  --color-typography-800: 229 231 235;
+  --color-typography-900: 243 244 246;
+  --color-typography-950: 255 255 255;
+
+  /* Error colors - Light red for dark mode */
+  --color-error-0: 69 10 10; /* #450a0a - Destructive foreground */
+  --color-error-100: 127 29 29;
+  --color-error-200: 153 27 27;
+  --color-error-300: 185 28 28;
+  --color-error-400: 220 38 38;
+  --color-error-500: 239 68 68;
+  --color-error-600: 248 113 113;
+  --color-error-700: 252 165 165; /* #fca5a5 - Destructive */
+  --color-error-800: 254 202 202;
+
+  /* Success colors - Emerald/Teal for dark mode */
+  --color-success-300: 52 211 153; /* #34d399 */
+  --color-success-400: 45 212 191; /* #2dd4bf */
+  --color-success-500: 34 197 94; /* #22c55e */
+  --color-success-600: 16 185 129; /* #10b981 */
+  --color-success-700: 5 150 105; /* #059669 */
+
+  /* Outline colors for dark mode */
+  --color-outline-200: 75 85 99; /* #4b5563 - Border */
+  --color-outline-300: 107 114 128;
+  --color-outline-400: 156 163 175;
+}
+

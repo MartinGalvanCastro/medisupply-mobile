@@ -1,48 +1,32 @@
-export type User = {
-  /**
-   * User ID
-   */
+export interface User {
   id: string;
-
-  /**
-   * User email address
-   */
   email: string;
-
-  /**
-   * User display name
-   */
   name: string;
-};
+  role?: string;
+  groups?: string[];
+}
 
-export type AuthState = {
-  /**
-   * Current authenticated user
-   */
+export interface AuthTokens {
+  accessToken: string;
+  idToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  tokenType?: string;
+}
+
+export interface AuthState {
   user: User | null;
-
-  /**
-   * Authentication token
-   */
-  token: string | null;
-
-  /**
-   * Whether user is authenticated
-   */
+  tokens: AuthTokens | null;
   isAuthenticated: boolean;
+}
 
-  /**
-   * Set the current user
-   */
+export interface AuthActions {
   setUser: (user: User | null) => void;
-
-  /**
-   * Set the authentication token
-   */
-  setToken: (token: string | null) => void;
-
-  /**
-   * Logout and clear all auth state
-   */
+  setTokens: (tokens: AuthTokens | null) => void;
+  login: (user: User, tokens: AuthTokens) => void;
   logout: () => void;
-};
+  updateUser: (updates: Partial<User>) => void;
+  updateTokens: (tokens: Partial<AuthTokens>) => void;
+}
+
+export type AuthStore = AuthState & AuthActions;

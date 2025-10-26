@@ -1,137 +1,75 @@
-import { MMKV } from 'react-native-mmkv';
+import { createMMKV } from 'react-native-mmkv';
+import type { StorageAdapter } from './types';
 
-/**
- * MMKV Storage Instance
- * Fast, small, and efficient key-value storage for React Native
- *
- * ⚠️ IMPORTANT: Use with Zustand's `partialize` option
- * When using with Zustand stores, ALWAYS specify which fields to persist:
- *
- * @example
- * ```typescript
- * persist(
- *   (set) => ({ count: 0, tempData: null }),
- *   {
- *     storage: createJSONStorage(() => zustandStorage),
- *     partialize: (state) => ({ count: state.count }), // Only persist count
- *   }
- * )
- * ```
- */
-export const storage = new MMKV({
+// Create MMKV instance
+export const mmkvStorage = createMMKV({
   id: 'medisupply-storage',
-  encryptionKey: 'your-encryption-key-here', // TODO: Use a secure key from env or keychain
+  encryptionKey: 'your-encryption-key-here', // TODO: Use secure key from env
 });
 
-/**
- * Storage utility functions
- *
- * Use these for direct key-value storage outside of Zustand stores.
- * For Zustand stores, use the `zustandStorage` adapter with `partialize`.
- */
-export const mmkvStorage = {
-  /**
-   * Set a value in storage
-   */
+// Storage adapter compatible with Zustand and other libraries
+export const storage: StorageAdapter = {
+  getItem: (key: string) => {
+    const value = mmkvStorage.getString(key);
+    return value ?? null;
+  },
+
   setItem: (key: string, value: string) => {
-    storage.set(key, value);
+    mmkvStorage.set(key, value);
   },
 
-  /**
-   * Get a value from storage
-   */
-  getItem: (key: string): string | undefined => {
-    return storage.getString(key);
-  },
-
-  /**
-   * Remove a value from storage
-   */
   removeItem: (key: string) => {
-    storage.delete(key);
+    mmkvStorage.remove(key);
   },
 
-  /**
-   * Clear all storage
-   */
-  clearAll: () => {
-    storage.clearAll();
+  clear: () => {
+    mmkvStorage.clearAll();
   },
 
-  /**
-   * Check if a key exists
-   */
-  has: (key: string): boolean => {
-    return storage.contains(key);
-  },
-
-  /**
-   * Get all keys
-   */
-  getAllKeys: (): string[] => {
-    return storage.getAllKeys();
-  },
-
-  /**
-   * Set a JSON object (automatically stringified)
-   */
-  setObject: <T>(key: string, value: T) => {
-    storage.set(key, JSON.stringify(value));
-  },
-
-  /**
-   * Get a JSON object (automatically parsed)
-   */
-  getObject: <T>(key: string): T | undefined => {
-    const value = storage.getString(key);
-    if (!value) return undefined;
-    try {
-      return JSON.parse(value) as T;
-    } catch (error) {
-      console.error(`Error parsing JSON for key "${key}":`, error);
-      return undefined;
-    }
-  },
-
-  /**
-   * Set a boolean value
-   */
-  setBoolean: (key: string, value: boolean) => {
-    storage.set(key, value);
-  },
-
-  /**
-   * Get a boolean value
-   */
-  getBoolean: (key: string): boolean | undefined => {
-    return storage.getBoolean(key);
-  },
-
-  /**
-   * Set a number value
-   */
-  setNumber: (key: string, value: number) => {
-    storage.set(key, value);
-  },
-
-  /**
-   * Get a number value
-   */
-  getNumber: (key: string): number | undefined => {
-    return storage.getNumber(key);
+  getAllKeys: () => {
+    return mmkvStorage.getAllKeys();
   },
 };
 
-/**
- * Storage keys used throughout the app
- */
-export const StorageKeys = {
-  AUTH_TOKEN: 'auth_token',
-  USER_DATA: 'user_data',
-  LANGUAGE: 'language',
-  THEME: 'theme',
-  ONBOARDING_COMPLETED: 'onboarding_completed',
-  LAST_SYNC: 'last_sync',
-} as const;
+// Typed storage methods for common operations
+export const storageUtils = {
+  // String operations
+  setString: (key: string, value: string) => mmkvStorage.set(key, value),
+  getString: (key: string): string | undefined => mmkvStorage.getString(key),
 
-export type StorageKey = (typeof StorageKeys)[keyof typeof StorageKeys];
+  // Number operations
+  setNumber: (key: string, value: number) => mmkvStorage.set(key, value),
+  getNumber: (key: string): number | undefined => mmkvStorage.getNumber(key),
+
+  // Boolean operations
+  setBoolean: (key: string, value: boolean) => mmkvStorage.set(key, value),
+  getBoolean: (key: string): boolean | undefined => mmkvStorage.getBoolean(key),
+
+  // Object operations (JSON)
+  setObject: <T>(key: string, value: T) => {
+    mmkvStorage.set(key, JSON.stringify(value));
+  },
+  getObject: <T>(key: string): T | null => {
+    const value = mmkvStorage.getString(key);
+    if (!value) return null;
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return null;
+    }
+  },
+
+  // Delete
+  delete: (key: string) => mmkvStorage.remove(key),
+
+  // Clear all
+  clearAll: () => mmkvStorage.clearAll(),
+
+  // Check if key exists
+  contains: (key: string): boolean => mmkvStorage.contains(key),
+
+  // Get all keys
+  getAllKeys: (): string[] => mmkvStorage.getAllKeys(),
+};
+
+export default storage;

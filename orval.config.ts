@@ -1,17 +1,16 @@
 import { defineConfig } from 'orval';
 
 export default defineConfig({
-  bff: {
+  api: {
     input: {
-      target: 'https://bffproyecto.juanandresdeveloper.com/bff/openapi.json',
+      target: 'http://localhost:8000/bff/openapi.json',
     },
     output: {
       mode: 'tags-split',
       target: 'src/api/generated',
       schemas: 'src/api/generated/models',
       client: 'react-query',
-      mock: false,
-      clean: true,
+      mock: true,
       prettier: true,
       override: {
         mutator: {
@@ -26,7 +25,7 @@ export default defineConfig({
       },
     },
     hooks: {
-      afterAllFilesWrite: 'eslint --fix',
+      afterAllFilesWrite: 'yarn prettier --write',
     },
   },
 });
