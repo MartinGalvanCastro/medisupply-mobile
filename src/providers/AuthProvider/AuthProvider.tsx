@@ -82,36 +82,59 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const login = useCallback(
     (email: string, password: string) => {
-      return loginMutate({
-        data: {
-          email,
-          password,
-          client_type: 'mobile',
-        },
-      })
-        .then((response) => {
-          const tokens = transformTokensFromLogin(response);
-          authStore.setTokens(tokens);
-          return fetchMe();
-        })
-        .then(({ data }) => {
-          if (data) {
-            const user = transformUserData(data);
-            authStore.setUser(user);
-          }
-          showToastIfNotRecent('success', 'login-success', 'Login Successful', 'Welcome back!');
-        })
-        .catch((error) => {
-          authStore.logout();
-          if (isNetworkError(error)) {
-            showToastIfNotRecent('error', 'login-error', 'No Connection', 'Please check your internet connection and try again.');
-          } else {
-            showToastIfNotRecent('error', 'login-error', 'Login Failed', 'Invalid credentials. Please try again.');
-          }
-          throw error;
-        });
+      // TODO: Remove mock - temporary for development
+      // Mock successful login
+      const mockTokens: AuthTokens = {
+        accessToken: 'mock-access-token',
+        idToken: 'mock-id-token',
+        refreshToken: 'mock-refresh-token',
+        expiresIn: 3600,
+        tokenType: 'Bearer',
+      };
+
+      const mockUser: User = {
+        id: '1',
+        email: email,
+        name: 'Test User',
+        role: email.includes('seller') ? 'seller' : 'client',
+      };
+
+      authStore.setTokens(mockTokens);
+      authStore.setUser(mockUser);
+      showToastIfNotRecent('success', 'login-success', 'Login Successful', 'Welcome back!');
+      return Promise.resolve();
+
+      // Original implementation (commented out for now)
+      // return loginMutate({
+      //   data: {
+      //     email,
+      //     password,
+      //     client_type: 'mobile',
+      //   },
+      // })
+      //   .then((response) => {
+      //     const tokens = transformTokensFromLogin(response);
+      //     authStore.setTokens(tokens);
+      //     return fetchMe();
+      //   })
+      //   .then(({ data }) => {
+      //     if (data) {
+      //       const user = transformUserData(data);
+      //       authStore.setUser(user);
+      //     }
+      //     showToastIfNotRecent('success', 'login-success', 'Login Successful', 'Welcome back!');
+      //   })
+      //   .catch((error) => {
+      //     authStore.logout();
+      //     if (isNetworkError(error)) {
+      //       showToastIfNotRecent('error', 'login-error', 'No Connection', 'Please check your internet connection and try again.');
+      //     } else {
+      //       showToastIfNotRecent('error', 'login-error', 'Login Failed', 'Invalid credentials. Please try again.');
+      //     }
+      //     throw error;
+      //   });
     },
-    [loginMutate, authStore, fetchMe, showToastIfNotRecent, isNetworkError]
+    [authStore, showToastIfNotRecent]
   );
 
   const logout = useCallback(() => {
@@ -163,35 +186,46 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       pais: string,
       representante: string
     ) => {
-      return signupMutate({
-        data: {
-          email,
-          password,
-          user_type: 'client',
-          telefono,
-          nombre_institucion,
-          tipo_institucion,
-          nit,
-          direccion,
-          ciudad,
-          pais,
-          representante,
-        },
-      })
-        .then((response) => {
-          showToastIfNotRecent('success', 'signup-success', 'Signup Successful', `Account created for ${response.email}. Please log in.`);
-          return response;
-        })
-        .catch((error) => {
-          if (isNetworkError(error)) {
-            showToastIfNotRecent('error', 'signup-error', 'No Connection', 'Please check your internet connection and try again.');
-          } else {
-            showToastIfNotRecent('error', 'signup-error', 'Signup Failed', 'Unable to create account. Please try again.');
-          }
-          throw error;
-        });
+      // TODO: Remove mock - temporary for development
+      // Mock successful signup
+      showToastIfNotRecent('success', 'signup-success', 'Signup Successful', `Account created for ${email}. Please log in.`);
+      return Promise.resolve({
+        email,
+        user_id: 'mock-user-id',
+        cliente_id: 'mock-client-id',
+        nombre_institucion
+      });
+
+      // Original implementation (commented out for now)
+      // return signupMutate({
+      //   data: {
+      //     email,
+      //     password,
+      //     user_type: 'client',
+      //     telefono,
+      //     nombre_institucion,
+      //     tipo_institucion,
+      //     nit,
+      //     direccion,
+      //     ciudad,
+      //     pais,
+      //     representante,
+      //   },
+      // })
+      //   .then((response) => {
+      //     showToastIfNotRecent('success', 'signup-success', 'Signup Successful', `Account created for ${response.email}. Please log in.`);
+      //     return response;
+      //   })
+      //   .catch((error) => {
+      //     if (isNetworkError(error)) {
+      //       showToastIfNotRecent('error', 'signup-error', 'No Connection', 'Please check your internet connection and try again.');
+      //     } else {
+      //       showToastIfNotRecent('error', 'signup-error', 'Signup Failed', 'Unable to create account. Please try again.');
+      //     }
+      //     throw error;
+      //   });
     },
-    [signupMutate, showToastIfNotRecent, isNetworkError]
+    [showToastIfNotRecent]
   );
 
   const value: AuthContextValue = {

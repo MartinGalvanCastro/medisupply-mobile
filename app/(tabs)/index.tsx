@@ -1,31 +1,29 @@
 import { StyleSheet, View } from 'react-native';
-import { router } from 'expo-router';
 import { VStack } from '@/components/ui/vstack';
 import { Text } from '@/components/ui/text';
-import { Button, ButtonText } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
-import { useAuthStore } from '@/store';
-import { useAuth } from '@/providers';
+import { Input, InputField } from '@/components/ui/input';
 
-export default function TabOneScreen() {
-  const { logout } = useAuth();
-  const user = useAuthStore((state) => state.user);
-
-  const handleLogout = () => {
-    logout();
-    router.replace('/login');
-  };
-
+export default function InventoryScreen() {
   return (
     <View style={styles.container}>
-      <VStack space="lg" className="items-center">
-        <Heading size="xl">Tab One</Heading>
-        <Text size="md" className="text-typography-500">
-          Welcome, {user?.name || 'User'}!
+      <VStack space="lg" className="p-4">
+        <Heading size="xl">Inventory</Heading>
+        <Text size="sm" className="text-typography-500">
+          Search for products across warehouses
         </Text>
-        <Button onPress={handleLogout} action="secondary" className="mt-4">
-          <ButtonText>Logout</ButtonText>
-        </Button>
+
+        {/* Search Bar */}
+        <Input variant="outline" size="md">
+          <InputField placeholder="Search products..." />
+        </Input>
+
+        {/* Placeholder for product list */}
+        <View className="mt-4 p-4 bg-gray-100 rounded-lg">
+          <Text className="text-center text-typography-400">
+            Product search will be implemented here
+          </Text>
+        </View>
       </VStack>
     </View>
   );
