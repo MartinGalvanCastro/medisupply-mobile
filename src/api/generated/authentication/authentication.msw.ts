@@ -56,8 +56,6 @@ export const getSignupAuthSignupPostResponseMock = (
 ): SignupResponse => ({
   user_id: faker.string.alpha({ length: { min: 10, max: 20 } }),
   email: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  cliente_id: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  nombre_institucion: faker.string.alpha({ length: { min: 10, max: 20 } }),
   message: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     undefined,

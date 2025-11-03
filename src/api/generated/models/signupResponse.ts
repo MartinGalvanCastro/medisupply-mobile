@@ -12,7 +12,5 @@
 export interface SignupResponse {
   user_id: string;
   email: string;
-  cliente_id: string;
-  nombre_institucion: string;
   message?: string;
 }

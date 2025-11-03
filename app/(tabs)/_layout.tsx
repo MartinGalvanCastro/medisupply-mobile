@@ -1,7 +1,7 @@
+import { useAuthStore } from '@/store';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { useAuthStore } from '@/store';
 
 // You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
 function TabBarIcon(props: {
@@ -19,7 +19,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#0284c7',
-        headerShown: true,
+        headerShown: false,
       }}>
       {/* COMMON TABS */}
       <Tabs.Screen
@@ -70,6 +70,7 @@ export default function TabLayout() {
           title: 'Clients',
           tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
           href: userRole === 'seller' ? '/clients' : null,
+      
         }}
       />
 

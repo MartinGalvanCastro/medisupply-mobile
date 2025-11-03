@@ -7,6 +7,7 @@ export interface AuthContextValue {
   signup: (
     email: string,
     password: string,
+    name: string,
     telefono: string,
     nombre_institucion: string,
     tipo_institucion: string,

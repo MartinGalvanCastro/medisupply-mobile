@@ -37,19 +37,24 @@ type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
  * Create a new order via client app.
 
 This endpoint:
-1. Accepts customer_id and items (producto_id, cantidad)
-2. Forwards request to Order Service with metodo_creacion='app_cliente'
-3. No seller_id or visit_id required (client app orders)
+1. Gets the Cognito User ID from the authenticated user (JWT sub claim)
+2. Looks up the client record using cognito_user_id to get customer_id
+3. Validates that the client exists (404 if not found)
+4. Accepts items (producto_id, cantidad)
+5. Forwards request to Order Service with metodo_creacion='app_cliente'
+6. No seller_id or visit_id required (client app orders)
 
 Args:
-    order_input: Order creation input
+    order_input: Order creation input (items only)
     order_port: Order port for service communication
+    client_port: Client port for service communication
+    user: Authenticated client user
 
 Returns:
     OrderCreateResponse with order ID and message
 
 Raises:
-    HTTPException: If order creation fails
+    HTTPException: If client not found or order creation fails
  * @summary Create Order
  */
 export const createOrderBffClientAppOrdersPost = (

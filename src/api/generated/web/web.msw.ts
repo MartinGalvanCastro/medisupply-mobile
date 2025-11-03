@@ -10,6 +10,7 @@ import { faker } from "@faker-js/faker";
 import { HttpResponse, delay, http } from "msw";
 import type { RequestHandlerOptions } from "msw";
 
+import { ReportStatus, ReportType } from ".././models";
 import type {
   BatchProductsResponse,
   GetSellersBffWebSellersGet200,
@@ -17,9 +18,12 @@ import type {
   PaginatedInventoriesResponse,
   PaginatedProductsResponse,
   PaginatedProvidersResponse,
+  PaginatedReportsResponse,
   PaginatedSalesPlansResponse,
   PaginatedWarehousesResponse,
   ProviderCreateResponse,
+  ReportCreateResponse,
+  ReportResponse,
   SalesPlanCreateResponse,
   SellerCreateResponse,
   WarehouseCreateResponse,
@@ -345,6 +349,97 @@ export const getGetSalesPlansBffWebSalesPlansGetResponseMock = (
   size: faker.number.int({ min: undefined, max: undefined }),
   has_next: faker.datatype.boolean(),
   has_previous: faker.datatype.boolean(),
+  ...overrideResponse,
+});
+
+export const getCreateReportBffWebReportsPostResponseMock = (
+  overrideResponse: Partial<ReportCreateResponse> = {},
+): ReportCreateResponse => ({
+  report_id: faker.string.uuid(),
+  status: faker.helpers.arrayElement(Object.values(ReportStatus)),
+  message: faker.helpers.arrayElement([
+    faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    undefined,
+  ]),
+  ...overrideResponse,
+});
+
+export const getListReportsBffWebReportsGetResponseMock = (
+  overrideResponse: Partial<PaginatedReportsResponse> = {},
+): PaginatedReportsResponse => ({
+  items: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1,
+  ).map(() => ({
+    id: faker.string.uuid(),
+    report_type: faker.helpers.arrayElement(Object.values(ReportType)),
+    status: faker.helpers.arrayElement(Object.values(ReportStatus)),
+    start_date: `${faker.date.past().toISOString().split(".")[0]}Z`,
+    end_date: `${faker.date.past().toISOString().split(".")[0]}Z`,
+    created_at: `${faker.date.past().toISOString().split(".")[0]}Z`,
+    completed_at: faker.helpers.arrayElement([
+      faker.helpers.arrayElement([
+        `${faker.date.past().toISOString().split(".")[0]}Z`,
+        null,
+      ]),
+      undefined,
+    ]),
+    download_url: faker.helpers.arrayElement([
+      faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      undefined,
+    ]),
+    error_message: faker.helpers.arrayElement([
+      faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      undefined,
+    ]),
+  })),
+  total: faker.number.int({ min: undefined, max: undefined }),
+  page: faker.number.int({ min: undefined, max: undefined }),
+  size: faker.number.int({ min: undefined, max: undefined }),
+  has_next: faker.datatype.boolean(),
+  has_previous: faker.datatype.boolean(),
+  ...overrideResponse,
+});
+
+export const getGetReportBffWebReportsReportIdGetResponseMock = (
+  overrideResponse: Partial<ReportResponse> = {},
+): ReportResponse => ({
+  id: faker.string.uuid(),
+  report_type: faker.helpers.arrayElement(Object.values(ReportType)),
+  status: faker.helpers.arrayElement(Object.values(ReportStatus)),
+  start_date: `${faker.date.past().toISOString().split(".")[0]}Z`,
+  end_date: `${faker.date.past().toISOString().split(".")[0]}Z`,
+  created_at: `${faker.date.past().toISOString().split(".")[0]}Z`,
+  completed_at: faker.helpers.arrayElement([
+    faker.helpers.arrayElement([
+      `${faker.date.past().toISOString().split(".")[0]}Z`,
+      null,
+    ]),
+    undefined,
+  ]),
+  download_url: faker.helpers.arrayElement([
+    faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    undefined,
+  ]),
+  error_message: faker.helpers.arrayElement([
+    faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    undefined,
+  ]),
   ...overrideResponse,
 });
 
@@ -746,6 +841,90 @@ export const getGetSalesPlansBffWebSalesPlansGetMockHandler = (
     options,
   );
 };
+
+export const getCreateReportBffWebReportsPostMockHandler = (
+  overrideResponse?:
+    | ReportCreateResponse
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<ReportCreateResponse> | ReportCreateResponse),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/bff/web/reports",
+    async (info) => {
+      await delay(1000);
+
+      return new HttpResponse(
+        JSON.stringify(
+          overrideResponse !== undefined
+            ? typeof overrideResponse === "function"
+              ? await overrideResponse(info)
+              : overrideResponse
+            : getCreateReportBffWebReportsPostResponseMock(),
+        ),
+        { status: 202, headers: { "Content-Type": "application/json" } },
+      );
+    },
+    options,
+  );
+};
+
+export const getListReportsBffWebReportsGetMockHandler = (
+  overrideResponse?:
+    | PaginatedReportsResponse
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<PaginatedReportsResponse> | PaginatedReportsResponse),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/bff/web/reports",
+    async (info) => {
+      await delay(1000);
+
+      return new HttpResponse(
+        JSON.stringify(
+          overrideResponse !== undefined
+            ? typeof overrideResponse === "function"
+              ? await overrideResponse(info)
+              : overrideResponse
+            : getListReportsBffWebReportsGetResponseMock(),
+        ),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    },
+    options,
+  );
+};
+
+export const getGetReportBffWebReportsReportIdGetMockHandler = (
+  overrideResponse?:
+    | ReportResponse
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<ReportResponse> | ReportResponse),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/bff/web/reports/:reportId",
+    async (info) => {
+      await delay(1000);
+
+      return new HttpResponse(
+        JSON.stringify(
+          overrideResponse !== undefined
+            ? typeof overrideResponse === "function"
+              ? await overrideResponse(info)
+              : overrideResponse
+            : getGetReportBffWebReportsReportIdGetResponseMock(),
+        ),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    },
+    options,
+  );
+};
 export const getWebMock = () => [
   getCreateProviderBffWebProviderPostMockHandler(),
   getGetProvidersBffWebProvidersGetMockHandler(),
@@ -761,4 +940,7 @@ export const getWebMock = () => [
   getGetSellerSalesPlansBffWebSellersSellerIdSalesPlansGetMockHandler(),
   getCreateSalesPlanBffWebSalesPlansPostMockHandler(),
   getGetSalesPlansBffWebSalesPlansGetMockHandler(),
+  getCreateReportBffWebReportsPostMockHandler(),
+  getListReportsBffWebReportsGetMockHandler(),
+  getGetReportBffWebReportsReportIdGetMockHandler(),
 ];

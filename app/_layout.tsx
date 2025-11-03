@@ -7,10 +7,9 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-
 import '@/../global.css';
 import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
-import { QueryClientProvider, I18nProvider, ToastProvider, AuthProvider } from '@/providers';
+import { AuthProvider, I18nProvider, QueryClientProvider, ToastProvider } from '@/providers';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -59,8 +58,10 @@ function RootLayoutNav() {
               <AuthProvider>
                 <ThemeProvider value={DefaultTheme}>
                   <Stack>
-                    <Stack.Screen name="login" options={{ headerShown: false }} />
+                   <Stack.Screen name="login" options={{ headerShown: false }} />
                     <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                    <Stack.Screen name="client/[clientId]" options={{ headerShown: false }} />
+                    <Stack.Screen name="visit/[visitId]" options={{ headerShown: false }} />
                     <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
                   </Stack>
                 </ThemeProvider>

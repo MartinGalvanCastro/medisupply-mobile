@@ -4,6 +4,9 @@ import { AuthProvider, useAuth } from './AuthProvider';
 import * as authApi from '@/api/generated/authentication/authentication';
 import { useAuthStore } from '@/store';
 import { useToast } from '@/providers';
+import * as authUtils from '@/utils/auth';
+import * as errorUtils from '@/utils/error';
+import { AxiosError } from 'axios';
 
 // Mock dependencies
 jest.mock('@/api/generated/authentication/authentication');
@@ -11,12 +14,16 @@ jest.mock('@/store');
 jest.mock('@/providers', () => ({
   useToast: jest.fn(),
 }));
+jest.mock('@/utils/auth');
+jest.mock('@/utils/error', () => ({
+  isNetworkError: jest.fn(),
+  getErrorMessage: jest.fn(),
+}));
 
 describe('AuthProvider', () => {
   const mockLoginMutateAsync = jest.fn();
   const mockRefreshMutateAsync = jest.fn();
   const mockSignupMutateAsync = jest.fn();
-  const mockFetchMe = jest.fn();
   const mockSetTokens = jest.fn();
   const mockSetUser = jest.fn();
   const mockUpdateTokens = jest.fn();
@@ -46,6 +53,9 @@ describe('AuthProvider', () => {
 
     (useAuthStore as unknown as jest.Mock).mockReturnValue(mockAuthStore);
 
+    // Default: errors are not network errors
+    (errorUtils.isNetworkError as jest.Mock).mockReturnValue(false);
+
     (authApi.useLoginAuthLoginPost as jest.Mock).mockReturnValue({
       mutateAsync: mockLoginMutateAsync,
       isPending: false,
@@ -62,8 +72,23 @@ describe('AuthProvider', () => {
     });
 
     (authApi.useGetMeAuthMeGet as jest.Mock).mockReturnValue({
-      refetch: mockFetchMe,
+      data: undefined,
+      isLoading: false,
+      error: null,
+      isError: false,
+      refetch: jest.fn(),
     });
+
+    // Mock utility functions
+    (authUtils.transformTokensFromLogin as jest.Mock).mockImplementation((response) => ({
+      accessToken: response.access_token,
+      idToken: response.id_token,
+      refreshToken: response.refresh_token,
+      expiresIn: response.expires_in,
+      tokenType: response.token_type,
+    }));
+
+    (authUtils.transformUserData as jest.Mock).mockImplementation((data) => data);
   });
 
   describe('useAuth', () => {
@@ -99,9 +124,9 @@ describe('AuthProvider', () => {
       };
 
       mockLoginMutateAsync.mockResolvedValue(mockLoginResponse);
-      mockFetchMe.mockResolvedValue({ data: mockUserData });
 
-      const { result } = renderHook(() => useAuth(), { wrapper });
+      // First render without user data
+      const { result, rerender } = renderHook(() => useAuth(), { wrapper });
 
       await act(async () => {
         await result.current.login('test@example.com', 'password123');
@@ -111,7 +136,6 @@ describe('AuthProvider', () => {
         data: {
           email: 'test@example.com',
           password: 'password123',
-          client_type: 'mobile',
         },
       });
 
@@ -123,14 +147,22 @@ describe('AuthProvider', () => {
         tokenType: 'Bearer',
       });
 
-      expect(mockFetchMe).toHaveBeenCalled();
+      // Now mock the hook to return user data (simulating React Query fetch)
+      (authApi.useGetMeAuthMeGet as jest.Mock).mockReturnValue({
+        data: mockUserData,
+        isLoading: false,
+        error: null,
+        isError: false,
+        refetch: jest.fn(),
+      });
 
-      expect(mockSetUser).toHaveBeenCalledWith({
-        id: 'user123',
-        email: 'test@example.com',
-        name: 'Test User',
-        role: 'admin',
-        groups: ['group1'],
+      // Re-render to trigger useEffect
+      await act(async () => {
+        rerender();
+      });
+
+      await waitFor(() => {
+        expect(mockSetUser).toHaveBeenCalledWith(mockUserData);
       });
 
       expect(mockToastSuccess).toHaveBeenCalledWith(
@@ -156,75 +188,6 @@ describe('AuthProvider', () => {
       );
     });
 
-    it('should handle login with undefined user data fields', async () => {
-      const mockLoginResponse = {
-        access_token: 'access123',
-        id_token: 'id123',
-        refresh_token: 'refresh123',
-        expires_in: 3600,
-        token_type: 'Bearer',
-      };
-
-      const mockUserData = {
-        id: undefined,
-        email: undefined,
-        name: undefined,
-        role: 'admin',
-        groups: ['group1'],
-      };
-
-      mockLoginMutateAsync.mockResolvedValue(mockLoginResponse);
-      mockFetchMe.mockResolvedValue({ data: mockUserData });
-
-      const { result } = renderHook(() => useAuth(), { wrapper });
-
-      await act(async () => {
-        await result.current.login('test@example.com', 'password123');
-      });
-
-      expect(mockSetUser).toHaveBeenCalledWith({
-        id: '',
-        email: '',
-        name: '',
-        role: 'admin',
-        groups: ['group1'],
-      });
-    });
-
-    it('should handle login with non-array groups', async () => {
-      const mockLoginResponse = {
-        access_token: 'access123',
-        id_token: 'id123',
-        refresh_token: 'refresh123',
-        expires_in: 3600,
-        token_type: 'Bearer',
-      };
-
-      const mockUserData = {
-        id: 'user123',
-        email: 'test@example.com',
-        name: 'Test User',
-        role: null,
-        groups: 'not-an-array',
-      };
-
-      mockLoginMutateAsync.mockResolvedValue(mockLoginResponse);
-      mockFetchMe.mockResolvedValue({ data: mockUserData });
-
-      const { result } = renderHook(() => useAuth(), { wrapper });
-
-      await act(async () => {
-        await result.current.login('test@example.com', 'password123');
-      });
-
-      expect(mockSetUser).toHaveBeenCalledWith({
-        id: 'user123',
-        email: 'test@example.com',
-        name: 'Test User',
-        role: undefined,
-        groups: undefined,
-      });
-    });
 
     it('should handle login when user data fetch returns no data', async () => {
       const mockLoginResponse = {
@@ -236,9 +199,8 @@ describe('AuthProvider', () => {
       };
 
       mockLoginMutateAsync.mockResolvedValue(mockLoginResponse);
-      mockFetchMe.mockResolvedValue({ data: null });
 
-      const { result } = renderHook(() => useAuth(), { wrapper });
+      const { result, rerender } = renderHook(() => useAuth(), { wrapper });
 
       await act(async () => {
         await result.current.login('test@example.com', 'password123');
@@ -250,6 +212,20 @@ describe('AuthProvider', () => {
         refreshToken: 'refresh123',
         expiresIn: 3600,
         tokenType: 'Bearer',
+      });
+
+      // Mock the hook to return no data (null)
+      (authApi.useGetMeAuthMeGet as jest.Mock).mockReturnValue({
+        data: null,
+        isLoading: false,
+        error: null,
+        isError: false,
+        refetch: jest.fn(),
+      });
+
+      // Re-render to trigger useEffect
+      await act(async () => {
+        rerender();
       });
 
       expect(mockSetUser).not.toHaveBeenCalled();
@@ -284,6 +260,27 @@ describe('AuthProvider', () => {
 
       // Toast should still only have been called once (second call debounced)
       expect(mockToastError).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle network error during login', async () => {
+      const networkError = new AxiosError('Network Error');
+      networkError.response = undefined;
+      mockLoginMutateAsync.mockRejectedValue(networkError);
+
+      // Mock isNetworkError to return true for this error
+      (errorUtils.isNetworkError as jest.Mock).mockReturnValue(true);
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await expect(
+        result.current.login('test@example.com', 'password123')
+      ).rejects.toThrow('Network Error');
+
+      expect(mockLogout).toHaveBeenCalled();
+      expect(mockToastError).toHaveBeenCalledWith(
+        'No Connection',
+        'Please check your internet connection and try again.'
+      );
     });
 
   });
@@ -373,6 +370,32 @@ describe('AuthProvider', () => {
         'Please log in again.'
       );
     });
+
+    it('should handle network error during refresh', async () => {
+      mockAuthStore.tokens = {
+        accessToken: 'old_access',
+        idToken: 'old_id',
+        refreshToken: 'old_refresh',
+        expiresIn: 3600,
+      };
+
+      const networkError = new AxiosError('Network Error');
+      networkError.response = undefined;
+      mockRefreshMutateAsync.mockRejectedValue(networkError);
+
+      // Mock isNetworkError to return true for this error
+      (errorUtils.isNetworkError as jest.Mock).mockReturnValue(true);
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await expect(result.current.refresh()).rejects.toThrow('Network Error');
+
+      expect(mockLogout).toHaveBeenCalled();
+      expect(mockToastError).toHaveBeenCalledWith(
+        'No Connection',
+        'Please check your internet connection and try again.'
+      );
+    });
   });
 
   describe('signup', () => {
@@ -392,6 +415,7 @@ describe('AuthProvider', () => {
         response = await result.current.signup(
           'newuser@example.com',
           'password123',
+          'New User',
           '+1234567890',
           'Test Hospital',
           'hospital',
@@ -407,6 +431,7 @@ describe('AuthProvider', () => {
         data: {
           email: 'newuser@example.com',
           password: 'password123',
+          name: 'New User',
           user_type: 'client',
           telefono: '+1234567890',
           nombre_institucion: 'Test Hospital',
@@ -437,6 +462,7 @@ describe('AuthProvider', () => {
         result.current.signup(
           'existing@example.com',
           'password123',
+          'Existing User',
           '+1234567890',
           'Test Hospital',
           'hospital',
@@ -452,6 +478,104 @@ describe('AuthProvider', () => {
         'Signup Failed',
         'Unable to create account. Please try again.'
       );
+    });
+
+    it('should handle network error during signup', async () => {
+      const networkError = new AxiosError('Network Error');
+      networkError.response = undefined;
+      mockSignupMutateAsync.mockRejectedValue(networkError);
+
+      // Mock isNetworkError to return true for this error
+      (errorUtils.isNetworkError as jest.Mock).mockReturnValue(true);
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await expect(
+        result.current.signup(
+          'test@example.com',
+          'password123',
+          'Test User',
+          '+1234567890',
+          'Test Hospital',
+          'hospital',
+          '123456789',
+          '123 Main St',
+          'Test City',
+          'Test Country',
+          'John Doe'
+        )
+      ).rejects.toThrow('Network Error');
+
+      expect(mockToastError).toHaveBeenCalledWith(
+        'No Connection',
+        'Please check your internet connection and try again.'
+      );
+    });
+  });
+
+  describe('user fetch error handling', () => {
+    it('should handle 401 error when fetching user data', async () => {
+      const mock401Error = {
+        response: { status: 401 },
+        message: 'Unauthorized',
+      };
+
+      // Mock getMeAuthMeGet to return error
+      (authApi.useGetMeAuthMeGet as jest.Mock).mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        error: mock401Error,
+        isError: true,
+        refetch: jest.fn(),
+      });
+
+      // Mock tokens to trigger shouldFetchUser
+      mockAuthStore.tokens = {
+        accessToken: 'access-token',
+        idToken: 'id-token',
+        refreshToken: 'refresh-token',
+        expiresIn: 3600,
+      };
+
+      // Render the hook which will trigger useEffect
+      renderHook(() => useAuth(), { wrapper });
+
+      // Wait for useEffect to process the error
+      await waitFor(() => {
+        expect(mockLogout).toHaveBeenCalled();
+      });
+    });
+
+    it('should handle non-401 error when fetching user data', async () => {
+      const mockError = {
+        response: { status: 500 },
+        message: 'Server error',
+      };
+
+      // Mock getMeAuthMeGet to return error
+      (authApi.useGetMeAuthMeGet as jest.Mock).mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        error: mockError,
+        isError: true,
+        refetch: jest.fn(),
+      });
+
+      // Mock tokens to trigger shouldFetchUser
+      mockAuthStore.tokens = {
+        accessToken: 'access-token',
+        idToken: 'id-token',
+        refreshToken: 'refresh-token',
+        expiresIn: 3600,
+      };
+
+      // Render the hook which will trigger useEffect
+      renderHook(() => useAuth(), { wrapper });
+
+      // Wait for useEffect to process - should NOT logout for non-401 errors
+      await waitFor(() => {
+        expect(mockLogout).not.toHaveBeenCalled();
+      });
     });
   });
 });

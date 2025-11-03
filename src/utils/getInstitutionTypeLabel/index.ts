@@ -1,0 +1,1 @@
+export { getInstitutionTypeLabel } from './getInstitutionTypeLabel';

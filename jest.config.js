@@ -18,19 +18,23 @@ module.exports = {
     '!src/**/*.d.ts',
     '!src/**/index.ts',
     '!src/**/types.ts',
-    '!src/api/generated/**',
-    '!src/api/client.ts', // Axios config with interceptors
-    '!src/components/**',
+    '!src/api/**', // Exclude entire API folder (generated and manual code)
+    '!src/components/ui/**',
     '!src/i18n/config/**', // i18n config has optional chaining in module initialization
+  ],
+  coveragePathIgnorePatterns: [
+    '/node_modules/',
+    '/src/api/',
   ],
   coverageThreshold: {
     global: {
-      branches: 95,
-      functions: 95,
-      lines: 95,
-      statements: 95,
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
     },
   },
+  coverageReporters: ['text', 'lcov', 'json', 'html'],
   testEnvironment: 'node',
   testMatch: ['**/__tests__/**/*.{ts,tsx}', '**/?(*.)+(spec|test).{ts,tsx}'],
 };

@@ -7,28 +7,33 @@
  */
 
 /**
- * Request model for user signup. Only 'client' user type is allowed.
+ * Request model for user signup - only clients can self-register.
  */
 export interface SignupRequest {
   email: string;
   /** @minLength 8 */
   password: string;
-  /** Type of user: must be 'client'. Web and seller users are created by administrators. */
-  user_type: string;
-  /** Phone number with country code (e.g., +1234567890) */
+  /**
+   * Representative's full name
+   * @minLength 1
+   */
+  name: string;
+  /** @minLength 1 */
   telefono: string;
-  /** Institution name */
+  /** @minLength 1 */
   nombre_institucion: string;
-  /** Institution type: hospital, clinica, laboratorio, centro_diagnostico */
+  /** Tipo de institución: hospital, clinica, laboratorio, centro_diagnostico */
   tipo_institucion: string;
-  /** Tax identification number (NIT) */
+  /** @minLength 1 */
   nit: string;
-  /** Institution address */
+  /** @minLength 1 */
   direccion: string;
-  /** City */
+  /** @minLength 1 */
   ciudad: string;
-  /** Country */
+  /** @minLength 1 */
   pais: string;
-  /** Legal representative name */
+  /** @minLength 1 */
   representante: string;
+  /** Must be 'client' - only clients can self-register */
+  user_type?: string;
 }
