@@ -70,22 +70,6 @@ export const ClientDetailScreen = () => {
     }
   };
 
-  const formatDisplayDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const formatDisplayTime = (time: Date) => {
-    return time.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   // Loading state
   if (isLoading) {
     return (
@@ -136,7 +120,6 @@ export const ClientDetailScreen = () => {
 
   // Main content
   return (
-    <>
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']} testID="client-detail-screen">
       <ScrollView showsVerticalScrollIndicator={false}>
         <VStack space="lg" className="p-4 pb-8">
@@ -296,145 +279,7 @@ export const ClientDetailScreen = () => {
           </Button>
         </VStack>
       </ScrollView>
-
-      {/* Schedule Visit Modal */}
-      <Modal isOpen={showScheduleModal && !pickerMode} onClose={handleCloseModal} size="lg">
-        <ModalBackdrop />
-        <ModalContent testID="schedule-visit-modal">
-          <ModalHeader>
-            <Heading size="lg">{t('clientDetail.scheduleVisitModal.title')}</Heading>
-          </ModalHeader>
-          <ModalBody>
-            <VStack space="lg">
-              <Text className="text-typography-700">
-                {t('clientDetail.scheduleVisitModal.description')}
-              </Text>
-
-              {/* Date Selection */}
-              <View>
-                <Text className="text-sm font-medium text-typography-900 mb-2">
-                  {t('clientDetail.scheduleVisitModal.dateLabel')}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    console.log('Date button pressed');
-                    setPickerMode('date');
-                  }}
-                  testID="select-date-button"
-                  activeOpacity={0.7}
-                  style={styles.pickerButton}
-                >
-                  <Calendar size={16} color="#6b7280" />
-                  <Text style={styles.pickerButtonText}>
-                    {visitDate ? formatDisplayDate(visitDate) : t('clientDetail.scheduleVisitModal.selectDate')}
-                  </Text>
-                </TouchableOpacity>
-                {errors.visitDate && (
-                  <Text style={styles.errorText}>
-                    {errors.visitDate.message}
-                  </Text>
-                )}
-              </View>
-
-              {/* Time Selection */}
-              <View>
-                <Text className="text-sm font-medium text-typography-900 mb-2">
-                  {t('clientDetail.scheduleVisitModal.timeLabel')}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    console.log('Time button pressed');
-                    setPickerMode('time');
-                  }}
-                  testID="select-time-button"
-                  activeOpacity={0.7}
-                  style={styles.pickerButton}
-                >
-                  <Clock size={16} color="#6b7280" />
-                  <Text style={styles.pickerButtonText}>
-                    {visitTime ? formatDisplayTime(visitTime) : t('clientDetail.scheduleVisitModal.selectTime')}
-                  </Text>
-                </TouchableOpacity>
-                {errors.visitTime && (
-                  <Text style={styles.errorText}>
-                    {errors.visitTime.message}
-                  </Text>
-                )}
-              </View>
-
-              {/* Notes */}
-              <FormControl>
-                <VStack space="xs">
-                  <Text className="text-sm font-medium text-typography-900">
-                    {t('clientDetail.scheduleVisitModal.notesLabel')}
-                  </Text>
-                  <Controller
-                    control={control}
-                    name="notes"
-                    render={({ field: { onChange, onBlur, value } }) => (
-                      <Textarea className="border-outline-300">
-                        <TextareaInput
-                          placeholder={t('clientDetail.scheduleVisitModal.notesPlaceholder')}
-                          value={value}
-                          onChangeText={onChange}
-                          onBlur={onBlur}
-                          testID="notes-input"
-                        />
-                      </Textarea>
-                    )}
-                  />
-                </VStack>
-              </FormControl>
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <HStack space="md" className="justify-end w-full">
-              <Button
-                variant="outline"
-                onPress={handleCloseModal}
-                testID="schedule-modal-cancel-button"
-                isDisabled={createVisit.isPending}
-              >
-                <ButtonText>{t('clientDetail.scheduleVisitModal.cancelButton')}</ButtonText>
-              </Button>
-              <Button
-                action="primary"
-                onPress={handleConfirmSchedule}
-                testID="schedule-modal-confirm-button"
-                isDisabled={createVisit.isPending}
-              >
-                <ButtonText>
-                  {createVisit.isPending
-                    ? t('clientDetail.scheduleVisitModal.scheduling')
-                    : t('clientDetail.scheduleVisitModal.confirmButton')}
-                </ButtonText>
-              </Button>
-            </HStack>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
     </SafeAreaView>
-
-      {/* Date/Time Picker - OUTSIDE SafeAreaView */}
-      {pickerMode === 'date' && (
-        <DateTimePicker
-          testID="date-picker"
-          value={visitDate || minDate}
-          mode="date"
-          onChange={handleDateChange}
-          minimumDate={minDate}
-        />
-      )}
-      {pickerMode === 'time' && (
-        <DateTimePicker
-          testID="time-picker"
-          value={visitTime || new Date()}
-          mode="time"
-          onChange={handleTimeChange}
-        />
-      )}
-    </>
   );
 };
 
@@ -446,25 +291,5 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
     borderRadius: 8,
-  },
-  pickerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    backgroundColor: '#fff',
-    gap: 8,
-  },
-  pickerButtonText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#111827',
-  },
-  errorText: {
-    fontSize: 12,
-    color: '#ef4444',
-    marginTop: 4,
   },
 });

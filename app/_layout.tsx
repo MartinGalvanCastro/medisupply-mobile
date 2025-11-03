@@ -57,11 +57,11 @@ function RootLayoutNav() {
             <ToastProvider>
               <AuthProvider>
                 <ThemeProvider value={DefaultTheme}>
-                  <Stack>
-                   <Stack.Screen name="login" options={{ headerShown: false }} />
-                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                    <Stack.Screen name="client/[clientId]" options={{ headerShown: false }} />
-                    <Stack.Screen name="visit/[visitId]" options={{ headerShown: false }} />
+                  <Stack screenOptions={{ headerShown: false }}>
+                   <Stack.Screen name="login" />
+                    <Stack.Screen name="(tabs)" />
+                    <Stack.Screen name="client/[clientId]" />
+                    <Stack.Screen name="visit/[visitId]" />
                     <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
                   </Stack>
                 </ThemeProvider>

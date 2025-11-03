@@ -723,30 +723,30 @@ describe('ClientDetailScreen', () => {
   });
 
   describe('Schedule Visit Functionality', () => {
-    it('should show modal when schedule visit button is pressed', () => {
-      const { getByTestId, queryByTestId } = render(<ClientDetailScreen />);
-
-      // Modal should not be visible initially
-      expect(queryByTestId('schedule-visit-modal')).toBeNull();
-
-      const scheduleButton = getByTestId('schedule-visit-button');
-      fireEvent.press(scheduleButton);
-
-      // Modal should be visible after pressing button
-      expect(getByTestId('schedule-visit-modal')).toBeTruthy();
-    });
-
-    it('should open modal only once per button press', () => {
+    it('should navigate to schedule visit route when button is pressed', () => {
       const { getByTestId } = render(<ClientDetailScreen />);
 
       const scheduleButton = getByTestId('schedule-visit-button');
       fireEvent.press(scheduleButton);
 
-      // Verify modal is open
-      expect(getByTestId('schedule-visit-modal')).toBeTruthy();
+      // Verify router.push was called with correct route
+      expect(router.push).toHaveBeenCalledWith('/client/1/schedule-visit');
     });
 
-    it('should show modal with correct parameters for different clients', () => {
+    it('should navigate with correct clientId from params', () => {
+      const { getByTestId } = render(<ClientDetailScreen />);
+
+      // Clear previous calls
+      jest.clearAllMocks();
+
+      const scheduleButton = getByTestId('schedule-visit-button');
+      fireEvent.press(scheduleButton);
+
+      // Verify router.push was called with correct clientId
+      expect(router.push).toHaveBeenCalledWith('/client/1/schedule-visit');
+    });
+
+    it('should navigate with correct route for different clients', () => {
       (useLocalSearchParams as jest.Mock).mockReturnValue({
         clientId: '2',
       });
@@ -756,8 +756,8 @@ describe('ClientDetailScreen', () => {
       const scheduleButton = getByTestId('schedule-visit-button');
       fireEvent.press(scheduleButton);
 
-      // Verify modal is open
-      expect(getByTestId('schedule-visit-modal')).toBeTruthy();
+      // Verify router.push was called with correct route
+      expect(router.push).toHaveBeenCalledWith('/client/2/schedule-visit');
     });
   });
 

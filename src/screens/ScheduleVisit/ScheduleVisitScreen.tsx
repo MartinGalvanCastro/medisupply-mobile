@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { VStack } from '@/components/ui/vstack';
@@ -129,22 +129,32 @@ export const ScheduleVisitScreen = () => {
     }
   };
 
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    console.log('Date change event:', event.type, selectedDate);
-    setPickerMode(null);
+  const [tempDate, setTempDate] = useState<Date>(minDate);
+  const [tempTime, setTempTime] = useState<Date>(new Date());
 
-    if (selectedDate && event.type === 'set') {
-      setValue('visitDate', selectedDate, { shouldValidate: true });
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    if (selectedDate) {
+      setTempDate(selectedDate);
     }
   };
 
   const handleTimeChange = (event: any, selectedTime?: Date) => {
-    console.log('Time change event:', event.type, selectedTime);
-    setPickerMode(null);
-
-    if (selectedTime && event.type === 'set') {
-      setValue('visitTime', selectedTime, { shouldValidate: true });
+    if (selectedTime) {
+      setTempTime(selectedTime);
     }
+  };
+
+  const handlePickerDone = () => {
+    if (pickerMode === 'date') {
+      setValue('visitDate', tempDate, { shouldValidate: true });
+    } else if (pickerMode === 'time') {
+      setValue('visitTime', tempTime, { shouldValidate: true });
+    }
+    setPickerMode(null);
+  };
+
+  const handlePickerCancel = () => {
+    setPickerMode(null);
   };
 
   const handleConfirmSchedule = handleSubmit((data) => {
@@ -207,7 +217,10 @@ export const ScheduleVisitScreen = () => {
                 {t('clientDetail.scheduleVisitModal.dateLabel')}
               </Text>
               <TouchableOpacity
-                onPress={() => setPickerMode('date')}
+                onPress={() => {
+                  setTempDate(visitDate || minDate);
+                  setPickerMode('date');
+                }}
                 testID="select-date-button"
                 activeOpacity={0.7}
                 style={styles.pickerButton}
@@ -230,7 +243,10 @@ export const ScheduleVisitScreen = () => {
                 {t('clientDetail.scheduleVisitModal.timeLabel')}
               </Text>
               <TouchableOpacity
-                onPress={() => setPickerMode('time')}
+                onPress={() => {
+                  setTempTime(visitTime || new Date());
+                  setPickerMode('time');
+                }}
                 testID="select-time-button"
                 activeOpacity={0.7}
                 style={styles.pickerButton}
@@ -297,23 +313,45 @@ export const ScheduleVisitScreen = () => {
         </ScrollView>
       </SafeAreaView>
 
-      {/* Date/Time Picker - OUTSIDE SafeAreaView */}
-      {pickerMode === 'date' && (
-        <DateTimePicker
-          testID="date-picker"
-          value={visitDate || minDate}
-          mode="date"
-          onChange={handleDateChange}
-          minimumDate={minDate}
-        />
-      )}
-      {pickerMode === 'time' && (
-        <DateTimePicker
-          testID="time-picker"
-          value={visitTime || new Date()}
-          mode="time"
-          onChange={handleTimeChange}
-        />
+      {/* Date/Time Picker Bottom Sheet */}
+      {pickerMode && (
+        <Pressable style={styles.pickerContainer} onPress={handlePickerCancel}>
+          {/* istanbul ignore next */}
+          <Pressable style={styles.pickerWrapper} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.pickerHeader}>
+              <TouchableOpacity onPress={handlePickerCancel} testID="picker-cancel-button" style={styles.headerButton}>
+                <Text style={styles.cancelText}>{t('clientDetail.scheduleVisitModal.cancelButton')}</Text>
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>
+                {pickerMode === 'date'
+                  ? t('clientDetail.scheduleVisitModal.dateLabel')
+                  : t('clientDetail.scheduleVisitModal.timeLabel')}
+              </Text>
+              <TouchableOpacity onPress={handlePickerDone} testID="picker-done-button" style={styles.headerButton}>
+                <Text style={styles.doneText}>{t('common.done')}</Text>
+              </TouchableOpacity>
+            </View>
+            {pickerMode === 'date' && (
+              <DateTimePicker
+                testID="date-picker"
+                value={tempDate}
+                mode="date"
+                display="spinner"
+                onChange={handleDateChange}
+                minimumDate={minDate}
+              />
+            )}
+            {pickerMode === 'time' && (
+              <DateTimePicker
+                testID="time-picker"
+                value={tempTime}
+                mode="time"
+                display="spinner"
+                onChange={handleTimeChange}
+              />
+            )}
+          </Pressable>
+        </Pressable>
       )}
     </>
   );
@@ -347,5 +385,55 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#ef4444',
     marginTop: 4,
+  },
+  pickerContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    top: 0,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  pickerWrapper: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    width: '100%',
+    maxWidth: 500,
+    overflow: 'hidden',
+    alignItems: 'center',
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    width: '100%',
+  },
+  headerButton: {
+    minWidth: 60,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  cancelText: {
+    fontSize: 16,
+    color: '#ef4444',
+  },
+  doneText: {
+    fontSize: 16,
+    color: '#16a34a',
+    fontWeight: '600',
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    flex: 1,
+    textAlign: 'center',
   },
 });

@@ -46,14 +46,6 @@ export default function TabLayout() {
           href: userRole === 'client' ? '/orders' : null,
         }}
       />
-      <Tabs.Screen
-        name="shipments"
-        options={{
-          title: 'Shipments',
-          tabBarIcon: ({ color }) => <TabBarIcon name="truck" color={color} />,
-          href: userRole === 'client' ? '/shipments' : null,
-        }}
-      />
 
       {/* SELLER-SPECIFIC TABS */}
       <Tabs.Screen
