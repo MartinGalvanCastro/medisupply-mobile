@@ -10,7 +10,13 @@ import { faker } from "@faker-js/faker";
 import { HttpResponse, delay, http } from "msw";
 import type { RequestHandlerOptions } from "msw";
 
-import type { ClientListResponse, OrderCreateResponse } from ".././models";
+import type {
+  ClientListResponse,
+  ListVisitsResponseBFF,
+  OrderCreateResponse,
+  PreSignedUploadURLResponseBFF,
+  VisitResponseBFF,
+} from ".././models";
 
 export const getCreateOrderBffSellersAppOrdersPostResponseMock = (
   overrideResponse: Partial<OrderCreateResponse> = {},
@@ -48,6 +54,149 @@ export const getListClientsBffSellersAppClientsGetResponseMock = (
   total: faker.number.int({ min: undefined, max: undefined }),
   ...overrideResponse,
 });
+
+export const getCreateVisitBffSellersAppVisitsPostResponseMock = (
+  overrideResponse: Partial<VisitResponseBFF> = {},
+): VisitResponseBFF => ({
+  id: faker.string.uuid(),
+  seller_id: faker.string.uuid(),
+  client_id: faker.string.uuid(),
+  fecha_visita: `${faker.date.past().toISOString().split(".")[0]}Z`,
+  status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  notas_visita: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  recomendaciones: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  archivos_evidencia: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  client_nombre_institucion: faker.string.alpha({
+    length: { min: 10, max: 20 },
+  }),
+  client_direccion: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  client_ciudad: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  client_pais: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  created_at: `${faker.date.past().toISOString().split(".")[0]}Z`,
+  updated_at: `${faker.date.past().toISOString().split(".")[0]}Z`,
+  ...overrideResponse,
+});
+
+export const getListVisitsBffSellersAppVisitsGetResponseMock = (
+  overrideResponse: Partial<ListVisitsResponseBFF> = {},
+): ListVisitsResponseBFF => ({
+  visits: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1,
+  ).map(() => ({
+    id: faker.string.uuid(),
+    seller_id: faker.string.uuid(),
+    client_id: faker.string.uuid(),
+    fecha_visita: `${faker.date.past().toISOString().split(".")[0]}Z`,
+    status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    notas_visita: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    recomendaciones: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    archivos_evidencia: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    client_nombre_institucion: faker.string.alpha({
+      length: { min: 10, max: 20 },
+    }),
+    client_direccion: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    client_ciudad: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    client_pais: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    created_at: `${faker.date.past().toISOString().split(".")[0]}Z`,
+    updated_at: `${faker.date.past().toISOString().split(".")[0]}Z`,
+  })),
+  count: faker.number.int({ min: undefined, max: undefined }),
+  ...overrideResponse,
+});
+
+export const getUpdateVisitStatusBffSellersAppVisitsVisitIdStatusPatchResponseMock =
+  (overrideResponse: Partial<VisitResponseBFF> = {}): VisitResponseBFF => ({
+    id: faker.string.uuid(),
+    seller_id: faker.string.uuid(),
+    client_id: faker.string.uuid(),
+    fecha_visita: `${faker.date.past().toISOString().split(".")[0]}Z`,
+    status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    notas_visita: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    recomendaciones: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    archivos_evidencia: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    client_nombre_institucion: faker.string.alpha({
+      length: { min: 10, max: 20 },
+    }),
+    client_direccion: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    client_ciudad: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    client_pais: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    created_at: `${faker.date.past().toISOString().split(".")[0]}Z`,
+    updated_at: `${faker.date.past().toISOString().split(".")[0]}Z`,
+    ...overrideResponse,
+  });
+
+export const getGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPostResponseMock =
+  (
+    overrideResponse: Partial<PreSignedUploadURLResponseBFF> = {},
+  ): PreSignedUploadURLResponseBFF => ({
+    upload_url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    fields: {
+      [faker.string.alphanumeric(5)]: faker.string.alpha({
+        length: { min: 10, max: 20 },
+      }),
+    },
+    s3_url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    expires_at: `${faker.date.past().toISOString().split(".")[0]}Z`,
+    ...overrideResponse,
+  });
+
+export const getConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPostResponseMock =
+  (overrideResponse: Partial<VisitResponseBFF> = {}): VisitResponseBFF => ({
+    id: faker.string.uuid(),
+    seller_id: faker.string.uuid(),
+    client_id: faker.string.uuid(),
+    fecha_visita: `${faker.date.past().toISOString().split(".")[0]}Z`,
+    status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    notas_visita: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    recomendaciones: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    archivos_evidencia: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    client_nombre_institucion: faker.string.alpha({
+      length: { min: 10, max: 20 },
+    }),
+    client_direccion: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    client_ciudad: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    client_pais: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    created_at: `${faker.date.past().toISOString().split(".")[0]}Z`,
+    updated_at: `${faker.date.past().toISOString().split(".")[0]}Z`,
+    ...overrideResponse,
+  });
 
 export const getCreateOrderBffSellersAppOrdersPostMockHandler = (
   overrideResponse?:
@@ -125,8 +274,158 @@ export const getListClientsBffSellersAppClientsGetMockHandler = (
     options,
   );
 };
+
+export const getCreateVisitBffSellersAppVisitsPostMockHandler = (
+  overrideResponse?:
+    | VisitResponseBFF
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<VisitResponseBFF> | VisitResponseBFF),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/bff/sellers-app/visits",
+    async (info) => {
+      await delay(1000);
+
+      return new HttpResponse(
+        JSON.stringify(
+          overrideResponse !== undefined
+            ? typeof overrideResponse === "function"
+              ? await overrideResponse(info)
+              : overrideResponse
+            : getCreateVisitBffSellersAppVisitsPostResponseMock(),
+        ),
+        { status: 201, headers: { "Content-Type": "application/json" } },
+      );
+    },
+    options,
+  );
+};
+
+export const getListVisitsBffSellersAppVisitsGetMockHandler = (
+  overrideResponse?:
+    | ListVisitsResponseBFF
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<ListVisitsResponseBFF> | ListVisitsResponseBFF),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/bff/sellers-app/visits",
+    async (info) => {
+      await delay(1000);
+
+      return new HttpResponse(
+        JSON.stringify(
+          overrideResponse !== undefined
+            ? typeof overrideResponse === "function"
+              ? await overrideResponse(info)
+              : overrideResponse
+            : getListVisitsBffSellersAppVisitsGetResponseMock(),
+        ),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    },
+    options,
+  );
+};
+
+export const getUpdateVisitStatusBffSellersAppVisitsVisitIdStatusPatchMockHandler =
+  (
+    overrideResponse?:
+      | VisitResponseBFF
+      | ((
+          info: Parameters<Parameters<typeof http.patch>[1]>[0],
+        ) => Promise<VisitResponseBFF> | VisitResponseBFF),
+    options?: RequestHandlerOptions,
+  ) => {
+    return http.patch(
+      "*/bff/sellers-app/visits/:visitId/status",
+      async (info) => {
+        await delay(1000);
+
+        return new HttpResponse(
+          JSON.stringify(
+            overrideResponse !== undefined
+              ? typeof overrideResponse === "function"
+                ? await overrideResponse(info)
+                : overrideResponse
+              : getUpdateVisitStatusBffSellersAppVisitsVisitIdStatusPatchResponseMock(),
+          ),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      },
+      options,
+    );
+  };
+
+export const getGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPostMockHandler =
+  (
+    overrideResponse?:
+      | PreSignedUploadURLResponseBFF
+      | ((
+          info: Parameters<Parameters<typeof http.post>[1]>[0],
+        ) =>
+          | Promise<PreSignedUploadURLResponseBFF>
+          | PreSignedUploadURLResponseBFF),
+    options?: RequestHandlerOptions,
+  ) => {
+    return http.post(
+      "*/bff/sellers-app/visits/:visitId/evidence/upload-url",
+      async (info) => {
+        await delay(1000);
+
+        return new HttpResponse(
+          JSON.stringify(
+            overrideResponse !== undefined
+              ? typeof overrideResponse === "function"
+                ? await overrideResponse(info)
+                : overrideResponse
+              : getGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPostResponseMock(),
+          ),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      },
+      options,
+    );
+  };
+
+export const getConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPostMockHandler =
+  (
+    overrideResponse?:
+      | VisitResponseBFF
+      | ((
+          info: Parameters<Parameters<typeof http.post>[1]>[0],
+        ) => Promise<VisitResponseBFF> | VisitResponseBFF),
+    options?: RequestHandlerOptions,
+  ) => {
+    return http.post(
+      "*/bff/sellers-app/visits/:visitId/evidence/confirm",
+      async (info) => {
+        await delay(1000);
+
+        return new HttpResponse(
+          JSON.stringify(
+            overrideResponse !== undefined
+              ? typeof overrideResponse === "function"
+                ? await overrideResponse(info)
+                : overrideResponse
+              : getConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPostResponseMock(),
+          ),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      },
+      options,
+    );
+  };
 export const getSellersAppMock = () => [
   getCreateOrderBffSellersAppOrdersPostMockHandler(),
   getCreateClientBffSellersAppClientsPostMockHandler(),
   getListClientsBffSellersAppClientsGetMockHandler(),
+  getCreateVisitBffSellersAppVisitsPostMockHandler(),
+  getListVisitsBffSellersAppVisitsGetMockHandler(),
+  getUpdateVisitStatusBffSellersAppVisitsVisitIdStatusPatchMockHandler(),
+  getGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPostMockHandler(),
+  getConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPostMockHandler(),
 ];

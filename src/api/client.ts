@@ -1,4 +1,7 @@
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
+import { setupMockInterceptor } from './mock-interceptor';
+import { handlers } from './mocks/handlers';
+import { useAuthStore } from '@/store';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -9,14 +12,20 @@ export const axiosInstance = axios.create({
   },
 });
 
+// Setup mock interceptor (will only activate if EXPO_PUBLIC_ENABLE_MOCKS=true)
+setupMockInterceptor(axiosInstance, handlers);
+
 // Request interceptor for adding auth token
 axiosInstance.interceptors.request.use(
   (config) => {
     // Add auth token if available
-    // const token = getAuthToken(); // Implement your auth logic
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
+    const { tokens } = useAuthStore.getState();
+    if (tokens?.idToken) {
+      config.headers.Authorization = `Bearer ${tokens.idToken}`;
+      console.log('[API Client] Adding Authorization header with idToken:', tokens.idToken);
+    } else {
+      console.log('[API Client] No idToken available, skipping Authorization header');
+    }
     return config;
   },
   (error) => Promise.reject(error)

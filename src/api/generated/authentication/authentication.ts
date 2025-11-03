@@ -40,23 +40,15 @@ type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 /**
  * Authenticate user with email and password.
 
-Access rules:
-- Web users (web_users group) can only login with client_type='web'
-- Seller users (seller_users group) can only login with client_type='mobile'
-- Client users (client_users group) can only login with client_type='mobile'
-
 Returns JWT tokens that can be used for subsequent API requests.
 Users are automatically assigned to groups based on their user_type attribute.
 
 Args:
-    request: Login credentials (email, password, client_type)
+    request: Login credentials (email and password)
+    auth_service: Auth service instance
 
 Returns:
     LoginResponse with access_token, id_token, and refresh_token
-
-Raises:
-    HTTPException: 400 if client_type is invalid
-    HTTPException: 403 if user group doesn't match client_type
  * @summary Login
  */
 export const loginAuthLoginPost = (
@@ -154,7 +146,7 @@ export const useLoginAuthLoginPost = <
 
 Args:
     request: Refresh token request
-    cognito: Cognito service instance
+    auth_service: Auth service instance
 
 Returns:
     RefreshTokenResponse with new access_token and id_token
@@ -251,25 +243,21 @@ export const useRefreshAuthRefreshPost = <
   return useMutation(mutationOptions, queryClient);
 };
 /**
- * Register a new user.
+ * Register a new client user with saga pattern.
 
-Only 'client' user type is allowed to sign up.
-Web and seller users must be created by administrators.
-
-This endpoint:
-1. Creates a Cognito user account
-2. Creates a client record in the client microservice
-3. Links them via cognito_user_id
-
-The user will receive a verification email and must verify their email
-before they can login.
+Only clients can self-register through this endpoint.
+Uses a distributed transaction pattern:
+1. Create user in Cognito
+2. Create client record in client microservice
+3. If step 2 fails, automatically rollback step 1
 
 Args:
-    request: Signup data (email, password, user_type, and all client fields)
-    cognito: Cognito service instance
+    request: Signup data with all client fields
+    auth_service: Auth service instance
+    client_port: Client port instance
 
 Returns:
-    SignupResponse with user_id, client_id, and confirmation message
+    SignupResponse with user_id and confirmation message
  * @summary Signup
  */
 export const signupAuthSignupPost = (
@@ -365,7 +353,8 @@ export const useSignupAuthSignupPost = <
 /**
  * Get current authenticated user information.
 
-Requires valid JWT token in Authorization header.
+Requires valid JWT ID token in Authorization header (not access token).
+The ID token contains user profile information like email, name, and custom attributes.
 
 Args:
     user: Current user from JWT token

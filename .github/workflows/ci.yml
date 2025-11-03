@@ -1,0 +1,117 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Type check
+        run: yarn tsc --noEmit
+
+      - name: Run tests with coverage
+        run: yarn test:coverage
+
+      - name: Generate coverage summary
+        if: always()
+        run: |
+          echo "## Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f coverage/coverage-summary.json ]; then
+            node -e "
+              const fs = require('fs');
+              const coverage = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
+              const total = coverage.total;
+
+              console.log('| Metric | Coverage | Threshold |');
+              console.log('|--------|----------|-----------|');
+              console.log('| Lines | ' + total.lines.pct + '% | 95% |');
+              console.log('| Statements | ' + total.statements.pct + '% | 95% |');
+              console.log('| Functions | ' + total.functions.pct + '% | 95% |');
+              console.log('| Branches | ' + total.branches.pct + '% | 95% |');
+            " >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Coverage summary not found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30
+
+      - name: Comment PR with coverage
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            if (!fs.existsSync('coverage/coverage-summary.json')) {
+              return;
+            }
+
+            const coverage = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
+            const total = coverage.total;
+
+            const body = `## Coverage Report
+
+            | Metric | Coverage | Threshold | Status |
+            |--------|----------|-----------|--------|
+            | Lines | ${total.lines.pct}% | 95% | ${total.lines.pct >= 95 ? '✅' : '❌'} |
+            | Statements | ${total.statements.pct}% | 95% | ${total.statements.pct >= 95 ? '✅' : '❌'} |
+            | Functions | ${total.functions.pct}% | 95% | ${total.functions.pct >= 95 ? '✅' : '❌'} |
+            | Branches | ${total.branches.pct}% | 95% | ${total.branches.pct >= 95 ? '✅' : '❌'} |
+
+            ${total.lines.pct >= 95 && total.statements.pct >= 95 && total.functions.pct >= 95 && total.branches.pct >= 95
+              ? '✅ Coverage threshold met!'
+              : '❌ Coverage threshold not met. Minimum required: 95%'}`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+  lint:
+    name: Lint Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run linter
+        if: hashFiles('.eslintrc*') != ''
+        run: yarn lint || echo "No lint script found"
+        continue-on-error: true

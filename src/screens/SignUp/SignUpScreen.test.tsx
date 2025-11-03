@@ -30,6 +30,7 @@ const fillAllFields = ({ getByTestId, getByText }: any, overrides = {}) => {
     email: 'test@example.com',
     password: 'password123',
     confirmPassword: 'password123',
+    name: 'John Doe',
     telefono: '+1234567890',
     nombreInstitucion: 'Test Hospital',
     tipoInstitucion: 'hospital',
@@ -48,19 +49,30 @@ const fillAllFields = ({ getByTestId, getByText }: any, overrides = {}) => {
   fireEvent.changeText(getByTestId('telefono-input'), values.telefono);
   fireEvent.changeText(getByTestId('nombre-institucion-input'), values.nombreInstitucion);
 
-  // For dropdown, we need to find it and trigger onChange
-  // The Dropdown component from react-native-element-dropdown doesn't have a testID directly
-  // We'll use the container to find the dropdown by placeholder text
-  const dropdownPlaceholder = getByText('auth.signup.tipo_institucion_placeholder');
-  const dropdownParent = dropdownPlaceholder.parent?.parent;
-  if (dropdownParent) {
-    fireEvent(dropdownParent, 'onChange', { value: values.tipoInstitucion, label: 'Hospital' });
+  // For tipo_institucion dropdown
+  const tipoDropdownPlaceholder = getByText('auth.signup.tipo_institucion_placeholder');
+  const tipoDropdownParent = tipoDropdownPlaceholder.parent?.parent;
+  if (tipoDropdownParent) {
+    fireEvent(tipoDropdownParent, 'onChange', { value: values.tipoInstitucion, label: 'Hospital' });
   }
 
   fireEvent.changeText(getByTestId('nit-input'), values.nit);
   fireEvent.changeText(getByTestId('direccion-input'), values.direccion);
-  fireEvent.changeText(getByTestId('ciudad-input'), values.ciudad);
-  fireEvent.changeText(getByTestId('pais-input'), values.pais);
+
+  // For pais dropdown
+  const paisDropdownPlaceholder = getByText('auth.signup.pais');
+  const paisDropdownParent = paisDropdownPlaceholder.parent?.parent;
+  if (paisDropdownParent) {
+    fireEvent(paisDropdownParent, 'onChange', { value: values.pais, label: values.pais });
+  }
+
+  // For ciudad dropdown
+  const ciudadDropdownPlaceholder = getByText('auth.signup.ciudad');
+  const ciudadDropdownParent = ciudadDropdownPlaceholder.parent?.parent;
+  if (ciudadDropdownParent) {
+    fireEvent(ciudadDropdownParent, 'onChange', { value: values.ciudad, label: values.ciudad });
+  }
+
   fireEvent.changeText(getByTestId('representante-input'), values.representante);
 
   return values;
@@ -184,6 +196,7 @@ describe('SignUpScreen', () => {
       expect(mockSignup).toHaveBeenCalledWith(
         values.email,
         values.password,
+        values.representante,
         values.telefono,
         values.nombreInstitucion,
         values.tipoInstitucion,
@@ -324,6 +337,7 @@ describe('SignUpScreen', () => {
       expect(mockSignup).toHaveBeenCalledWith(
         values.email,
         'pass1234',
+        values.representante,
         values.telefono,
         values.nombreInstitucion,
         values.tipoInstitucion,

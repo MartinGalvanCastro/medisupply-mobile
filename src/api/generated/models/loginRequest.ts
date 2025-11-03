@@ -8,13 +8,9 @@
 
 /**
  * Request model for user login.
-
-Web users can only login with client_type='web'.
-Seller and client users can only login with client_type='mobile'.
  */
 export interface LoginRequest {
   email: string;
+  /** @minLength 8 */
   password: string;
-  /** Client type: 'web' or 'mobile' */
-  client_type: string;
 }

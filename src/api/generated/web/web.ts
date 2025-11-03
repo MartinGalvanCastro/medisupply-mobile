@@ -35,15 +35,20 @@ import type {
   HTTPValidationError,
   InventoryCreateRequest,
   InventoryCreateResponse,
+  ListReportsBffWebReportsGetParams,
   NotFoundErrorResponse,
   PaginatedInventoriesResponse,
   PaginatedProductsResponse,
   PaginatedProvidersResponse,
+  PaginatedReportsResponse,
   PaginatedSalesPlansResponse,
   PaginatedWarehousesResponse,
   ProductCreate,
   ProviderCreate,
   ProviderCreateResponse,
+  ReportCreateRequest,
+  ReportCreateResponse,
+  ReportResponse,
   SalesPlanCreate,
   SalesPlanCreateResponse,
   SellerCreate,
@@ -2131,6 +2136,487 @@ export function useGetSalesPlansBffWebSalesPlansGet<
 } {
   const queryOptions = getGetSalesPlansBffWebSalesPlansGetQueryOptions(
     params,
+    options,
+  );
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey;
+
+  return query;
+}
+
+/**
+ * Create a report generation request.
+
+Routes to appropriate microservice based on report type:
+- orders_per_seller, orders_per_status → Order microservice
+- low_stock → Inventory microservice
+
+Args:
+    request: Report creation request
+    order_reports: Order reports adapter (injected)
+    inventory_reports: Inventory reports adapter (injected)
+    user: Authenticated user (from JWT)
+
+Returns:
+    ReportCreateResponse with report_id and status
+ * @summary Create Report
+ */
+export const createReportBffWebReportsPost = (
+  reportCreateRequest: ReportCreateRequest,
+  options?: SecondParameter<typeof customInstance>,
+  signal?: AbortSignal,
+) => {
+  return customInstance<ReportCreateResponse>(
+    {
+      url: `/bff/web/reports`,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      data: reportCreateRequest,
+      signal,
+    },
+    options,
+  );
+};
+
+export const getCreateReportBffWebReportsPostMutationOptions = <
+  TError = void | ValidationErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createReportBffWebReportsPost>>,
+    TError,
+    { data: ReportCreateRequest },
+    TContext
+  >;
+  request?: SecondParameter<typeof customInstance>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createReportBffWebReportsPost>>,
+  TError,
+  { data: ReportCreateRequest },
+  TContext
+> => {
+  const mutationKey = ["createReportBffWebReportsPost"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createReportBffWebReportsPost>>,
+    { data: ReportCreateRequest }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createReportBffWebReportsPost(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateReportBffWebReportsPostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createReportBffWebReportsPost>>
+>;
+export type CreateReportBffWebReportsPostMutationBody = ReportCreateRequest;
+export type CreateReportBffWebReportsPostMutationError =
+  void | ValidationErrorResponse;
+
+/**
+ * @summary Create Report
+ */
+export const useCreateReportBffWebReportsPost = <
+  TError = void | ValidationErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof createReportBffWebReportsPost>>,
+      TError,
+      { data: ReportCreateRequest },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof createReportBffWebReportsPost>>,
+  TError,
+  { data: ReportCreateRequest },
+  TContext
+> => {
+  const mutationOptions =
+    getCreateReportBffWebReportsPostMutationOptions(options);
+
+  return useMutation(mutationOptions, queryClient);
+};
+/**
+ * List all reports for the authenticated user.
+
+Aggregates reports from Order and Inventory microservices.
+
+Args:
+    limit: Maximum number of reports to return
+    offset: Number of reports to skip
+    status: Optional status filter
+    report_type: Optional report type filter
+    order_reports: Order reports adapter (injected)
+    inventory_reports: Inventory reports adapter (injected)
+    user: Authenticated user (from JWT)
+
+Returns:
+    PaginatedReportsResponse with list of reports
+ * @summary List Reports
+ */
+export const listReportsBffWebReportsGet = (
+  params?: ListReportsBffWebReportsGetParams,
+  options?: SecondParameter<typeof customInstance>,
+  signal?: AbortSignal,
+) => {
+  return customInstance<PaginatedReportsResponse>(
+    { url: `/bff/web/reports`, method: "GET", params, signal },
+    options,
+  );
+};
+
+export const getListReportsBffWebReportsGetQueryKey = (
+  params?: ListReportsBffWebReportsGetParams,
+) => {
+  return [`/bff/web/reports`, ...(params ? [params] : [])] as const;
+};
+
+export const getListReportsBffWebReportsGetQueryOptions = <
+  TData = Awaited<ReturnType<typeof listReportsBffWebReportsGet>>,
+  TError = void | HTTPValidationError,
+>(
+  params?: ListReportsBffWebReportsGetParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listReportsBffWebReportsGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListReportsBffWebReportsGetQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listReportsBffWebReportsGet>>
+  > = ({ signal }) =>
+    listReportsBffWebReportsGet(params, requestOptions, signal);
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listReportsBffWebReportsGet>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListReportsBffWebReportsGetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listReportsBffWebReportsGet>>
+>;
+export type ListReportsBffWebReportsGetQueryError = void | HTTPValidationError;
+
+export function useListReportsBffWebReportsGet<
+  TData = Awaited<ReturnType<typeof listReportsBffWebReportsGet>>,
+  TError = void | HTTPValidationError,
+>(
+  params: undefined | ListReportsBffWebReportsGetParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listReportsBffWebReportsGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listReportsBffWebReportsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listReportsBffWebReportsGet>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListReportsBffWebReportsGet<
+  TData = Awaited<ReturnType<typeof listReportsBffWebReportsGet>>,
+  TError = void | HTTPValidationError,
+>(
+  params?: ListReportsBffWebReportsGetParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listReportsBffWebReportsGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listReportsBffWebReportsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listReportsBffWebReportsGet>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListReportsBffWebReportsGet<
+  TData = Awaited<ReturnType<typeof listReportsBffWebReportsGet>>,
+  TError = void | HTTPValidationError,
+>(
+  params?: ListReportsBffWebReportsGetParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listReportsBffWebReportsGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary List Reports
+ */
+
+export function useListReportsBffWebReportsGet<
+  TData = Awaited<ReturnType<typeof listReportsBffWebReportsGet>>,
+  TError = void | HTTPValidationError,
+>(
+  params?: ListReportsBffWebReportsGetParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listReportsBffWebReportsGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getListReportsBffWebReportsGetQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey;
+
+  return query;
+}
+
+/**
+ * Get a single report with download URL.
+
+Tries Order microservice first, then Inventory microservice.
+
+Args:
+    report_id: Report UUID
+    order_reports: Order reports adapter (injected)
+    inventory_reports: Inventory reports adapter (injected)
+    user: Authenticated user (from JWT)
+
+Returns:
+    ReportResponse with report details and download URL
+ * @summary Get Report
+ */
+export const getReportBffWebReportsReportIdGet = (
+  reportId: string,
+  options?: SecondParameter<typeof customInstance>,
+  signal?: AbortSignal,
+) => {
+  return customInstance<ReportResponse>(
+    { url: `/bff/web/reports/${reportId}`, method: "GET", signal },
+    options,
+  );
+};
+
+export const getGetReportBffWebReportsReportIdGetQueryKey = (
+  reportId?: string,
+) => {
+  return [`/bff/web/reports/${reportId}`] as const;
+};
+
+export const getGetReportBffWebReportsReportIdGetQueryOptions = <
+  TData = Awaited<ReturnType<typeof getReportBffWebReportsReportIdGet>>,
+  TError = void | NotFoundErrorResponse | HTTPValidationError,
+>(
+  reportId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getReportBffWebReportsReportIdGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetReportBffWebReportsReportIdGetQueryKey(reportId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getReportBffWebReportsReportIdGet>>
+  > = ({ signal }) =>
+    getReportBffWebReportsReportIdGet(reportId, requestOptions, signal);
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!reportId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getReportBffWebReportsReportIdGet>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetReportBffWebReportsReportIdGetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getReportBffWebReportsReportIdGet>>
+>;
+export type GetReportBffWebReportsReportIdGetQueryError =
+  | void
+  | NotFoundErrorResponse
+  | HTTPValidationError;
+
+export function useGetReportBffWebReportsReportIdGet<
+  TData = Awaited<ReturnType<typeof getReportBffWebReportsReportIdGet>>,
+  TError = void | NotFoundErrorResponse | HTTPValidationError,
+>(
+  reportId: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getReportBffWebReportsReportIdGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getReportBffWebReportsReportIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getReportBffWebReportsReportIdGet>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetReportBffWebReportsReportIdGet<
+  TData = Awaited<ReturnType<typeof getReportBffWebReportsReportIdGet>>,
+  TError = void | NotFoundErrorResponse | HTTPValidationError,
+>(
+  reportId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getReportBffWebReportsReportIdGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getReportBffWebReportsReportIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getReportBffWebReportsReportIdGet>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetReportBffWebReportsReportIdGet<
+  TData = Awaited<ReturnType<typeof getReportBffWebReportsReportIdGet>>,
+  TError = void | NotFoundErrorResponse | HTTPValidationError,
+>(
+  reportId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getReportBffWebReportsReportIdGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Get Report
+ */
+
+export function useGetReportBffWebReportsReportIdGet<
+  TData = Awaited<ReturnType<typeof getReportBffWebReportsReportIdGet>>,
+  TError = void | NotFoundErrorResponse | HTTPValidationError,
+>(
+  reportId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getReportBffWebReportsReportIdGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getGetReportBffWebReportsReportIdGetQueryOptions(
+    reportId,
     options,
   );
 

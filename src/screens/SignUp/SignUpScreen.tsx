@@ -130,6 +130,7 @@ export const SignUpScreen = () => {
     await signup(
       data.email,
       data.password,
+      data.representante, // Use representative name as user name
       data.telefono,
       data.nombre_institucion,
       data.tipo_institucion,

@@ -13,12 +13,11 @@ import type { SellersAppSchemasOrderSchemasOrderCreateInputVisitId } from "./sel
 
 Business rules:
 - metodo_creacion is automatically set to 'app_vendedor'
-- seller_id is REQUIRED (seller creating the order)
+- seller_id is automatically fetched from authenticated user's JWT
 - visit_id is OPTIONAL (can be associated with a visit or not)
  */
 export interface SellersAppSchemasOrderSchemasOrderCreateInput {
   customer_id: string;
-  seller_id: string;
   items: OrderItemInput[];
   visit_id?: SellersAppSchemasOrderSchemasOrderCreateInputVisitId;
 }

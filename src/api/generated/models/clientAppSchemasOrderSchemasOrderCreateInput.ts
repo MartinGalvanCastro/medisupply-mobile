@@ -12,9 +12,9 @@ import type { OrderItemInput } from "./orderItemInput";
 
 Business rules:
 - metodo_creacion is automatically set to 'app_cliente'
+- customer_id is automatically fetched from authenticated user's JWT
 - No seller_id or visit_id required (client app orders)
  */
 export interface ClientAppSchemasOrderSchemasOrderCreateInput {
-  customer_id: string;
   items: OrderItemInput[];
 }

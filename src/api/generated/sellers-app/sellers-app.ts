@@ -24,10 +24,18 @@ import type {
 import type {
   ClientCreateInput,
   ClientListResponse,
+  ConfirmEvidenceUploadRequestBFF,
+  CreateVisitRequestBFF,
+  GenerateEvidenceUploadURLRequestBFF,
   HTTPValidationError,
   ListClientsBffSellersAppClientsGetParams,
+  ListVisitsBffSellersAppVisitsGetParams,
+  ListVisitsResponseBFF,
   OrderCreateResponse,
+  PreSignedUploadURLResponseBFF,
   SellersAppSchemasOrderSchemasOrderCreateInput,
+  UpdateVisitStatusRequestBFF,
+  VisitResponseBFF,
 } from ".././models";
 
 import { customInstance } from "../../client";
@@ -38,20 +46,24 @@ type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
  * Create a new order via sellers app.
 
 This endpoint:
-1. Accepts customer_id, seller_id, items, and optional visit_id
-2. Forwards request to Order Service with metodo_creacion='app_vendedor'
-3. seller_id is REQUIRED (seller creating the order)
-4. visit_id is OPTIONAL (can be linked to a visit or not)
+1. Gets the Cognito User ID from the authenticated user (JWT sub claim)
+2. Looks up the seller record using cognito_user_id to get seller_id
+3. Validates that the seller exists (404 if not found)
+4. Accepts customer_id, items, and optional visit_id
+5. Forwards request to Order Service with metodo_creacion='app_vendedor'
+6. visit_id is OPTIONAL (can be linked to a visit or not)
 
 Args:
-    order_input: Order creation input
+    order_input: Order creation input (customer_id, items, visit_id?)
     order_port: Order port for service communication
+    seller_port: Seller port for service communication
+    user: Authenticated seller user
 
 Returns:
     OrderCreateResponse with order ID and message
 
 Raises:
-    HTTPException: If order creation fails
+    HTTPException: If seller not found or order creation fails
  * @summary Create Order
  */
 export const createOrderBffSellersAppOrdersPost = (
@@ -437,3 +449,641 @@ export function useListClientsBffSellersAppClientsGet<
 
   return query;
 }
+
+/**
+ * Creates a new visit for the authenticated seller. Automatically assigns unassigned clients to the seller. Validates future date (≥1 day ahead) and 180-minute gap between visits.
+ * @summary Create a new visit
+ */
+export const createVisitBffSellersAppVisitsPost = (
+  createVisitRequestBFF: CreateVisitRequestBFF,
+  options?: SecondParameter<typeof customInstance>,
+  signal?: AbortSignal,
+) => {
+  return customInstance<VisitResponseBFF>(
+    {
+      url: `/bff/sellers-app/visits`,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      data: createVisitRequestBFF,
+      signal,
+    },
+    options,
+  );
+};
+
+export const getCreateVisitBffSellersAppVisitsPostMutationOptions = <
+  TError = HTTPValidationError,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createVisitBffSellersAppVisitsPost>>,
+    TError,
+    { data: CreateVisitRequestBFF },
+    TContext
+  >;
+  request?: SecondParameter<typeof customInstance>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createVisitBffSellersAppVisitsPost>>,
+  TError,
+  { data: CreateVisitRequestBFF },
+  TContext
+> => {
+  const mutationKey = ["createVisitBffSellersAppVisitsPost"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createVisitBffSellersAppVisitsPost>>,
+    { data: CreateVisitRequestBFF }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createVisitBffSellersAppVisitsPost(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateVisitBffSellersAppVisitsPostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createVisitBffSellersAppVisitsPost>>
+>;
+export type CreateVisitBffSellersAppVisitsPostMutationBody =
+  CreateVisitRequestBFF;
+export type CreateVisitBffSellersAppVisitsPostMutationError =
+  HTTPValidationError;
+
+/**
+ * @summary Create a new visit
+ */
+export const useCreateVisitBffSellersAppVisitsPost = <
+  TError = HTTPValidationError,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof createVisitBffSellersAppVisitsPost>>,
+      TError,
+      { data: CreateVisitRequestBFF },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof createVisitBffSellersAppVisitsPost>>,
+  TError,
+  { data: CreateVisitRequestBFF },
+  TContext
+> => {
+  const mutationOptions =
+    getCreateVisitBffSellersAppVisitsPostMutationOptions(options);
+
+  return useMutation(mutationOptions, queryClient);
+};
+/**
+ * Retrieves all visits for the authenticated seller on a specific date, ordered chronologically by fecha_visita.
+ * @summary List visits for a date
+ */
+export const listVisitsBffSellersAppVisitsGet = (
+  params: ListVisitsBffSellersAppVisitsGetParams,
+  options?: SecondParameter<typeof customInstance>,
+  signal?: AbortSignal,
+) => {
+  return customInstance<ListVisitsResponseBFF>(
+    { url: `/bff/sellers-app/visits`, method: "GET", params, signal },
+    options,
+  );
+};
+
+export const getListVisitsBffSellersAppVisitsGetQueryKey = (
+  params?: ListVisitsBffSellersAppVisitsGetParams,
+) => {
+  return [`/bff/sellers-app/visits`, ...(params ? [params] : [])] as const;
+};
+
+export const getListVisitsBffSellersAppVisitsGetQueryOptions = <
+  TData = Awaited<ReturnType<typeof listVisitsBffSellersAppVisitsGet>>,
+  TError = HTTPValidationError,
+>(
+  params: ListVisitsBffSellersAppVisitsGetParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listVisitsBffSellersAppVisitsGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListVisitsBffSellersAppVisitsGetQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listVisitsBffSellersAppVisitsGet>>
+  > = ({ signal }) =>
+    listVisitsBffSellersAppVisitsGet(params, requestOptions, signal);
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listVisitsBffSellersAppVisitsGet>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ListVisitsBffSellersAppVisitsGetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listVisitsBffSellersAppVisitsGet>>
+>;
+export type ListVisitsBffSellersAppVisitsGetQueryError = HTTPValidationError;
+
+export function useListVisitsBffSellersAppVisitsGet<
+  TData = Awaited<ReturnType<typeof listVisitsBffSellersAppVisitsGet>>,
+  TError = HTTPValidationError,
+>(
+  params: ListVisitsBffSellersAppVisitsGetParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listVisitsBffSellersAppVisitsGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listVisitsBffSellersAppVisitsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listVisitsBffSellersAppVisitsGet>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListVisitsBffSellersAppVisitsGet<
+  TData = Awaited<ReturnType<typeof listVisitsBffSellersAppVisitsGet>>,
+  TError = HTTPValidationError,
+>(
+  params: ListVisitsBffSellersAppVisitsGetParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listVisitsBffSellersAppVisitsGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listVisitsBffSellersAppVisitsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listVisitsBffSellersAppVisitsGet>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useListVisitsBffSellersAppVisitsGet<
+  TData = Awaited<ReturnType<typeof listVisitsBffSellersAppVisitsGet>>,
+  TError = HTTPValidationError,
+>(
+  params: ListVisitsBffSellersAppVisitsGetParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listVisitsBffSellersAppVisitsGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary List visits for a date
+ */
+
+export function useListVisitsBffSellersAppVisitsGet<
+  TData = Awaited<ReturnType<typeof listVisitsBffSellersAppVisitsGet>>,
+  TError = HTTPValidationError,
+>(
+  params: ListVisitsBffSellersAppVisitsGetParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof listVisitsBffSellersAppVisitsGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getListVisitsBffSellersAppVisitsGetQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey;
+
+  return query;
+}
+
+/**
+ * Updates visit status and optional product recommendations. Only allows programada → completada/cancelada transitions.
+ * @summary Update visit status
+ */
+export const updateVisitStatusBffSellersAppVisitsVisitIdStatusPatch = (
+  visitId: string,
+  updateVisitStatusRequestBFF: UpdateVisitStatusRequestBFF,
+  options?: SecondParameter<typeof customInstance>,
+) => {
+  return customInstance<VisitResponseBFF>(
+    {
+      url: `/bff/sellers-app/visits/${visitId}/status`,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      data: updateVisitStatusRequestBFF,
+    },
+    options,
+  );
+};
+
+export const getUpdateVisitStatusBffSellersAppVisitsVisitIdStatusPatchMutationOptions =
+  <TError = HTTPValidationError, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<
+          typeof updateVisitStatusBffSellersAppVisitsVisitIdStatusPatch
+        >
+      >,
+      TError,
+      { visitId: string; data: UpdateVisitStatusRequestBFF },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  }): UseMutationOptions<
+    Awaited<
+      ReturnType<typeof updateVisitStatusBffSellersAppVisitsVisitIdStatusPatch>
+    >,
+    TError,
+    { visitId: string; data: UpdateVisitStatusRequestBFF },
+    TContext
+  > => {
+    const mutationKey = [
+      "updateVisitStatusBffSellersAppVisitsVisitIdStatusPatch",
+    ];
+    const { mutation: mutationOptions, request: requestOptions } = options
+      ? options.mutation &&
+        "mutationKey" in options.mutation &&
+        options.mutation.mutationKey
+        ? options
+        : { ...options, mutation: { ...options.mutation, mutationKey } }
+      : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+      Awaited<
+        ReturnType<
+          typeof updateVisitStatusBffSellersAppVisitsVisitIdStatusPatch
+        >
+      >,
+      { visitId: string; data: UpdateVisitStatusRequestBFF }
+    > = (props) => {
+      const { visitId, data } = props ?? {};
+
+      return updateVisitStatusBffSellersAppVisitsVisitIdStatusPatch(
+        visitId,
+        data,
+        requestOptions,
+      );
+    };
+
+    return { mutationFn, ...mutationOptions };
+  };
+
+export type UpdateVisitStatusBffSellersAppVisitsVisitIdStatusPatchMutationResult =
+  NonNullable<
+    Awaited<
+      ReturnType<typeof updateVisitStatusBffSellersAppVisitsVisitIdStatusPatch>
+    >
+  >;
+export type UpdateVisitStatusBffSellersAppVisitsVisitIdStatusPatchMutationBody =
+  UpdateVisitStatusRequestBFF;
+export type UpdateVisitStatusBffSellersAppVisitsVisitIdStatusPatchMutationError =
+  HTTPValidationError;
+
+/**
+ * @summary Update visit status
+ */
+export const useUpdateVisitStatusBffSellersAppVisitsVisitIdStatusPatch = <
+  TError = HTTPValidationError,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<
+          typeof updateVisitStatusBffSellersAppVisitsVisitIdStatusPatch
+        >
+      >,
+      TError,
+      { visitId: string; data: UpdateVisitStatusRequestBFF },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<
+    ReturnType<typeof updateVisitStatusBffSellersAppVisitsVisitIdStatusPatch>
+  >,
+  TError,
+  { visitId: string; data: UpdateVisitStatusRequestBFF },
+  TContext
+> => {
+  const mutationOptions =
+    getUpdateVisitStatusBffSellersAppVisitsVisitIdStatusPatchMutationOptions(
+      options,
+    );
+
+  return useMutation(mutationOptions, queryClient);
+};
+/**
+ * Generates a pre-signed POST URL for direct browser-to-S3 evidence upload. URL expires in 1 hour. Max file size: 50MB. Allowed types: image/jpeg, image/png, image/heic, video/mp4, video/quicktime.
+ * @summary Generate S3 pre-signed upload URL
+ */
+export const generateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost =
+  (
+    visitId: string,
+    generateEvidenceUploadURLRequestBFF: GenerateEvidenceUploadURLRequestBFF,
+    options?: SecondParameter<typeof customInstance>,
+    signal?: AbortSignal,
+  ) => {
+    return customInstance<PreSignedUploadURLResponseBFF>(
+      {
+        url: `/bff/sellers-app/visits/${visitId}/evidence/upload-url`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: generateEvidenceUploadURLRequestBFF,
+        signal,
+      },
+      options,
+    );
+  };
+
+export const getGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPostMutationOptions =
+  <TError = HTTPValidationError, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<
+          typeof generateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost
+        >
+      >,
+      TError,
+      { visitId: string; data: GenerateEvidenceUploadURLRequestBFF },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  }): UseMutationOptions<
+    Awaited<
+      ReturnType<
+        typeof generateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost
+      >
+    >,
+    TError,
+    { visitId: string; data: GenerateEvidenceUploadURLRequestBFF },
+    TContext
+  > => {
+    const mutationKey = [
+      "generateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost",
+    ];
+    const { mutation: mutationOptions, request: requestOptions } = options
+      ? options.mutation &&
+        "mutationKey" in options.mutation &&
+        options.mutation.mutationKey
+        ? options
+        : { ...options, mutation: { ...options.mutation, mutationKey } }
+      : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+      Awaited<
+        ReturnType<
+          typeof generateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost
+        >
+      >,
+      { visitId: string; data: GenerateEvidenceUploadURLRequestBFF }
+    > = (props) => {
+      const { visitId, data } = props ?? {};
+
+      return generateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost(
+        visitId,
+        data,
+        requestOptions,
+      );
+    };
+
+    return { mutationFn, ...mutationOptions };
+  };
+
+export type GenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPostMutationResult =
+  NonNullable<
+    Awaited<
+      ReturnType<
+        typeof generateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost
+      >
+    >
+  >;
+export type GenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPostMutationBody =
+  GenerateEvidenceUploadURLRequestBFF;
+export type GenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPostMutationError =
+  HTTPValidationError;
+
+/**
+ * @summary Generate S3 pre-signed upload URL
+ */
+export const useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost =
+  <TError = HTTPValidationError, TContext = unknown>(
+    options?: {
+      mutation?: UseMutationOptions<
+        Awaited<
+          ReturnType<
+            typeof generateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost
+          >
+        >,
+        TError,
+        { visitId: string; data: GenerateEvidenceUploadURLRequestBFF },
+        TContext
+      >;
+      request?: SecondParameter<typeof customInstance>;
+    },
+    queryClient?: QueryClient,
+  ): UseMutationResult<
+    Awaited<
+      ReturnType<
+        typeof generateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost
+      >
+    >,
+    TError,
+    { visitId: string; data: GenerateEvidenceUploadURLRequestBFF },
+    TContext
+  > => {
+    const mutationOptions =
+      getGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPostMutationOptions(
+        options,
+      );
+
+    return useMutation(mutationOptions, queryClient);
+  };
+/**
+ * Saves the S3 URL to the visit record after successful upload.
+ * @summary Confirm evidence upload
+ */
+export const confirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost =
+  (
+    visitId: string,
+    confirmEvidenceUploadRequestBFF: ConfirmEvidenceUploadRequestBFF,
+    options?: SecondParameter<typeof customInstance>,
+    signal?: AbortSignal,
+  ) => {
+    return customInstance<VisitResponseBFF>(
+      {
+        url: `/bff/sellers-app/visits/${visitId}/evidence/confirm`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: confirmEvidenceUploadRequestBFF,
+        signal,
+      },
+      options,
+    );
+  };
+
+export const getConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPostMutationOptions =
+  <TError = HTTPValidationError, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<
+          typeof confirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost
+        >
+      >,
+      TError,
+      { visitId: string; data: ConfirmEvidenceUploadRequestBFF },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  }): UseMutationOptions<
+    Awaited<
+      ReturnType<
+        typeof confirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost
+      >
+    >,
+    TError,
+    { visitId: string; data: ConfirmEvidenceUploadRequestBFF },
+    TContext
+  > => {
+    const mutationKey = [
+      "confirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost",
+    ];
+    const { mutation: mutationOptions, request: requestOptions } = options
+      ? options.mutation &&
+        "mutationKey" in options.mutation &&
+        options.mutation.mutationKey
+        ? options
+        : { ...options, mutation: { ...options.mutation, mutationKey } }
+      : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+      Awaited<
+        ReturnType<
+          typeof confirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost
+        >
+      >,
+      { visitId: string; data: ConfirmEvidenceUploadRequestBFF }
+    > = (props) => {
+      const { visitId, data } = props ?? {};
+
+      return confirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost(
+        visitId,
+        data,
+        requestOptions,
+      );
+    };
+
+    return { mutationFn, ...mutationOptions };
+  };
+
+export type ConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPostMutationResult =
+  NonNullable<
+    Awaited<
+      ReturnType<
+        typeof confirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost
+      >
+    >
+  >;
+export type ConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPostMutationBody =
+  ConfirmEvidenceUploadRequestBFF;
+export type ConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPostMutationError =
+  HTTPValidationError;
+
+/**
+ * @summary Confirm evidence upload
+ */
+export const useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost =
+  <TError = HTTPValidationError, TContext = unknown>(
+    options?: {
+      mutation?: UseMutationOptions<
+        Awaited<
+          ReturnType<
+            typeof confirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost
+          >
+        >,
+        TError,
+        { visitId: string; data: ConfirmEvidenceUploadRequestBFF },
+        TContext
+      >;
+      request?: SecondParameter<typeof customInstance>;
+    },
+    queryClient?: QueryClient,
+  ): UseMutationResult<
+    Awaited<
+      ReturnType<
+        typeof confirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost
+      >
+    >,
+    TError,
+    { visitId: string; data: ConfirmEvidenceUploadRequestBFF },
+    TContext
+  > => {
+    const mutationOptions =
+      getConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPostMutationOptions(
+        options,
+      );
+
+    return useMutation(mutationOptions, queryClient);
+  };

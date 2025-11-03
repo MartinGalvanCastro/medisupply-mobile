@@ -1,0 +1,10 @@
+# Add these lines to your .gitignore file if not already present
+
+# Coverage reports
+coverage/
+*.lcov
+.nyc_output/
+
+# SonarQube/SonarCloud
+.sonar/
+.scannerwork/

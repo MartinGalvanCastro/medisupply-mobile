@@ -1,9 +1,21 @@
+export interface UserProfile {
+  telefono?: string;
+  nombreInstitucion?: string;
+  tipoInstitucion?: string;
+  nit?: string;
+  direccion?: string;
+  ciudad?: string;
+  pais?: string;
+  representante?: string;
+}
+
 export interface User {
   id: string;
   email: string;
   name: string;
   role?: string;
   groups?: string[];
+  profile?: UserProfile;
 }
 
 export interface AuthTokens {
