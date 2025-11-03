@@ -89,9 +89,11 @@ const loginHandler: MockHandler = {
     }
 
     // Find user by credentials
+    console.log('[Mock Handler] POST /auth/login - Attempting login for:', body.email);
     const user = findUserByCredentials(body.email, body.password);
 
     if (!user) {
+      console.log('[Mock Handler] POST /auth/login - User not found or invalid password');
       return {
         status: 401,
         data: {
@@ -100,6 +102,12 @@ const loginHandler: MockHandler = {
         } as any,
       };
     }
+
+    console.log('[Mock Handler] POST /auth/login - Login successful for:', user.email, '- userType:', user.userType);
+    console.log('[Mock Handler] POST /auth/login - Returning tokens:', {
+      accessToken: user.tokens.accessToken,
+      idToken: user.tokens.idToken,
+    });
 
     // Scenario: Slow response
     if (mockConfig.scenarios.authentication === 'slow') {
@@ -322,15 +330,22 @@ const getMeHandler: MockHandler = {
 
     // Extract token (in real scenario, would validate JWT)
     const token = authHeader.replace('Bearer ', '');
+    console.log('[Mock Handler] GET /auth/me - Received token:', token);
 
     // Find user by token (simplified - in reality would decode JWT)
     const user = mockUsers.find(
-      (u) =>
-        u.tokens.idToken === token ||
-        u.tokens.accessToken === token ||
-        token.includes(u.tokens.idToken) ||
-        token.includes(u.tokens.accessToken)
+      (u) => {
+        const matches =
+          u.tokens.idToken === token ||
+          u.tokens.accessToken === token ||
+          token.includes(u.tokens.idToken) ||
+          token.includes(u.tokens.accessToken);
+        console.log(`[Mock Handler] Checking user ${u.email}: ${matches}`);
+        return matches;
+      }
     );
+
+    console.log('[Mock Handler] GET /auth/me - Found user:', user?.email || 'NOT FOUND');
 
     if (!user) {
       return {

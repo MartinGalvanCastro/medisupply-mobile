@@ -22,6 +22,9 @@ axiosInstance.interceptors.request.use(
     const { tokens } = useAuthStore.getState();
     if (tokens?.idToken) {
       config.headers.Authorization = `Bearer ${tokens.idToken}`;
+      console.log('[API Client] Adding Authorization header with idToken:', tokens.idToken);
+    } else {
+      console.log('[API Client] No idToken available, skipping Authorization header');
     }
     return config;
   },

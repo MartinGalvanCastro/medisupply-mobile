@@ -9,16 +9,23 @@ import { useAuthStore } from '@/store';
 import { transformTokensFromLogin, transformUserData } from '@/utils/auth';
 import { isNetworkError } from '@/utils/error';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { AuthContextValue, AuthProviderProps } from './types';
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const toast = useToast();
+  const queryClient = useQueryClient();
   const lastToastRef = useRef<{ type: string; timestamp: number }>({ type: '', timestamp: 0 });
 
   // Control when /auth/me query executes
   const [shouldFetchUser, setShouldFetchUser] = useState(false);
+
+  // Debug: Log when shouldFetchUser changes
+  useEffect(() => {
+    console.log('[AuthProvider] shouldFetchUser changed to:', shouldFetchUser);
+  }, [shouldFetchUser]);
 
   const { mutateAsync: loginMutate, isPending: isLoginPending } = useLoginAuthLoginPost();
   const { mutateAsync: refreshMutate, isPending: isRefreshPending } = useRefreshAuthRefreshPost();
@@ -49,8 +56,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
    */
   useEffect(() => {
     if (meData) {
+      console.log('[AuthProvider] meData received, transforming user data');
       const user = transformUserData(meData);
       authStore.setUser(user);
+      console.log('[AuthProvider] Setting shouldFetchUser to false after successful fetch');
       setShouldFetchUser(false); // Reset flag after successful fetch
     }
   }, [meData]); // authStore methods are stable, no need to include in dependencies
@@ -121,10 +130,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       })
         .then((response) => {
           const tokens = transformTokensFromLogin(response);
+          console.log('[AuthProvider] Storing tokens from login response:', {
+            accessToken: tokens.accessToken,
+            idToken: tokens.idToken,
+          });
           authStore.setTokens(tokens);
 
           // Trigger user fetch using React Query enabled flag
-          setShouldFetchUser(true);
+          // Reset to false first to ensure the effect triggers even if it was already true
+          console.log('[AuthProvider] Triggering /auth/me fetch');
+          setShouldFetchUser(false);
+          // Use setTimeout to ensure state update is processed
+          setTimeout(() => setShouldFetchUser(true), 0);
 
           showToastIfNotRecent('success', 'login-success', 'Login Successful', 'Welcome back!');
         })
@@ -142,9 +159,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   );
 
   const logout = useCallback(() => {
+    console.log('[AuthProvider] logout - clearing auth store and query cache');
     authStore.logout();
+    // Clear React Query cache to prevent stale data on next login
+    queryClient.clear();
+    console.log('[AuthProvider] logout - cache cleared');
     showToastIfNotRecent('success', 'logout-success', 'Logged Out', 'You have been successfully logged out.');
-  }, [showToastIfNotRecent]); // authStore methods are stable
+  }, [queryClient, showToastIfNotRecent]); // authStore methods are stable
 
   const refresh = useCallback(() => {
     const currentTokens = authStore.tokens;

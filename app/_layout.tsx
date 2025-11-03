@@ -10,6 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '@/../global.css';
 import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import { AuthProvider, I18nProvider, QueryClientProvider, ToastProvider } from '@/providers';
+import '@/api/mock-interceptor';
 
 export {
   // Catch any errors thrown by the Layout component.

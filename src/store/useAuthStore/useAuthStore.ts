@@ -11,29 +11,51 @@ const initialState: AuthState = {
 
 export const useAuthStore = create<AuthStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...initialState,
 
-      setUser: (user) =>
+      setUser: (user) => {
+        console.log('[AuthStore] setUser called:', user?.name);
         set({
           user,
           isAuthenticated: !!user,
-        }),
+        });
+        console.log('[AuthStore] After setUser, current state:', {
+          hasUser: !!get().user,
+          hasTokens: !!get().tokens,
+        });
+      },
 
-      setTokens: (tokens) =>
+      setTokens: (tokens) => {
+        console.log('[AuthStore] setTokens called:', {
+          accessToken: tokens?.accessToken,
+          idToken: tokens?.idToken,
+        });
         set({
           tokens,
           isAuthenticated: !!tokens,
-        }),
+        });
+        // Verify tokens were set immediately
+        const currentState = get();
+        console.log('[AuthStore] After setTokens, current state:', {
+          hasTokens: !!currentState.tokens,
+          idToken: currentState.tokens?.idToken,
+        });
+      },
 
-      login: (user, tokens) =>
+      login: (user, tokens) => {
+        console.log('[AuthStore] login called');
         set({
           user,
           tokens,
           isAuthenticated: true,
-        }),
+        });
+      },
 
-      logout: () => set(initialState),
+      logout: () => {
+        console.log('[AuthStore] logout called');
+        set(initialState);
+      },
 
       updateUser: (updates) =>
         set((state) => ({
