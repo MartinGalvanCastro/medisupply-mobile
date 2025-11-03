@@ -19,6 +19,9 @@
     "nativewind-env.d.ts"
   ],
   "exclude": [
-    "src/api/**/*"
+    "node_modules",
+    "src/api/**/*",
+    "src/api/**/*.ts",
+    "src/api/**/*.tsx"
   ]
 }
