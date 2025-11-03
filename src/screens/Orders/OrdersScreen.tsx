@@ -25,11 +25,9 @@ export const OrdersScreen = () => {
   const { t } = useTranslation();
   const [showPastOrders, setShowPastOrders] = useState(false);
 
-  // Fetch orders from API with filtering parameter
+  // Fetch orders from API
   const { data, isLoading, error, refetch } = useListMyOrdersBffClientAppMyOrdersGet(
-    {
-      show_past_deliveries: showPastOrders ? 'true' : 'false',
-    },
+    undefined,
     {
       query: {
         staleTime: 30 * 1000, // 30 seconds
@@ -37,7 +35,24 @@ export const OrdersScreen = () => {
     }
   );
 
-  const orders = (data?.items || []) as ExtendedOrderResponse[];
+  // Filter orders based on delivery date
+  const allOrders = (data?.items || []) as ExtendedOrderResponse[];
+  const orders = allOrders.filter((order) => {
+    if (showPastOrders) {
+      return true; // Show all orders
+    }
+    // Show only upcoming orders (delivery date >= today)
+    const deliveryDate = order.fecha_entrega_estimada
+      ? new Date(order.fecha_entrega_estimada)
+      : null;
+    if (!deliveryDate) return true;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    deliveryDate.setHours(0, 0, 0, 0);
+
+    return deliveryDate >= today;
+  });
 
   const handleToggleFilter = () => {
     setShowPastOrders(!showPastOrders);
@@ -48,7 +63,7 @@ export const OrdersScreen = () => {
   }, [refetch]);
 
   const renderOrder = ({ item }: { item: ExtendedOrderResponse }) => {
-    return <OrderCard order={item} testID={`order-card-${item.id}`} />;
+    return <OrderCard order={item} />;
   };
 
   const renderEmpty = () => {
@@ -119,7 +134,6 @@ export const OrdersScreen = () => {
             renderItem={renderOrder}
             ListEmptyComponent={renderEmpty}
             keyExtractor={(item) => item.id}
-            estimatedItemSize={150}
             refreshControl={
               <RefreshControl
                 refreshing={isLoading}

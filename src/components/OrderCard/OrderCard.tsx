@@ -61,6 +61,19 @@ const getShipmentStatusBadgeAction = (
   return statusMap[status.toLowerCase()] || 'muted';
 };
 
+const getShipmentStatusLabel = (status: string, t: any): string => {
+  const statusKey = status.toLowerCase().replace(/[_\s]/g, '');
+
+  const statusMap: Record<string, string> = {
+    'planned': t('orders.shipmentStatus.planned'),
+    'inprogress': t('orders.shipmentStatus.inprogress'),
+    'completed': t('orders.shipmentStatus.completed'),
+    'cancelled': t('orders.shipmentStatus.cancelled'),
+  };
+
+  return statusMap[statusKey] || t('orders.shipmentStatus.unknown');
+};
+
 export const OrderCard = ({ order }: OrderCardProps) => {
   const { t } = useTranslation();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -141,7 +154,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                         variant="solid"
                         size="sm"
                       >
-                        <BadgeText className="capitalize">{t(`orders.shipmentStatus.${shipment.status.replace(/[_\s]/g, '')}`)}</BadgeText>
+                        <BadgeText className="capitalize">{getShipmentStatusLabel(shipment.status, t)}</BadgeText>
                       </Badge>
                     </HStack>
 
