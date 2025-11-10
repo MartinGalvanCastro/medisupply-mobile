@@ -4,17 +4,18 @@ import { AddToCartModal, AddToCartModalProps } from './AddToCartModal';
 
 // Mock QuantitySelector component - returns a simple component that we can interact with
 jest.mock('@/components/QuantitySelector', () => {
+  const { View, Pressable, Text } = require('react-native');
   return {
     QuantitySelector: jest.fn(({ onQuantityChange, testID, maxQuantity, initialQuantity }: any) => {
       return (
-        <div data-testid={testID} data-max={maxQuantity}>
-          <button
-            data-testid={`${testID}-test-button`}
-            onClick={() => onQuantityChange(5)}
+        <View testID={testID}>
+          <Pressable
+            testID={`${testID}-test-button`}
+            onPress={() => onQuantityChange(5)}
           >
-            QuantitySelector
-          </button>
-        </div>
+            <Text>QuantitySelector</Text>
+          </Pressable>
+        </View>
       );
     }),
   };
@@ -22,8 +23,9 @@ jest.mock('@/components/QuantitySelector', () => {
 
 // Mock lucide-react-native X icon
 jest.mock('lucide-react-native', () => {
+  const { View } = require('react-native');
   return {
-    X: jest.fn(() => <div data-testid="mock-x-icon" />),
+    X: jest.fn(() => <View testID="mock-x-icon" />),
   };
 });
 

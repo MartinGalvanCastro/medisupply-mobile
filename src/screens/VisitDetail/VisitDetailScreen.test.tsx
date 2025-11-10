@@ -23,24 +23,30 @@ jest.mock('expo-router', () => ({
   useSegments: jest.fn(),
   useLocalSearchParams: jest.fn(),
 }));
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children, testID, style }: any) => (
-    <div data-testid={testID} style={style}>
-      {children}
-    </div>
-  ),
-}));
+jest.mock('react-native-safe-area-context', () => {
+  const { View } = require('react-native');
+  return {
+    SafeAreaView: ({ children, testID, style, edges }: any) => (
+      <View testID={testID} style={style}>
+        {children}
+      </View>
+    ),
+  };
+});
 
 // Mock lucide-react-native icons
-jest.mock('lucide-react-native', () => ({
-  Building2: () => <div data-testid="building-icon" />,
-  MapPin: () => <div data-testid="map-pin-icon" />,
-  Calendar: () => <div data-testid="calendar-icon" />,
-  ArrowLeft: () => <div data-testid="arrow-left-icon" />,
-  FileText: () => <div data-testid="file-text-icon" />,
-  CheckCircle: () => <div data-testid="check-circle-icon" />,
-  XCircle: () => <div data-testid="x-circle-icon" />,
-}));
+jest.mock('lucide-react-native', () => {
+  const { View } = require('react-native');
+  return {
+  Building2: () => <View testID="building-icon" />,
+  MapPin: () => <View testID="map-pin-icon" />,
+  Calendar: () => <View testID="calendar-icon" />,
+  ArrowLeft: () => <View testID="arrow-left-icon" />,
+  FileText: () => <View testID="file-text-icon" />,
+  CheckCircle: () => <View testID="check-circle-icon" />,
+  XCircle: () => <View testID="x-circle-icon" />,
+};
+});
 
 // Mock useToast
 const mockToastShow = jest.fn();
@@ -51,18 +57,21 @@ jest.mock('@/components/ui/toast', () => ({
 }));
 
 // Mock Modal components
-jest.mock('@/components/ui/modal', () => ({
-  Modal: ({ isOpen, children, onClose, testID }: any) => (
-    isOpen ? <div data-testid={testID} data-onclose={onClose}>{children}</div> : null
-  ),
-  ModalBackdrop: () => <div data-testid="modal-backdrop" />,
-  ModalContent: ({ children, testID }: any) => (
-    <div data-testid={testID}>{children}</div>
-  ),
-  ModalHeader: ({ children }: any) => <div>{children}</div>,
-  ModalBody: ({ children }: any) => <div>{children}</div>,
-  ModalFooter: ({ children }: any) => <div>{children}</div>,
-}));
+jest.mock('@/components/ui/modal', () => {
+  const { View } = require('react-native');
+  return {
+    Modal: ({ isOpen, children, onClose, testID }: any) => (
+      isOpen ? <View testID={testID}>{children}</View> : null
+    ),
+    ModalBackdrop: () => <View testID="modal-backdrop" />,
+    ModalContent: ({ children, testID }: any) => (
+      <View testID={testID}>{children}</View>
+    ),
+    ModalHeader: ({ children }: any) => <View>{children}</View>,
+    ModalBody: ({ children }: any) => <View>{children}</View>,
+    ModalFooter: ({ children }: any) => <View>{children}</View>,
+  };
+});
 
 // Mock formatDate
 jest.mock('@/utils/formatDate', () => ({

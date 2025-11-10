@@ -19,40 +19,49 @@ jest.mock('expo-router', () => ({
   useSegments: jest.fn(),
   useLocalSearchParams: jest.fn(),
 }));
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children, testID, style }: any) => (
-    <div data-testid={testID} style={style}>
-      {children}
-    </div>
-  ),
-}));
+jest.mock('react-native-safe-area-context', () => {
+  const { View } = require('react-native');
+  return {
+    SafeAreaView: ({ children, testID, style, edges }: any) => (
+      <View testID={testID} style={style}>
+        {children}
+      </View>
+    ),
+  };
+});
 
 // Mock FlashList to use a simple FlatList-like component
-jest.mock('@shopify/flash-list', () => ({
-  FlashList: ({ data, renderItem, ListEmptyComponent, testID, keyExtractor }: any) => {
-    if (data && data.length === 0 && ListEmptyComponent) {
-      return <div data-testid={testID}>{ListEmptyComponent()}</div>;
-    }
-    return (
-      <div data-testid={testID}>
-        {data && data.map((item: any) => (
-          <div key={keyExtractor(item)}>
-            {renderItem({ item })}
-          </div>
-        ))}
-      </div>
-    );
-  },
-}));
+jest.mock('@shopify/flash-list', () => {
+  const { View } = require('react-native');
+  return {
+    FlashList: ({ data, renderItem, ListEmptyComponent, testID, keyExtractor }: any) => {
+      if (data && data.length === 0 && ListEmptyComponent) {
+        return <View testID={testID}>{ListEmptyComponent()}</View>;
+      }
+      return (
+        <View testID={testID}>
+          {data && data.map((item: any) => (
+            <View key={keyExtractor(item)}>
+              {renderItem({ item })}
+            </View>
+          ))}
+        </View>
+      );
+    },
+  };
+});
 
 // Mock lucide-react-native icons
-jest.mock('lucide-react-native', () => ({
-  ChevronRight: () => <div data-testid="chevron-right-icon" />,
-  Search: () => <div data-testid="search-icon" />,
-  X: () => <div data-testid="x-icon" />,
-  Calendar: () => <div data-testid="calendar-icon" />,
-  MapPin: () => <div data-testid="map-pin-icon" />,
-}));
+jest.mock('lucide-react-native', () => {
+  const { View } = require('react-native');
+  return {
+  ChevronRight: () => <View testID="chevron-right-icon" />,
+  Search: () => <View testID="search-icon" />,
+  X: () => <View testID="x-icon" />,
+  Calendar: () => <View testID="calendar-icon" />,
+  MapPin: () => <View testID="map-pin-icon" />,
+};
+});
 
 const mockVisits = [
   {
@@ -612,7 +621,7 @@ describe('VisitsScreen', () => {
       render(<VisitsScreen />);
 
       expect(useListVisitsBffSellersAppVisitsGet).toHaveBeenCalledWith(
-        undefined,
+        { date: expect.any(String) },
         {
           query: {
             enabled: true,

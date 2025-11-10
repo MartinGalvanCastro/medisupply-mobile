@@ -54,32 +54,41 @@ jest.mock('@/i18n/hooks', () => ({
   }),
 }));
 
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children, testID, style }: any) => (
-    <div data-testid={testID} style={style}>
-      {children}
-    </div>
-  ),
-}));
+jest.mock('react-native-safe-area-context', () => {
+  const { View } = require('react-native');
+  return {
+    SafeAreaView: ({ children, testID, style, edges }: any) => (
+      <View testID={testID} style={style}>
+        {children}
+      </View>
+    ),
+  };
+});
 
 // Mock FlashList
-jest.mock('@shopify/flash-list', () => ({
-  FlashList: ({ data, renderItem, ListEmptyComponent, testID, keyExtractor }: any) => {
-    if (data && data.length === 0 && ListEmptyComponent) {
-      return <div data-testid={testID}>{ListEmptyComponent()}</div>;
-    }
-    return (
-      <div data-testid={testID}>
-        {data && data.map((item: any) => <div key={keyExtractor(item)}>{renderItem({ item })}</div>)}
-      </div>
-    );
-  },
-}));
+jest.mock('@shopify/flash-list', () => {
+  const { View } = require('react-native');
+  return {
+    FlashList: ({ data, renderItem, ListEmptyComponent, testID, keyExtractor }: any) => {
+      if (data && data.length === 0 && ListEmptyComponent) {
+        return <View testID={testID}>{ListEmptyComponent()}</View>;
+      }
+      return (
+        <View testID={testID}>
+          {data && data.map((item: any) => <View key={keyExtractor(item)}>{renderItem({ item })}</View>)}
+        </View>
+      );
+    },
+  };
+});
 
 // Mock lucide-react-native icons
-jest.mock('lucide-react-native', () => ({
-  ShoppingCart: () => <div data-testid="shopping-cart-icon" />,
-}));
+jest.mock('lucide-react-native', () => {
+  const { View } = require('react-native');
+  return {
+  ShoppingCart: () => <View testID="shopping-cart-icon" />,
+};
+});
 
 // Mock CartItemCard
 jest.mock('@/components/CartItemCard', () => ({

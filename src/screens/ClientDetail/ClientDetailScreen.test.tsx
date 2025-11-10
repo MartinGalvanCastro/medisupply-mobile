@@ -21,13 +21,16 @@ jest.mock('expo-router', () => ({
   useSegments: jest.fn(),
   useLocalSearchParams: jest.fn(),
 }));
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children, testID, style, edges }: any) => (
-    <div data-testid={testID} style={style} data-edges={edges?.join(',')}>
-      {children}
-    </div>
-  ),
-}));
+jest.mock('react-native-safe-area-context', () => {
+  const { View } = require('react-native');
+  return {
+    SafeAreaView: ({ children, testID, style, edges }: any) => (
+      <View testID={testID} style={style}>
+        {children}
+      </View>
+    ),
+  };
+});
 
 // Mock DateTimePicker
 jest.mock('@react-native-community/datetimepicker', () => {
@@ -49,17 +52,20 @@ jest.mock('@react-native-community/datetimepicker', () => {
 });
 
 // Mock lucide-react-native icons
-jest.mock('lucide-react-native', () => ({
-  Mail: () => <div data-testid="mail-icon" />,
-  Phone: () => <div data-testid="phone-icon" />,
-  Building2: () => <div data-testid="building-icon" />,
-  MapPin: () => <div data-testid="map-pin-icon" />,
-  FileText: () => <div data-testid="file-text-icon" />,
-  UserCircle: () => <div data-testid="user-circle-icon" />,
-  Calendar: () => <div data-testid="calendar-icon" />,
-  Clock: () => <div data-testid="clock-icon" />,
-  ArrowLeft: () => <div data-testid="arrow-left-icon" />,
-}));
+jest.mock('lucide-react-native', () => {
+  const { View } = require('react-native');
+  return {
+    Mail: () => <View testID="mail-icon" />,
+    Phone: () => <View testID="phone-icon" />,
+    Building2: () => <View testID="building-icon" />,
+    MapPin: () => <View testID="map-pin-icon" />,
+    FileText: () => <View testID="file-text-icon" />,
+    UserCircle: () => <View testID="user-circle-icon" />,
+    Calendar: () => <View testID="calendar-icon" />,
+    Clock: () => <View testID="clock-icon" />,
+    ArrowLeft: () => <View testID="arrow-left-icon" />,
+  };
+});
 
 // Mock toast
 jest.mock('@/components/ui/toast', () => ({
