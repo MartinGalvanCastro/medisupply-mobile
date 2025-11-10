@@ -39,5 +39,42 @@ jest.mock('expo-localization', () => ({
   getLocales: jest.fn(() => [{ languageCode: 'en' }]),
 }));
 
+// Mock expo-image-picker
+jest.mock('expo-image-picker', () => ({
+  launchCameraAsync: jest.fn(),
+  launchImageLibraryAsync: jest.fn(),
+  MediaTypeOptions: {
+    Images: 'Images',
+    Videos: 'Videos',
+    All: 'All',
+  },
+}));
+
+// Mock react-native-permissions
+jest.mock('react-native-permissions', () => ({
+  PERMISSIONS: {
+    IOS: {
+      CAMERA: 'ios.permission.CAMERA',
+      PHOTO_LIBRARY: 'ios.permission.PHOTO_LIBRARY',
+    },
+    ANDROID: {
+      CAMERA: 'android.permission.CAMERA',
+      READ_EXTERNAL_STORAGE: 'android.permission.READ_EXTERNAL_STORAGE',
+      READ_MEDIA_IMAGES: 'android.permission.READ_MEDIA_IMAGES',
+      READ_MEDIA_VIDEO: 'android.permission.READ_MEDIA_VIDEO',
+    },
+  },
+  RESULTS: {
+    UNAVAILABLE: 'unavailable',
+    DENIED: 'denied',
+    BLOCKED: 'blocked',
+    GRANTED: 'granted',
+    LIMITED: 'limited',
+  },
+  check: jest.fn(async () => 'granted'),
+  request: jest.fn(async () => 'granted'),
+  openSettings: jest.fn(async () => {}),
+}));
+
 // Setup testing library
 require('@testing-library/react-native/dont-cleanup-after-each');

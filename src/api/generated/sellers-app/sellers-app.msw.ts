@@ -226,27 +226,6 @@ export const getCreateOrderBffSellersAppOrdersPostMockHandler = (
   );
 };
 
-export const getCreateClientBffSellersAppClientsPostMockHandler = (
-  overrideResponse?:
-    | unknown
-    | ((
-        info: Parameters<Parameters<typeof http.post>[1]>[0],
-      ) => Promise<unknown> | unknown),
-  options?: RequestHandlerOptions,
-) => {
-  return http.post(
-    "*/bff/sellers-app/clients",
-    async (info) => {
-      await delay(1000);
-      if (typeof overrideResponse === "function") {
-        await overrideResponse(info);
-      }
-      return new HttpResponse(null, { status: 201 });
-    },
-    options,
-  );
-};
-
 export const getListClientsBffSellersAppClientsGetMockHandler = (
   overrideResponse?:
     | ClientListResponse
@@ -421,7 +400,6 @@ export const getConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPo
   };
 export const getSellersAppMock = () => [
   getCreateOrderBffSellersAppOrdersPostMockHandler(),
-  getCreateClientBffSellersAppClientsPostMockHandler(),
   getListClientsBffSellersAppClientsGetMockHandler(),
   getCreateVisitBffSellersAppVisitsPostMockHandler(),
   getListVisitsBffSellersAppVisitsGetMockHandler(),

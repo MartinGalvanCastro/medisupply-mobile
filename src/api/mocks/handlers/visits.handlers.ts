@@ -68,10 +68,10 @@ const getVisitsHandler: MockHandler = {
       recomendaciones: visit.recomendaciones || null,
       archivos_evidencia: visit.archivos_evidencia || [],
       client_representante: visit.client.name,
-      client_nombre_institucion: visit.client.institution_name,
-      client_direccion: visit.client.address,
-      client_ciudad: visit.client.city,
-      client_pais: visit.client.country,
+      client_nombre_institucion: visit.client.nombre_institucion,
+      client_direccion: visit.client.direccion,
+      client_ciudad: visit.client.ciudad,
+      client_pais: visit.client.pais,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }));
@@ -124,10 +124,10 @@ const getVisitByIdHandler: MockHandler = {
       recomendaciones: visit.recomendaciones || null,
       archivos_evidencia: visit.archivos_evidencia || [],
       client_representante: visit.client.name,
-      client_nombre_institucion: visit.client.institution_name,
-      client_direccion: visit.client.address,
-      client_ciudad: visit.client.city,
-      client_pais: visit.client.country,
+      client_nombre_institucion: visit.client.nombre_institucion,
+      client_direccion: visit.client.direccion,
+      client_ciudad: visit.client.ciudad,
+      client_pais: visit.client.pais,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -197,7 +197,7 @@ const createVisitHandler: MockHandler = {
       fecha_visita: body.fecha_visita,
       notas_visita: body.notas_visita || '',
       status: 'programada',
-      location: client.address || 'N/A',
+      location: client.direccion || 'N/A',
     };
 
     // Add to mock data (in-memory)

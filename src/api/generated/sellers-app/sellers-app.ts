@@ -22,7 +22,6 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
-  ClientCreateInput,
   ClientListResponse,
   ConfirmEvidenceUploadRequestBFF,
   CreateVisitRequestBFF,
@@ -154,114 +153,6 @@ export const useCreateOrderBffSellersAppOrdersPost = <
 > => {
   const mutationOptions =
     getCreateOrderBffSellersAppOrdersPostMutationOptions(options);
-
-  return useMutation(mutationOptions, queryClient);
-};
-/**
- * Create a new client via sellers app.
-
-Requires mobile seller authentication (seller_users group).
-
-Args:
-    client_input: Client creation input
-    client_port: Client port for service communication
-    user: Authenticated seller user
-
-Returns:
-    Client creation response with ID and message
-
-Raises:
-    HTTPException: If client creation fails
- * @summary Create Client
- */
-export const createClientBffSellersAppClientsPost = (
-  clientCreateInput: ClientCreateInput,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
-) => {
-  return customInstance<unknown>(
-    {
-      url: `/bff/sellers-app/clients`,
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      data: clientCreateInput,
-      signal,
-    },
-    options,
-  );
-};
-
-export const getCreateClientBffSellersAppClientsPostMutationOptions = <
-  TError = void | HTTPValidationError,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof createClientBffSellersAppClientsPost>>,
-    TError,
-    { data: ClientCreateInput },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof createClientBffSellersAppClientsPost>>,
-  TError,
-  { data: ClientCreateInput },
-  TContext
-> => {
-  const mutationKey = ["createClientBffSellersAppClientsPost"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof createClientBffSellersAppClientsPost>>,
-    { data: ClientCreateInput }
-  > = (props) => {
-    const { data } = props ?? {};
-
-    return createClientBffSellersAppClientsPost(data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type CreateClientBffSellersAppClientsPostMutationResult = NonNullable<
-  Awaited<ReturnType<typeof createClientBffSellersAppClientsPost>>
->;
-export type CreateClientBffSellersAppClientsPostMutationBody =
-  ClientCreateInput;
-export type CreateClientBffSellersAppClientsPostMutationError =
-  void | HTTPValidationError;
-
-/**
- * @summary Create Client
- */
-export const useCreateClientBffSellersAppClientsPost = <
-  TError = void | HTTPValidationError,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof createClientBffSellersAppClientsPost>>,
-      TError,
-      { data: ClientCreateInput },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof createClientBffSellersAppClientsPost>>,
-  TError,
-  { data: ClientCreateInput },
-  TContext
-> => {
-  const mutationOptions =
-    getCreateClientBffSellersAppClientsPostMutationOptions(options);
 
   return useMutation(mutationOptions, queryClient);
 };

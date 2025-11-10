@@ -19,12 +19,16 @@ module.exports = {
     '!src/**/index.ts',
     '!src/**/types.ts',
     '!src/api/**', // Exclude entire API folder (generated and manual code)
+    '!src/api/mocks/**', // Exclude mock handlers and data
+    '!src/api/generated/**', // Exclude generated API code
     '!src/components/ui/**',
     '!src/i18n/config/**', // i18n config has optional chaining in module initialization
   ],
   coveragePathIgnorePatterns: [
     '/node_modules/',
     '/src/api/',
+    '/src/api/mocks/',
+    '/src/api/generated/',
   ],
   coverageThreshold: {
     global: {

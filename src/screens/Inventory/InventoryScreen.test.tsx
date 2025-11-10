@@ -11,36 +11,45 @@ import type { MockInventory } from '@/api/mocks/inventory';
 jest.mock('@/i18n/hooks');
 jest.mock('@/store/useCartStore');
 jest.mock('@/api/useInventory');
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children, testID, style }: any) => (
-    <div testID={testID} style={style}>
-      {children}
-    </div>
-  ),
-}));
-jest.mock('@shopify/flash-list', () => ({
-  FlashList: ({ data, renderItem, ListEmptyComponent, testID, keyExtractor }: any) => {
-    if (data && data.length === 0 && ListEmptyComponent) {
-      return <div testID={testID}>{ListEmptyComponent()}</div>;
-    }
-    return (
-      <div testID={testID}>
-        {data && data.map((item: any) => (
-          <div key={keyExtractor(item)}>
-            {renderItem({ item })}
-          </div>
-        ))}
-      </div>
-    );
-  },
-}));
-jest.mock('lucide-react-native', () => ({
-  ChevronRight: () => <div testID="chevron-right-icon" />,
-  Search: () => <div testID="search-icon" />,
-  X: () => <div testID="x-icon" />,
-  Package: () => <div testID="package-icon" />,
-  AlertCircle: () => <div testID="alert-circle-icon" />,
-}));
+jest.mock('react-native-safe-area-context', () => {
+  const { View } = require('react-native');
+  return {
+    SafeAreaView: ({ children, testID, style, edges }: any) => (
+      <View testID={testID} style={style}>
+        {children}
+      </View>
+    ),
+  };
+});
+jest.mock('@shopify/flash-list', () => {
+  const { View } = require('react-native');
+  return {
+    FlashList: ({ data, renderItem, ListEmptyComponent, testID, keyExtractor }: any) => {
+      if (data && data.length === 0 && ListEmptyComponent) {
+        return <View testID={testID}>{ListEmptyComponent()}</View>;
+      }
+      return (
+        <View testID={testID}>
+          {data && data.map((item: any) => (
+            <View key={keyExtractor(item)}>
+              {renderItem({ item })}
+            </View>
+          ))}
+        </View>
+      );
+    },
+  };
+});
+jest.mock('lucide-react-native', () => {
+  const { View } = require('react-native');
+  return {
+  ChevronRight: () => <View testID="chevron-right-icon" />,
+  Search: () => <View testID="search-icon" />,
+  X: () => <View testID="x-icon" />,
+  Package: () => <View testID="package-icon" />,
+  AlertCircle: () => <View testID="alert-circle-icon" />,
+};
+});
 
 // Mock AddToCartModal component
 jest.mock('./AddToCartModal', () => {
@@ -167,7 +176,7 @@ describe('InventoryScreen', () => {
       },
     });
 
-    (useCartStore as jest.Mock).mockImplementation((selector: any) => {
+    (useCartStore as unknown as jest.Mock).mockImplementation((selector: any) => {
       const state = {
         addItem: mockAddItem,
       };

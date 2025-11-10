@@ -28,9 +28,9 @@ const getClientsHandler: MockHandler = {
       filteredClients = mockClients.filter((client) => {
         return (
           client.name.toLowerCase().includes(search) ||
-          client.institution_name.toLowerCase().includes(search) ||
+          client.nombre_institucion.toLowerCase().includes(search) ||
           client.email.toLowerCase().includes(search) ||
-          client.city.toLowerCase().includes(search)
+          client.ciudad.toLowerCase().includes(search)
         );
       });
     }
@@ -40,13 +40,13 @@ const getClientsHandler: MockHandler = {
       cliente_id: client.id,
       cognito_user_id: `user-${client.id}`,
       representante: client.name,
-      nombre_institucion: client.institution_name,
+      nombre_institucion: client.nombre_institucion,
       tipo_institucion: client.institution_type,
       nit: client.nit,
-      direccion: client.address,
-      ciudad: client.city,
-      pais: client.country,
-      telefono: client.phone,
+      direccion: client.direccion,
+      ciudad: client.ciudad,
+      pais: client.pais,
+      telefono: client.telefono,
       email: client.email,
       vendedor_asignado_id: null,
       created_at: '2024-01-01T00:00:00Z',
@@ -94,13 +94,13 @@ const getClientByIdHandler: MockHandler = {
       cliente_id: client.id,
       cognito_user_id: `user-${client.id}`,
       representante: client.name,
-      nombre_institucion: client.institution_name,
+      nombre_institucion: client.nombre_institucion,
       tipo_institucion: client.institution_type,
       nit: client.nit,
-      direccion: client.address,
-      ciudad: client.city,
-      pais: client.country,
-      telefono: client.phone,
+      direccion: client.direccion,
+      ciudad: client.ciudad,
+      pais: client.pais,
+      telefono: client.telefono,
       email: client.email,
       vendedor_asignado_id: null,
       created_at: '2024-01-01T00:00:00Z',
