@@ -230,7 +230,7 @@ describe('VisitCard Component', () => {
       const { queryByTestId } = render(
         <VisitCard
           {...defaultProps}
-          visit={{ ...mockVisit, location: null }}
+          visit={{ ...mockVisit, location: undefined }}
         />
       );
 

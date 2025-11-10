@@ -56,7 +56,7 @@ jest.mock('@/i18n/hooks', () => ({
 
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children, testID, style }: any) => (
-    <div testID={testID} style={style}>
+    <div data-testid={testID} style={style}>
       {children}
     </div>
   ),
@@ -66,10 +66,10 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('@shopify/flash-list', () => ({
   FlashList: ({ data, renderItem, ListEmptyComponent, testID, keyExtractor }: any) => {
     if (data && data.length === 0 && ListEmptyComponent) {
-      return <div testID={testID}>{ListEmptyComponent()}</div>;
+      return <div data-testid={testID}>{ListEmptyComponent()}</div>;
     }
     return (
-      <div testID={testID}>
+      <div data-testid={testID}>
         {data && data.map((item: any) => <div key={keyExtractor(item)}>{renderItem({ item })}</div>)}
       </div>
     );
@@ -78,7 +78,7 @@ jest.mock('@shopify/flash-list', () => ({
 
 // Mock lucide-react-native icons
 jest.mock('lucide-react-native', () => ({
-  ShoppingCart: () => <div testID="shopping-cart-icon" />,
+  ShoppingCart: () => <div data-testid="shopping-cart-icon" />,
 }));
 
 // Mock CartItemCard

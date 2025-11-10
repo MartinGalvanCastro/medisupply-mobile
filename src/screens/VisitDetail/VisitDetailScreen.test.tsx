@@ -25,7 +25,7 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children, testID, style }: any) => (
-    <div testID={testID} style={style}>
+    <div data-testid={testID} style={style}>
       {children}
     </div>
   ),
@@ -33,13 +33,13 @@ jest.mock('react-native-safe-area-context', () => ({
 
 // Mock lucide-react-native icons
 jest.mock('lucide-react-native', () => ({
-  Building2: () => <div testID="building-icon" />,
-  MapPin: () => <div testID="map-pin-icon" />,
-  Calendar: () => <div testID="calendar-icon" />,
-  ArrowLeft: () => <div testID="arrow-left-icon" />,
-  FileText: () => <div testID="file-text-icon" />,
-  CheckCircle: () => <div testID="check-circle-icon" />,
-  XCircle: () => <div testID="x-circle-icon" />,
+  Building2: () => <div data-testid="building-icon" />,
+  MapPin: () => <div data-testid="map-pin-icon" />,
+  Calendar: () => <div data-testid="calendar-icon" />,
+  ArrowLeft: () => <div data-testid="arrow-left-icon" />,
+  FileText: () => <div data-testid="file-text-icon" />,
+  CheckCircle: () => <div data-testid="check-circle-icon" />,
+  XCircle: () => <div data-testid="x-circle-icon" />,
 }));
 
 // Mock useToast
@@ -53,11 +53,11 @@ jest.mock('@/components/ui/toast', () => ({
 // Mock Modal components
 jest.mock('@/components/ui/modal', () => ({
   Modal: ({ isOpen, children, onClose, testID }: any) => (
-    isOpen ? <div testID={testID} data-onclose={onClose}>{children}</div> : null
+    isOpen ? <div data-testid={testID} data-onclose={onClose}>{children}</div> : null
   ),
-  ModalBackdrop: () => <div testID="modal-backdrop" />,
+  ModalBackdrop: () => <div data-testid="modal-backdrop" />,
   ModalContent: ({ children, testID }: any) => (
-    <div testID={testID}>{children}</div>
+    <div data-testid={testID}>{children}</div>
   ),
   ModalHeader: ({ children }: any) => <div>{children}</div>,
   ModalBody: ({ children }: any) => <div>{children}</div>,

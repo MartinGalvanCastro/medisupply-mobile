@@ -521,7 +521,7 @@ describe('ProductCard Component', () => {
         expect(pressedStylesArray).toBeDefined();
         expect(Array.isArray(pressedStylesArray)).toBe(true);
         // Verify that the pressed style is included when pressed is true
-        expect(pressedStylesArray.some(s => s && typeof s === 'object')).toBe(true);
+        expect(pressedStylesArray.some((s: any) => s && typeof s === 'object')).toBe(true);
       }
     });
 

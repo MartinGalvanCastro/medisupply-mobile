@@ -21,7 +21,7 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children, testID, style }: any) => (
-    <div testID={testID} style={style}>
+    <div data-testid={testID} style={style}>
       {children}
     </div>
   ),
@@ -31,10 +31,10 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('@shopify/flash-list', () => ({
   FlashList: ({ data, renderItem, ListEmptyComponent, testID, keyExtractor }: any) => {
     if (data && data.length === 0 && ListEmptyComponent) {
-      return <div testID={testID}>{ListEmptyComponent()}</div>;
+      return <div data-testid={testID}>{ListEmptyComponent()}</div>;
     }
     return (
-      <div testID={testID}>
+      <div data-testid={testID}>
         {data && data.map((item: any) => (
           <div key={keyExtractor(item)}>
             {renderItem({ item })}
@@ -47,11 +47,11 @@ jest.mock('@shopify/flash-list', () => ({
 
 // Mock lucide-react-native icons
 jest.mock('lucide-react-native', () => ({
-  ChevronRight: () => <div testID="chevron-right-icon" />,
-  Search: () => <div testID="search-icon" />,
-  X: () => <div testID="x-icon" />,
-  Calendar: () => <div testID="calendar-icon" />,
-  MapPin: () => <div testID="map-pin-icon" />,
+  ChevronRight: () => <div data-testid="chevron-right-icon" />,
+  Search: () => <div data-testid="search-icon" />,
+  X: () => <div data-testid="x-icon" />,
+  Calendar: () => <div data-testid="calendar-icon" />,
+  MapPin: () => <div data-testid="map-pin-icon" />,
 }));
 
 const mockVisits = [

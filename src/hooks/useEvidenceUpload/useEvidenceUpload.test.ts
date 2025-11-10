@@ -1,6 +1,7 @@
 import { renderHook, act } from '@testing-library/react-native';
 import { useEvidenceUpload } from '../useEvidenceUpload';
 import type { MediaFile } from '@/hooks/useMediaFileManager';
+import type { UploadResult } from './types';
 
 // Mock the generated API hooks
 jest.mock('@/api/generated/sellers-app/sellers-app', () => ({
@@ -101,7 +102,7 @@ describe('useEvidenceUpload', () => {
 
       const { result } = renderHook(() => useEvidenceUpload({ visitId }));
 
-      let uploadResult;
+      let uploadResult: UploadResult | undefined;
       await act(async () => {
         uploadResult = await result.current.uploadFiles([file]);
       });
@@ -171,7 +172,7 @@ describe('useEvidenceUpload', () => {
 
       const { result } = renderHook(() => useEvidenceUpload({ visitId }));
 
-      let uploadResult;
+      let uploadResult: UploadResult | undefined;
       await act(async () => {
         uploadResult = await result.current.uploadFiles(files);
       });
@@ -212,7 +213,7 @@ describe('useEvidenceUpload', () => {
 
       const { result } = renderHook(() => useEvidenceUpload({ visitId }));
 
-      let uploadResult;
+      let uploadResult: UploadResult | undefined;
       await act(async () => {
         uploadResult = await result.current.uploadFiles([file]);
       });
@@ -264,7 +265,7 @@ describe('useEvidenceUpload', () => {
 
       const { result } = renderHook(() => useEvidenceUpload({ visitId }));
 
-      let uploadResult;
+      let uploadResult: UploadResult | undefined;
       await act(async () => {
         uploadResult = await result.current.uploadFiles([file]);
       });
@@ -321,7 +322,7 @@ describe('useEvidenceUpload', () => {
 
       const { result } = renderHook(() => useEvidenceUpload({ visitId }));
 
-      let uploadResult;
+      let uploadResult: UploadResult | undefined;
       await act(async () => {
         uploadResult = await result.current.uploadFiles([file]);
       });
@@ -397,7 +398,7 @@ describe('useEvidenceUpload', () => {
 
       const { result } = renderHook(() => useEvidenceUpload({ visitId }));
 
-      let uploadResult;
+      let uploadResult: UploadResult | undefined;
       await act(async () => {
         uploadResult = await result.current.uploadFiles(files);
       });
@@ -410,7 +411,7 @@ describe('useEvidenceUpload', () => {
     it('should return empty files on empty input', async () => {
       const { result } = renderHook(() => useEvidenceUpload({ visitId }));
 
-      let uploadResult;
+      let uploadResult: UploadResult | undefined;
       await act(async () => {
         uploadResult = await result.current.uploadFiles([]);
       });
@@ -807,7 +808,7 @@ describe('useEvidenceUpload', () => {
 
       const { result } = renderHook(() => useEvidenceUpload({ visitId }));
 
-      let uploadResult;
+      let uploadResult: UploadResult | undefined;
       await act(async () => {
         uploadResult = await result.current.uploadFiles([file]);
       });
@@ -871,7 +872,7 @@ describe('useEvidenceUpload', () => {
 
       const { result } = renderHook(() => useEvidenceUpload({ visitId }));
 
-      let uploadResult;
+      let uploadResult: UploadResult | undefined;
       await act(async () => {
         uploadResult = await result.current.uploadFiles(files);
       });
@@ -942,7 +943,7 @@ describe('useEvidenceUpload', () => {
 
       const { result } = renderHook(() => useEvidenceUpload({ visitId }));
 
-      let uploadResult;
+      let uploadResult: UploadResult | undefined;
       await act(async () => {
         uploadResult = await result.current.uploadFiles(files);
       });
@@ -981,7 +982,7 @@ describe('useEvidenceUpload', () => {
 
       const { result } = renderHook(() => useEvidenceUpload({ visitId }));
 
-      let uploadResult;
+      let uploadResult: UploadResult | undefined;
       await act(async () => {
         uploadResult = await result.current.uploadFiles([file]);
       });

@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react-native';
-import { useMediaFileManager } from '../useMediaFileManager';
-import type { MediaFile } from '../types';
+import { useMediaFileManager } from './useMediaFileManager';
+import type { MediaFile } from './types';
 
 describe('useMediaFileManager', () => {
   describe('initial state', () => {

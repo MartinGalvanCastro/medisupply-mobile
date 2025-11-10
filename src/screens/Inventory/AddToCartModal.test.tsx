@@ -7,10 +7,10 @@ jest.mock('@/components/QuantitySelector', () => {
   return {
     QuantitySelector: jest.fn(({ onQuantityChange, testID, maxQuantity, initialQuantity }: any) => {
       return (
-        <div testID={testID} data-max={maxQuantity}>
+        <div data-testid={testID} data-max={maxQuantity}>
           <button
-            testID={`${testID}-test-button`}
-            onPress={() => onQuantityChange(5)}
+            data-testid={`${testID}-test-button`}
+            onClick={() => onQuantityChange(5)}
           >
             QuantitySelector
           </button>
@@ -23,7 +23,7 @@ jest.mock('@/components/QuantitySelector', () => {
 // Mock lucide-react-native X icon
 jest.mock('lucide-react-native', () => {
   return {
-    X: jest.fn(() => <div testID="mock-x-icon" />),
+    X: jest.fn(() => <div data-testid="mock-x-icon" />),
   };
 });
 

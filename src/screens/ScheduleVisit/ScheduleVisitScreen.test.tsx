@@ -23,7 +23,7 @@ jest.mock('expo-router', () => ({
 jest.mock('@/components/ui/toast');
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children, testID, style, edges }: any) => (
-    <div testID={testID} style={style} data-edges={edges?.join(',')}>
+    <div data-testid={testID} style={style} data-edges={edges?.join(',')}>
       {children}
     </div>
   ),
@@ -55,9 +55,9 @@ jest.mock('@react-native-community/datetimepicker', () => {
 
 // Mock lucide-react-native icons
 jest.mock('lucide-react-native', () => ({
-  Calendar: () => <div testID="calendar-icon" />,
-  Clock: () => <div testID="clock-icon" />,
-  ArrowLeft: () => <div testID="arrow-left-icon" />,
+  Calendar: () => <div data-testid="calendar-icon" />,
+  Clock: () => <div data-testid="clock-icon" />,
+  ArrowLeft: () => <div data-testid="arrow-left-icon" />,
 }));
 
 const mockCreateVisit = jest.fn();

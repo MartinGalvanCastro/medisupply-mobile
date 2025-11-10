@@ -284,7 +284,7 @@ describe('usePermission', () => {
       (PermissionManager.checkPermission as jest.Mock).mockResolvedValue(RESULTS.GRANTED);
 
       const { result, rerender } = renderHook(
-        ({ type }) => usePermission(type),
+        ({ type }: { type: any }) => usePermission(type),
         { initialProps: { type: 'camera' as const } }
       );
 
