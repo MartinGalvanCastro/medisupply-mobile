@@ -15,23 +15,37 @@ import {
   Video,
   X,
 } from 'lucide-react-native';
-import { useState } from 'react';
 import { useToast } from '@/components/ui/toast';
-
-type MediaFile = {
-  id: string;
-  uri: string;
-  type: 'photo' | 'video';
-  name: string;
-};
+import { useMediaFileManager } from '@/hooks/useMediaFileManager';
+import { useMediaPicker } from '@/hooks/useMediaPicker';
+import { useEvidenceUpload } from '@/hooks/useEvidenceUpload';
 
 export const UploadEvidenceScreen = () => {
   const { t } = useTranslation();
   const toast = useToast();
   const { visitId } = useLocalSearchParams<{ visitId: string }>();
 
-  const [files, setFiles] = useState<MediaFile[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
+  // Custom hooks for file management, media picking, and uploading
+  const { files, addFiles, removeFile, hasFiles } = useMediaFileManager();
+  const { uploadFiles, isUploading } = useEvidenceUpload({ visitId: visitId || '' });
+
+  const { takePhoto, uploadPhotos, uploadVideos, isProcessing } = useMediaPicker({
+    onFilesSelected: addFiles,
+    onError: (error) => {
+      toast.show({
+        placement: 'top',
+        render: ({ id }) => {
+          return (
+            <VStack className="bg-error-500 p-4 rounded-lg">
+              <Text className="text-white font-semibold">
+                Camera not available on simulator. Please use a physical device to test camera features.
+              </Text>
+            </VStack>
+          );
+        },
+      });
+    },
+  });
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -41,63 +55,8 @@ export const UploadEvidenceScreen = () => {
     }
   };
 
-  const handleTakePhoto = async () => {
-    // TODO: Implement camera functionality
-    // For now, show a placeholder message
-    toast.show({
-      placement: 'top',
-      render: ({ id }) => {
-        return (
-          <VStack className="bg-info-500 p-4 rounded-lg">
-            <Text className="text-white font-semibold">
-              Camera functionality will be implemented
-            </Text>
-          </VStack>
-        );
-      },
-    });
-  };
-
-  const handleUploadPhoto = async () => {
-    // TODO: Implement photo picker functionality
-    // For now, show a placeholder message
-    toast.show({
-      placement: 'top',
-      render: ({ id }) => {
-        return (
-          <VStack className="bg-info-500 p-4 rounded-lg">
-            <Text className="text-white font-semibold">
-              Photo picker will be implemented
-            </Text>
-          </VStack>
-        );
-      },
-    });
-  };
-
-  const handleUploadVideo = async () => {
-    // TODO: Implement video picker functionality
-    // For now, show a placeholder message
-    toast.show({
-      placement: 'top',
-      render: ({ id }) => {
-        return (
-          <VStack className="bg-info-500 p-4 rounded-lg">
-            <Text className="text-white font-semibold">
-              Video picker will be implemented
-            </Text>
-          </VStack>
-        );
-      },
-    });
-  };
-
-  const handleRemoveFile = (fileId: string) => {
-    setFiles((prev) => prev.filter((f) => f.id !== fileId));
-  };
-
   const handleUploadEvidence = async () => {
-    if (files.length === 0) {
+    if (!hasFiles) {
       toast.show({
         placement: 'top',
         render: ({ id }) => {
@@ -113,16 +72,9 @@ export const UploadEvidenceScreen = () => {
       return;
     }
 
-    setIsUploading(true);
+    const result = await uploadFiles(files);
 
-    // TODO: Implement actual upload logic
-    // 1. Generate upload URL for each file
-    // 2. Upload files to S3
-    // 3. Confirm upload to backend
-
-    // Simulate upload delay
-    setTimeout(() => {
-      setIsUploading(false);
+    if (result.success) {
       toast.show({
         placement: 'top',
         render: ({ id }) => {
@@ -135,10 +87,21 @@ export const UploadEvidenceScreen = () => {
           );
         },
       });
-
-      // Navigate back to visits
       router.replace('/(tabs)/visits');
-    }, 2000);
+    } else {
+      toast.show({
+        placement: 'top',
+        render: ({ id }) => {
+          return (
+            <VStack className="bg-error-500 p-4 rounded-lg">
+              <Text className="text-white font-semibold">
+                {result.errors.join('\n')}
+              </Text>
+            </VStack>
+          );
+        },
+      });
+    }
   };
 
   const handleSkip = () => {
@@ -166,10 +129,11 @@ export const UploadEvidenceScreen = () => {
           <Card variant="elevated" className="p-4 bg-white">
             <VStack space="md">
               <Button
-                onPress={handleTakePhoto}
+                onPress={takePhoto}
                 variant="outline"
                 size="lg"
                 testID="take-photo-button"
+                isDisabled={isProcessing}
               >
                 <HStack space="sm" className="items-center">
                   <Camera size={20} color="#6b7280" />
@@ -178,10 +142,11 @@ export const UploadEvidenceScreen = () => {
               </Button>
 
               <Button
-                onPress={handleUploadPhoto}
+                onPress={uploadPhotos}
                 variant="outline"
                 size="lg"
                 testID="upload-photo-button"
+                isDisabled={isProcessing}
               >
                 <HStack space="sm" className="items-center">
                   <ImageIcon size={20} color="#6b7280" />
@@ -190,10 +155,11 @@ export const UploadEvidenceScreen = () => {
               </Button>
 
               <Button
-                onPress={handleUploadVideo}
+                onPress={uploadVideos}
                 variant="outline"
                 size="lg"
                 testID="upload-video-button"
+                isDisabled={isProcessing}
               >
                 <HStack space="sm" className="items-center">
                   <Video size={20} color="#6b7280" />
@@ -222,9 +188,13 @@ export const UploadEvidenceScreen = () => {
                     >
                       <HStack space="md" className="items-center flex-1">
                         {file.type === 'photo' ? (
-                          <ImageIcon size={24} color="#6b7280" />
+                          <Image
+                            source={{ uri: file.uri }}
+                            style={styles.thumbnail}
+                            resizeMode="cover"
+                          />
                         ) : (
-                          <Video size={24} color="#6b7280" />
+                          <Video size={40} color="#6b7280" />
                         )}
                         <Text className="flex-1 text-typography-900" numberOfLines={1}>
                           {file.name}
@@ -232,7 +202,7 @@ export const UploadEvidenceScreen = () => {
                       </HStack>
 
                       <Pressable
-                        onPress={() => handleRemoveFile(file.id)}
+                        onPress={() => removeFile(file.id)}
                         testID={`remove-file-${file.id}`}
                         style={styles.removeButton}
                       >
@@ -252,7 +222,7 @@ export const UploadEvidenceScreen = () => {
               action="positive"
               size="lg"
               testID="upload-evidence-button"
-              isDisabled={isUploading || files.length === 0}
+              isDisabled={isUploading || isProcessing}
             >
               <ButtonText>
                 {isUploading ? t('uploadEvidence.uploading') : t('uploadEvidence.uploadButton')}
@@ -264,7 +234,7 @@ export const UploadEvidenceScreen = () => {
               variant="outline"
               size="lg"
               testID="skip-button"
-              isDisabled={isUploading}
+              isDisabled={isUploading || isProcessing}
             >
               <ButtonText>{t('uploadEvidence.skipButton')}</ButtonText>
             </Button>
@@ -286,5 +256,10 @@ const styles = StyleSheet.create({
   },
   removeButton: {
     padding: 4,
+  },
+  thumbnail: {
+    width: 40,
+    height: 40,
+    borderRadius: 4,
   },
 });

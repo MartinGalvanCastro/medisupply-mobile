@@ -831,17 +831,17 @@
   integrity sha512-hIn0ncNaJRLkZrxBIp5AsW/eXEHNKYQBh0aPdoUqNgD+Io3NIykQqpKFyKcuasZhicGaEZJX/JBSIkZ4e5x8Dg==
 
 "@emnapi/core@^1.4.3":
-  version "1.6.0"
-  resolved "https://registry.yarnpkg.com/@emnapi/core/-/core-1.6.0.tgz#517f65d1c8270d5d5aa1aad660d5acb897430dca"
-  integrity sha512-zq/ay+9fNIJJtJiZxdTnXS20PllcYMX3OE23ESc4HK/bdYu3cOWYVhsOhVnXALfU/uqJIxn5NBPd9z4v+SfoSg==
+  version "1.7.0"
+  resolved "https://registry.yarnpkg.com/@emnapi/core/-/core-1.7.0.tgz#135de4e8858763989112281bdf38ca02439db7c3"
+  integrity sha512-pJdKGq/1iquWYtv1RRSljZklxHCOCAJFJrImO5ZLKPJVJlVUcs8yFwNQlqS0Lo8xT1VAXXTCZocF9n26FWEKsw==
   dependencies:
     "@emnapi/wasi-threads" "1.1.0"
     tslib "^2.4.0"
 
 "@emnapi/runtime@^1.4.3":
-  version "1.6.0"
-  resolved "https://registry.yarnpkg.com/@emnapi/runtime/-/runtime-1.6.0.tgz#8fe297e0090f6e89a57a1f31f1c440bdbc3c01d8"
-  integrity sha512-obtUmAHTMjll499P+D9A3axeJFlhdjOWdKUNs/U6QIGT7V5RjcUW1xToAzjvmgTSQhDbYn/NwfTRoJcQ2rNBxA==
+  version "1.7.0"
+  resolved "https://registry.yarnpkg.com/@emnapi/runtime/-/runtime-1.7.0.tgz#d7ef3832df8564fe5903bf0567aedbd19538ecbe"
+  integrity sha512-oAYoQnCYaQZKVS53Fq23ceWMRxq5EhQsE0x0RdQ55jT7wagMu5k+fS39v1fiSLrtrLQlXwVINenqhLMtTrV/1Q==
   dependencies:
     tslib "^2.4.0"
 
@@ -1090,7 +1090,7 @@
   resolved "https://registry.npmjs.org/@expo/config-types/-/config-types-54.0.8.tgz"
   integrity sha512-lyIn/x/Yz0SgHL7IGWtgTLg6TJWC9vL7489++0hzCHZ4iGjVcfZmPTUfiragZ3HycFFj899qN0jlhl49IHa94A==
 
-"@expo/config@~12.0.10":
+"@expo/config@~12.0.10", "@expo/config@~12.0.8":
   version "12.0.10"
   resolved "https://registry.npmjs.org/@expo/config/-/config-12.0.10.tgz"
   integrity sha512-lJMof5Nqakq1DxGYlghYB/ogSBjmv4Fxn1ovyDmcjlRsQdFCXgu06gEUogkhPtc9wBt9WlTTfqENln5HHyLW6w==
@@ -2837,7 +2837,7 @@
 
 "@react-native-community/datetimepicker@8.4.4":
   version "8.4.4"
-  resolved "https://registry.yarnpkg.com/@react-native-community/datetimepicker/-/datetimepicker-8.4.4.tgz#2160a808b596e85240cee2415be2eb2bd80d2e92"
+  resolved "https://registry.npmjs.org/@react-native-community/datetimepicker/-/datetimepicker-8.4.4.tgz"
   integrity sha512-bc4ZixEHxZC9/qf5gbdYvIJiLZ5CLmEsC3j+Yhe1D1KC/3QhaIfGDVdUcid0PdlSoGOSEq4VlB93AWyetEyBSQ==
   dependencies:
     invariant "^2.2.4"
@@ -3562,7 +3562,7 @@
 
 "@shopify/flash-list@2.0.2":
   version "2.0.2"
-  resolved "https://registry.yarnpkg.com/@shopify/flash-list/-/flash-list-2.0.2.tgz#644748f883fccf8cf2e0ca251e0ef88673b89120"
+  resolved "https://registry.npmjs.org/@shopify/flash-list/-/flash-list-2.0.2.tgz"
   integrity sha512-zhlrhA9eiuEzja4wxVvotgXHtqd3qsYbXkQ3rsBfOgbFA9BVeErpDE/yEwtlIviRGEqpuFj/oU5owD6ByaNX+w==
   dependencies:
     tslib "2.8.1"
@@ -5570,9 +5570,9 @@ expo-asset@~12.0.9:
     expo-constants "~18.0.9"
 
 expo-camera@~17.0.8:
-  version "17.0.8"
-  resolved "https://registry.yarnpkg.com/expo-camera/-/expo-camera-17.0.8.tgz#f00cd97b59fce4db33d121cc0d6bccdc377283ed"
-  integrity sha512-BIGvS+3myaYqMtk2VXWgdcOMrewH+55BttmaYqq9tv9+o5w+RAbH9wlJSt0gdaswikiyzoWT7mOnLDleYClXmw==
+  version "17.0.9"
+  resolved "https://registry.npmjs.org/expo-camera/-/expo-camera-17.0.9.tgz"
+  integrity sha512-KgticPGurqEsaPBIwbG0T6mzAVnqZasDdM/6OoJt5zPh6tWB09+th6cBF1WafIBMPy8AWbfyUQSqQXqOrNJClg==
   dependencies:
     invariant "^2.2.4"
 
@@ -5583,6 +5583,37 @@ expo-constants@~18.0.10, expo-constants@~18.0.8, expo-constants@~18.0.9:
   dependencies:
     "@expo/config" "~12.0.10"
     "@expo/env" "~2.0.7"
+
+expo-dev-client@^6.0.17:
+  version "6.0.17"
+  resolved "https://registry.npmjs.org/expo-dev-client/-/expo-dev-client-6.0.17.tgz"
+  integrity sha512-zVilIum3sqXFbhYhPT6TuxR3ddH/IfHL82FiOTqJUiYaTQqun1I6ogSvU1djhY1eXUYhfYIBieQNWMVjXPxMvw==
+  dependencies:
+    expo-dev-launcher "6.0.17"
+    expo-dev-menu "7.0.16"
+    expo-dev-menu-interface "2.0.0"
+    expo-manifests "~1.0.8"
+    expo-updates-interface "~2.0.0"
+
+expo-dev-launcher@6.0.17:
+  version "6.0.17"
+  resolved "https://registry.npmjs.org/expo-dev-launcher/-/expo-dev-launcher-6.0.17.tgz"
+  integrity sha512-riLxFXaw6Nvgb27TiQtUvoHkW/zTz0aO7M+qxDBBaEbJMJSFl51KSwOJJBTItVQIE9f9jB8x5L1CfLw81/McZw==
+  dependencies:
+    expo-dev-menu "7.0.16"
+    expo-manifests "~1.0.8"
+
+expo-dev-menu-interface@2.0.0:
+  version "2.0.0"
+  resolved "https://registry.npmjs.org/expo-dev-menu-interface/-/expo-dev-menu-interface-2.0.0.tgz"
+  integrity sha512-BvAMPt6x+vyXpThsyjjOYyjwfjREV4OOpQkZ0tNl+nGpsPfcY9mc6DRACoWnH9KpLzyIt3BOgh3cuy/h/OxQjw==
+
+expo-dev-menu@7.0.16:
+  version "7.0.16"
+  resolved "https://registry.npmjs.org/expo-dev-menu/-/expo-dev-menu-7.0.16.tgz"
+  integrity sha512-/kjTjk5tcZV0ixYnV3JyzPXKlMimpBNYaDo4XxBbRFIkTf/vmb/9e1BTR2nALnoa/D3MRwtR43gZYT+W/wfKXw==
+  dependencies:
+    expo-dev-menu-interface "2.0.0"
 
 expo-file-system@~19.0.17:
   version "19.0.17"
@@ -5598,15 +5629,20 @@ expo-font@~14.0.9:
 
 expo-image-loader@~6.0.0:
   version "6.0.0"
-  resolved "https://registry.yarnpkg.com/expo-image-loader/-/expo-image-loader-6.0.0.tgz#15230442cbb90e101c080a4c81e37d974e43e072"
+  resolved "https://registry.npmjs.org/expo-image-loader/-/expo-image-loader-6.0.0.tgz"
   integrity sha512-nKs/xnOGw6ACb4g26xceBD57FKLFkSwEUTDXEDF3Gtcu3MqF3ZIYd3YM+sSb1/z9AKV1dYT7rMSGVNgsveXLIQ==
 
 expo-image-picker@~17.0.8:
   version "17.0.8"
-  resolved "https://registry.yarnpkg.com/expo-image-picker/-/expo-image-picker-17.0.8.tgz#c4430994de81f3e9995c9ce77cb76403213b17d7"
+  resolved "https://registry.npmjs.org/expo-image-picker/-/expo-image-picker-17.0.8.tgz"
   integrity sha512-489ByhVs2XPoAu9zodivAKLv7hG4S/FOe8hO/C2U6jVxmRjpAKakKNjMml0IwWjf1+c/RYBqm1XxKaZ+vq/fDQ==
   dependencies:
     expo-image-loader "~6.0.0"
+
+expo-json-utils@~0.15.0:
+  version "0.15.0"
+  resolved "https://registry.npmjs.org/expo-json-utils/-/expo-json-utils-0.15.0.tgz"
+  integrity sha512-duRT6oGl80IDzH2LD2yEFWNwGIC2WkozsB6HF3cDYNoNNdUvFk6uN3YiwsTsqVM/D0z6LEAQ01/SlYvN+Fw0JQ==
 
 expo-keep-awake@~15.0.7:
   version "15.0.7"
@@ -5632,6 +5668,14 @@ expo-localization@^17.0.7:
   integrity sha512-ACg1B0tJLNa+f8mZfAaNrMyNzrrzHAARVH1sHHvh+LolKdQpgSKX69Uroz1Llv4C71furpwBklVStbNcEwVVVA==
   dependencies:
     rtl-detect "^1.0.2"
+
+expo-manifests@~1.0.8:
+  version "1.0.8"
+  resolved "https://registry.npmjs.org/expo-manifests/-/expo-manifests-1.0.8.tgz"
+  integrity sha512-nA5PwU2uiUd+2nkDWf9e71AuFAtbrb330g/ecvuu52bmaXtN8J8oiilc9BDvAX0gg2fbtOaZdEdjBYopt1jdlQ==
+  dependencies:
+    "@expo/config" "~12.0.8"
+    expo-json-utils "~0.15.0"
 
 expo-modules-autolinking@3.0.19:
   version "3.0.19"
@@ -5699,6 +5743,11 @@ expo-status-bar@~3.0.8:
   integrity sha512-L248XKPhum7tvREoS1VfE0H6dPCaGtoUWzRsUv7hGKdiB4cus33Rc0sxkWkoQ77wE8stlnUlL5lvmT0oqZ3ZBw==
   dependencies:
     react-native-is-edge-to-edge "^1.2.1"
+
+expo-updates-interface@~2.0.0:
+  version "2.0.0"
+  resolved "https://registry.npmjs.org/expo-updates-interface/-/expo-updates-interface-2.0.0.tgz"
+  integrity sha512-pTzAIufEZdVPKql6iMi5ylVSPqV1qbEopz9G6TSECQmnNde2nwq42PxdFBaUEd8IZJ/fdJLQnOT3m6+XJ5s7jg==
 
 expo-web-browser@~15.0.8:
   version "15.0.8"
@@ -8930,6 +8979,11 @@ react-native-nitro-modules@^0.31.2:
   version "0.31.2"
   resolved "https://registry.npmjs.org/react-native-nitro-modules/-/react-native-nitro-modules-0.31.2.tgz"
   integrity sha512-UTG1kfLq5XDlR1OkhrNLNMbU6EvxIdLp4RUWT4PY8eBKyykOq8/kjc3fYMYxVEUZG+mrujRSMNXKeqHfiMUhOQ==
+
+react-native-permissions@^5.4.4:
+  version "5.4.4"
+  resolved "https://registry.npmjs.org/react-native-permissions/-/react-native-permissions-5.4.4.tgz"
+  integrity sha512-WB5lRCBGXETfuaUhem2vgOceb9+URCeyfKpLGFSwoOffLuyJCA6+NTR3l1KLkrK4Ykxsig37z16/shUVufmt7A==
 
 react-native-reanimated@~4.1.0:
   version "4.1.3"

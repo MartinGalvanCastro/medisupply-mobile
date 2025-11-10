@@ -27,10 +27,7 @@ type ScheduleVisitFormData = {
 // Schema factory
 const createScheduleVisitSchema = (t: (key: any) => string) =>
   z.object({
-    visitDate: z.date({
-      required_error: t('clientDetail.validation.dateRequired'),
-      invalid_type_error: t('clientDetail.validation.dateInvalid'),
-    }).refine((date) => {
+    visitDate: z.date().refine((date) => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const selectedDate = new Date(date);
@@ -39,10 +36,7 @@ const createScheduleVisitSchema = (t: (key: any) => string) =>
     }, {
       message: t('clientDetail.validation.dateTodayNotAllowed'),
     }),
-    visitTime: z.date({
-      required_error: t('clientDetail.validation.timeRequired'),
-      invalid_type_error: t('clientDetail.validation.dateInvalid'),
-    }),
+    visitTime: z.date(),
     notes: z.string().optional(),
   });
 

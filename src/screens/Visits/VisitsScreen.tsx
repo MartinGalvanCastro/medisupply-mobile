@@ -18,12 +18,15 @@ export const VisitsScreen = () => {
   const [searchText, setSearchText] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  const { data, isLoading, error } = useListVisitsBffSellersAppVisitsGet(undefined, {
-    query: {
-      enabled: true,
-      staleTime: 5 * 60 * 1000,
-    },
-  });
+  const { data, isLoading, error } = useListVisitsBffSellersAppVisitsGet(
+    { date: new Date().toISOString().split('T')[0] },
+    {
+      query: {
+        enabled: true,
+        staleTime: 5 * 60 * 1000,
+      },
+    }
+  );
 
   // Filter visits client-side based on search text
   const allVisits = data?.visits || [];
