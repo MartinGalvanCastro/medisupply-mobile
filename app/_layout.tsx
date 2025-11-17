@@ -9,8 +9,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import '@/../global.css';
 import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
-import { AuthProvider, I18nProvider, QueryClientProvider, ToastProvider } from '@/providers';
-import '@/api/mock-interceptor';
+import { AuthProvider, GlobalLoadingProvider, I18nProvider, QueryClientProvider, ToastProvider } from '@/providers';
+import { AblyProvider } from '@/providers/AblyProvider';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -56,17 +56,21 @@ function RootLayoutNav() {
         <I18nProvider>
           <GluestackUIProvider mode="light">
             <ToastProvider>
-              <AuthProvider>
-                <ThemeProvider value={DefaultTheme}>
-                  <Stack screenOptions={{ headerShown: false }}>
-                   <Stack.Screen name="login" />
-                    <Stack.Screen name="(tabs)" />
-                    <Stack.Screen name="client/[clientId]" />
-                    <Stack.Screen name="visit/[visitId]" />
-                    <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-                  </Stack>
-                </ThemeProvider>
-              </AuthProvider>
+              <GlobalLoadingProvider>
+                <AuthProvider>
+                  <AblyProvider>
+                    <ThemeProvider value={DefaultTheme}>
+                      <Stack screenOptions={{ headerShown: false }}>
+                       <Stack.Screen name="login" />
+                        <Stack.Screen name="(tabs)" />
+                        <Stack.Screen name="client/[clientId]" />
+                        <Stack.Screen name="visit/[visitId]" />
+                        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+                      </Stack>
+                    </ThemeProvider>
+                  </AblyProvider>
+                </AuthProvider>
+              </GlobalLoadingProvider>
             </ToastProvider>
           </GluestackUIProvider>
         </I18nProvider>

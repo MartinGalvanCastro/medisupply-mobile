@@ -1,20 +1,21 @@
-import { ScrollView, StyleSheet, Pressable } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { VStack } from '@/components/ui/vstack';
 import { HStack } from '@/components/ui/hstack';
-import { Text } from '@/components/ui/text';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
 import { Card } from '@/components/ui/card';
 import { Badge, BadgeText } from '@/components/ui/badge';
 import { Avatar, AvatarFallbackText } from '@/components/ui/avatar';
-import { Divider } from '@/components/ui/divider';
 import { InfoRow } from '@/components/InfoRow';
+import { ErrorStateCard } from '@/components/ErrorStateCard';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { InfoSection } from '@/components/InfoSection';
 import { useTranslation } from '@/i18n/hooks';
+import { useNavigationStore } from '@/store/useNavigationStore';
 import { getInitials } from '@/utils/getInitials';
 import { getInstitutionTypeLabel } from '@/utils/getInstitutionTypeLabel';
-import { useListClientsBffSellersAppClientsGet } from '@/api/generated/sellers-app/sellers-app';
 import {
   Mail,
   Phone,
@@ -23,9 +24,7 @@ import {
   FileText,
   UserCircle,
   Calendar,
-  ArrowLeft,
 } from 'lucide-react-native';
-import { useMemo } from 'react';
 
 const getInstitutionTypeBadgeAction = (institutionType: string) => {
   const typeMap: Record<string, 'info' | 'success' | 'warning' | 'error' | 'muted'> = {
@@ -41,28 +40,21 @@ export const ClientDetailScreen = () => {
   const { t } = useTranslation();
   const { clientId } = useLocalSearchParams<{ clientId: string }>();
 
-  // Fetch all clients (since there's no single client endpoint)
-  const { data, isLoading, error } = useListClientsBffSellersAppClientsGet(
-    undefined,
-    {
-      query: {
-        enabled: true,
-        staleTime: 5 * 60 * 1000,
-      },
-    }
-  );
+  // Get client from global store
+  const currentClient = useNavigationStore((state) => state.currentClient);
+  const clearCurrentClient = useNavigationStore((state) => state.clearCurrentClient);
 
-  // Find the specific client by ID
-  const client = useMemo(() => {
-    if (!data?.clients || !clientId) return null;
-    return data.clients.find((c) => c.cliente_id === clientId);
-  }, [data?.clients, clientId]);
+  // Use client from global store
+  const client = currentClient;
 
   const handleScheduleVisit = () => {
     router.push(`/client/${clientId}/schedule-visit`);
   };
 
   const handleBack = () => {
+    // Clear client from store on back navigation
+    clearCurrentClient();
+
     if (router.canGoBack()) {
       router.back();
     } else {
@@ -70,49 +62,25 @@ export const ClientDetailScreen = () => {
     }
   };
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']} testID="client-detail-screen">
-        <VStack space="lg" className="p-4">
-          <HStack space="md" className="items-center mb-4">
-            <Pressable onPress={handleBack} testID="back-button" style={styles.backButton}>
-              <ArrowLeft size={24} color="#6b7280" />
-            </Pressable>
-          </HStack>
-          <Card variant="elevated" className="p-8 bg-white">
-            <Text className="text-center text-typography-600">
-              {t('clientDetail.loading')}
-            </Text>
-          </Card>
-        </VStack>
-      </SafeAreaView>
-    );
-  }
-
   // Error or not found state
-  if (error || !client) {
+  if (!client) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']} testID="client-detail-screen">
         <VStack space="lg" className="p-4">
-          <HStack space="md" className="items-center mb-4">
-            <Pressable onPress={handleBack} testID="back-button" style={styles.backButton}>
-              <ArrowLeft size={24} color="#6b7280" />
-            </Pressable>
-          </HStack>
-          <Card variant="elevated" className="p-8 bg-white">
-            <VStack space="md" className="items-center">
-              <Text className="text-lg font-semibold text-typography-900">
-                {t('clientDetail.notFound')}
-              </Text>
-              <Text className="text-center text-typography-600">
-                {t('clientDetail.notFoundDescription')}
-              </Text>
-              <Button onPress={handleBack} className="mt-4" testID="back-to-clients-button">
-                <ButtonText>{t('common.back')}</ButtonText>
-              </Button>
-            </VStack>
-          </Card>
+          <ScreenHeader
+            title=""
+            showBackButton
+            onBack={handleBack}
+            testID="client-detail-header"
+          />
+          <ErrorStateCard
+            title={t('clientDetail.notFound')}
+            message={t('clientDetail.notFoundDescription')}
+            showBackButton
+            onBack={handleBack}
+            backLabel={t('common.back')}
+            testID="client-detail-error"
+          />
         </VStack>
       </SafeAreaView>
     );
@@ -124,11 +92,12 @@ export const ClientDetailScreen = () => {
       <ScrollView showsVerticalScrollIndicator={false}>
         <VStack space="lg" className="p-4 pb-8">
           {/* Header with back button */}
-          <HStack space="md" className="items-center mb-2">
-            <Pressable onPress={handleBack} testID="back-button" style={styles.backButton}>
-              <ArrowLeft size={24} color="#6b7280" />
-            </Pressable>
-          </HStack>
+          <ScreenHeader
+            title=""
+            showBackButton
+            onBack={handleBack}
+            testID="client-detail-header"
+          />
 
           {/* Client Profile Card */}
           <Card variant="elevated" className="p-6 bg-white">
@@ -159,14 +128,8 @@ export const ClientDetailScreen = () => {
                 </VStack>
               </HStack>
 
-              <Divider className="my-2" />
-
               {/* Contact Information */}
-              <VStack space="md">
-                <Text className="text-sm font-semibold text-typography-700 uppercase tracking-wide">
-                  {t('clientDetail.contactInfo')}
-                </Text>
-
+              <InfoSection title={t('clientDetail.contactInfo')} testID="contact-info">
                 <InfoRow
                   icon={Mail}
                   label={t('clientDetail.profile.email')}
@@ -180,86 +143,72 @@ export const ClientDetailScreen = () => {
                     value={client.telefono}
                   />
                 )}
-              </VStack>
+              </InfoSection>
 
               {/* Institution Information */}
               {(client.nombre_institucion || client.nit) && (
-                <>
-                  <Divider className="my-2" />
-                  <VStack space="md">
-                    <Text className="text-sm font-semibold text-typography-700 uppercase tracking-wide">
-                      {t('clientDetail.institutionInfo')}
-                    </Text>
+                <InfoSection title={t('clientDetail.institutionInfo')} testID="institution-info">
+                  {client.nombre_institucion && (
+                    <InfoRow
+                      icon={Building2}
+                      label={t('clientDetail.profile.institution')}
+                      value={client.nombre_institucion}
+                    />
+                  )}
 
-                    {client.nombre_institucion && (
-                      <InfoRow
-                        icon={Building2}
-                        label={t('clientDetail.profile.institution')}
-                        value={client.nombre_institucion}
-                      />
-                    )}
+                  {client.tipo_institucion && (
+                    <InfoRow
+                      icon={Building2}
+                      label={t('clientDetail.profile.type')}
+                      value={getInstitutionTypeLabel(client.tipo_institucion, t)}
+                    />
+                  )}
 
-                    {client.tipo_institucion && (
-                      <InfoRow
-                        icon={Building2}
-                        label={t('clientDetail.profile.type')}
-                        value={getInstitutionTypeLabel(client.tipo_institucion, t)}
-                      />
-                    )}
+                  {client.nit && (
+                    <InfoRow
+                      icon={FileText}
+                      label={t('clientDetail.profile.nit')}
+                      value={client.nit}
+                    />
+                  )}
 
-                    {client.nit && (
-                      <InfoRow
-                        icon={FileText}
-                        label={t('clientDetail.profile.nit')}
-                        value={client.nit}
-                      />
-                    )}
-
-                    {client.representante && (
-                      <InfoRow
-                        icon={UserCircle}
-                        label={t('clientDetail.profile.name')}
-                        value={client.representante}
-                      />
-                    )}
-                  </VStack>
-                </>
+                  {client.representante && (
+                    <InfoRow
+                      icon={UserCircle}
+                      label={t('clientDetail.profile.name')}
+                      value={client.representante}
+                    />
+                  )}
+                </InfoSection>
               )}
 
               {/* Location Information */}
               {(client.direccion || client.ciudad || client.pais) && (
-                <>
-                  <Divider className="my-2" />
-                  <VStack space="md">
-                    <Text className="text-sm font-semibold text-typography-700 uppercase tracking-wide">
-                      {t('clientDetail.location')}
-                    </Text>
+                <InfoSection title={t('clientDetail.location')} testID="location-info">
+                  {client.direccion && (
+                    <InfoRow
+                      icon={MapPin}
+                      label={t('clientDetail.profile.address')}
+                      value={client.direccion}
+                    />
+                  )}
 
-                    {client.direccion && (
-                      <InfoRow
-                        icon={MapPin}
-                        label={t('clientDetail.profile.address')}
-                        value={client.direccion}
-                      />
-                    )}
+                  {client.ciudad && (
+                    <InfoRow
+                      icon={MapPin}
+                      label={t('clientDetail.profile.city')}
+                      value={client.ciudad}
+                    />
+                  )}
 
-                    {client.ciudad && (
-                      <InfoRow
-                        icon={MapPin}
-                        label={t('clientDetail.profile.city')}
-                        value={client.ciudad}
-                      />
-                    )}
-
-                    {client.pais && (
-                      <InfoRow
-                        icon={MapPin}
-                        label={t('clientDetail.profile.country')}
-                        value={client.pais}
-                      />
-                    )}
-                  </VStack>
-                </>
+                  {client.pais && (
+                    <InfoRow
+                      icon={MapPin}
+                      label={t('clientDetail.profile.country')}
+                      value={client.pais}
+                    />
+                  )}
+                </InfoSection>
               )}
             </VStack>
           </Card>
@@ -287,9 +236,5 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f9fafb',
-  },
-  backButton: {
-    padding: 8,
-    borderRadius: 8,
   },
 });

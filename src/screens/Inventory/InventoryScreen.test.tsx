@@ -4,13 +4,13 @@ import { Alert } from 'react-native';
 import { InventoryScreen } from './InventoryScreen';
 import { useTranslation } from '@/i18n/hooks';
 import { useCartStore } from '@/store/useCartStore';
-import { useInventory } from '@/api/useInventory';
-import type { MockInventory } from '@/api/mocks/inventory';
+import { useGetInventoriesBffInventoriesGet } from '@/api/generated/common/common';
+import type { CommonSchemasInventoryResponse } from '@/api/generated/models';
 
 // Mock dependencies
 jest.mock('@/i18n/hooks');
 jest.mock('@/store/useCartStore');
-jest.mock('@/api/useInventory');
+jest.mock('@/api/generated/common/common');
 jest.mock('react-native-safe-area-context', () => {
   const { View } = require('react-native');
   return {
@@ -94,77 +94,89 @@ jest.mock('./AddToCartModal', () => {
 // Alert.alert mock
 jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
 
-// Create mock inventory data
-const mockInventoryData: MockInventory[] = [
+// Create mock inventory data matching CommonSchemasInventoryResponse structure
+const mockInventoryData: CommonSchemasInventoryResponse[] = [
   {
     id: 'INV-001',
     product_id: '1',
-    product: {
-      id: '1',
-      name: 'Suero Fisiológico 500ml',
-      description: 'Suero fisiológico estéril',
-      sku: 'SF-500',
-      category: 'Soluciones Intravenosas',
-      manufacturer: 'Pharmaceutical Co',
-    },
     warehouse_id: 'WH-001',
     warehouse_name: 'Almacén Central Bogotá',
+    warehouse_city: 'Bogotá',
+    warehouse_country: 'Colombia',
     total_quantity: 5000,
     reserved_quantity: 200,
     available_quantity: 4800,
-    price: 2500,
+    batch_number: 'BATCH-001',
+    expiration_date: '2025-12-31',
+    product_sku: 'SF-500',
+    product_name: 'Suero Fisiológico 500ml',
+    product_price: 2500,
+    product_category: 'Soluciones Intravenosas' as any,
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
   },
   {
     id: 'INV-002',
     product_id: '2',
-    product: {
-      id: '2',
-      name: 'Glucosa 5% 250ml',
-      description: 'Solución de glucosa',
-      sku: 'GL-250',
-      category: 'Soluciones Intravenosas',
-      manufacturer: 'Med Solutions',
-    },
     warehouse_id: 'WH-002',
     warehouse_name: 'Almacén Medellín',
+    warehouse_city: 'Medellín',
+    warehouse_country: 'Colombia',
     total_quantity: 3000,
     reserved_quantity: 150,
     available_quantity: 2850,
-    price: 3200,
+    batch_number: 'BATCH-002',
+    expiration_date: '2025-12-31',
+    product_sku: 'GL-250',
+    product_name: 'Glucosa 5% 250ml',
+    product_price: 3200,
+    product_category: 'Soluciones Intravenosas' as any,
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
   },
   {
     id: 'INV-003',
     product_id: '3',
-    product: {
-      id: '3',
-      name: 'Algodón Estéril 100g',
-      description: 'Algodón médico',
-      sku: 'ALG-100',
-      category: 'Materiales de Curación',
-      manufacturer: 'Healthcare Plus',
-    },
     warehouse_id: 'WH-001',
     warehouse_name: 'Almacén Central Bogotá',
+    warehouse_city: 'Bogotá',
+    warehouse_country: 'Colombia',
     total_quantity: 0,
     reserved_quantity: 0,
     available_quantity: 0,
-    price: 1500,
+    batch_number: 'BATCH-003',
+    expiration_date: '2025-12-31',
+    product_sku: 'ALG-100',
+    product_name: 'Algodón Estéril 100g',
+    product_price: 1500,
+    product_category: 'Materiales de Curación' as any,
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
   },
 ];
 
 describe('InventoryScreen', () => {
   let mockAddItem: jest.Mock;
-  let mockUseInventory: jest.Mock;
+  let mockUseGetInventories: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
 
     mockAddItem = jest.fn();
-    mockUseInventory = jest.fn(() => ({
-      data: mockInventoryData,
+    mockUseGetInventories = jest.fn(() => ({
+      data: {
+        items: mockInventoryData,
+        total: mockInventoryData.length,
+        page: 1,
+        size: 10,
+        has_next: false,
+        has_previous: false,
+      },
       isLoading: false,
       error: null,
+      refetch: jest.fn(),
+      isRefetching: false,
     }));
 
     (useTranslation as jest.Mock).mockReturnValue({
@@ -183,7 +195,7 @@ describe('InventoryScreen', () => {
       return selector(state);
     });
 
-    (useInventory as jest.Mock).mockImplementation(mockUseInventory);
+    (useGetInventoriesBffInventoriesGet as jest.Mock).mockImplementation(mockUseGetInventories);
   });
 
   afterEach(() => {
@@ -265,8 +277,8 @@ describe('InventoryScreen', () => {
     });
 
     it('should handle empty product list gracefully', () => {
-      (useInventory as jest.Mock).mockReturnValue({
-        data: [],
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
+        data: { items: [], total: 0, page: 1, size: 10, has_next: false, has_previous: false },
         isLoading: false,
         error: null,
       });
@@ -277,7 +289,7 @@ describe('InventoryScreen', () => {
     });
 
     it('should handle null data gracefully', () => {
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: null,
         isLoading: false,
         error: null,
@@ -299,7 +311,7 @@ describe('InventoryScreen', () => {
 
   describe('Loading States', () => {
     it('should render loading message when isLoading is true', () => {
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: [],
         isLoading: true,
         error: null,
@@ -311,7 +323,7 @@ describe('InventoryScreen', () => {
     });
 
     it('should not render product cards when loading', () => {
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: [],
         isLoading: true,
         error: null,
@@ -323,7 +335,7 @@ describe('InventoryScreen', () => {
     });
 
     it('should still render search bar while loading', () => {
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: [],
         isLoading: true,
         error: null,
@@ -335,7 +347,7 @@ describe('InventoryScreen', () => {
     });
 
     it('should show loading state with correct styling', () => {
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: [],
         isLoading: true,
         error: null,
@@ -348,7 +360,7 @@ describe('InventoryScreen', () => {
     });
 
     it('should prioritize loading state over empty state', () => {
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: [],
         isLoading: true,
         error: null,
@@ -361,7 +373,7 @@ describe('InventoryScreen', () => {
     });
 
     it('should prioritize loading state over error state', () => {
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: null,
         isLoading: true,
         error: new Error('Failed to load'),
@@ -376,7 +388,7 @@ describe('InventoryScreen', () => {
 
   describe('Error States', () => {
     it('should render error message when error exists', () => {
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: null,
         isLoading: false,
         error: new Error('Failed to fetch products'),
@@ -388,7 +400,7 @@ describe('InventoryScreen', () => {
     });
 
     it('should not render product cards when error occurs', () => {
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: null,
         isLoading: false,
         error: new Error('Failed to fetch products'),
@@ -400,7 +412,7 @@ describe('InventoryScreen', () => {
     });
 
     it('should still render search bar when error occurs', () => {
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: null,
         isLoading: false,
         error: new Error('Failed to fetch products'),
@@ -412,7 +424,7 @@ describe('InventoryScreen', () => {
     });
 
     it('should display error message with correct styling', () => {
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: null,
         isLoading: false,
         error: new Error('Failed to fetch products'),
@@ -425,7 +437,7 @@ describe('InventoryScreen', () => {
     });
 
     it('should prioritize error state over empty state', () => {
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: [],
         isLoading: false,
         error: new Error('Failed to fetch'),
@@ -440,8 +452,8 @@ describe('InventoryScreen', () => {
 
   describe('Empty States', () => {
     it('should render empty state when no products are available', () => {
-      (useInventory as jest.Mock).mockReturnValue({
-        data: [],
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
+        data: { items: [], total: 0, page: 1, size: 10, has_next: false, has_previous: false },
         isLoading: false,
         error: null,
       });
@@ -453,8 +465,8 @@ describe('InventoryScreen', () => {
     });
 
     it('should render empty state heading', () => {
-      (useInventory as jest.Mock).mockReturnValue({
-        data: [],
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
+        data: { items: [], total: 0, page: 1, size: 10, has_next: false, has_previous: false },
         isLoading: false,
         error: null,
       });
@@ -465,8 +477,8 @@ describe('InventoryScreen', () => {
     });
 
     it('should render empty state description', () => {
-      (useInventory as jest.Mock).mockReturnValue({
-        data: [],
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
+        data: { items: [], total: 0, page: 1, size: 10, has_next: false, has_previous: false },
         isLoading: false,
         error: null,
       });
@@ -477,8 +489,8 @@ describe('InventoryScreen', () => {
     });
 
     it('should not show loading or error messages in empty state', () => {
-      (useInventory as jest.Mock).mockReturnValue({
-        data: [],
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
+        data: { items: [], total: 0, page: 1, size: 10, has_next: false, has_previous: false },
         isLoading: false,
         error: null,
       });
@@ -491,8 +503,8 @@ describe('InventoryScreen', () => {
     });
 
     it('should still render search bar in empty state', () => {
-      (useInventory as jest.Mock).mockReturnValue({
-        data: [],
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
+        data: { items: [], total: 0, page: 1, size: 10, has_next: false, has_previous: false },
         isLoading: false,
         error: null,
       });
@@ -503,7 +515,7 @@ describe('InventoryScreen', () => {
     });
 
     it('should handle undefined data gracefully', () => {
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: undefined,
         isLoading: false,
         error: null,
@@ -515,7 +527,7 @@ describe('InventoryScreen', () => {
     });
 
     it('should handle null data in empty state', () => {
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: null,
         isLoading: false,
         error: null,
@@ -998,7 +1010,7 @@ describe('InventoryScreen', () => {
     });
 
     it('should render translated loading message', () => {
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: [],
         isLoading: true,
         error: null,
@@ -1010,7 +1022,7 @@ describe('InventoryScreen', () => {
     });
 
     it('should render translated error message', () => {
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: null,
         isLoading: false,
         error: new Error('API error'),
@@ -1022,8 +1034,8 @@ describe('InventoryScreen', () => {
     });
 
     it('should render translated empty state messages', () => {
-      (useInventory as jest.Mock).mockReturnValue({
-        data: [],
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
+        data: { items: [], total: 0, page: 1, size: 10, has_next: false, has_previous: false },
         isLoading: false,
         error: null,
       });
@@ -1042,19 +1054,20 @@ describe('InventoryScreen', () => {
   });
 
   describe('API Integration', () => {
-    it('should call useInventory hook on render', () => {
+    it('should call useGetInventoriesBffInventoriesGet hook on render', () => {
       render(<InventoryScreen />);
 
-      expect(useInventory).toHaveBeenCalled();
+      expect(useGetInventoriesBffInventoriesGet).toHaveBeenCalled();
     });
 
-    it('should pass search parameter to useInventory hook', () => {
+    it('should pass name parameter to useGetInventoriesBffInventoriesGet hook', () => {
       render(<InventoryScreen />);
 
-      // Hook should be called with empty search initially
-      expect(useInventory).toHaveBeenCalledWith({
-        search: '',
-      });
+      // Hook should be called with undefined name initially (empty search)
+      expect(useGetInventoriesBffInventoriesGet).toHaveBeenCalledWith(
+        { name: undefined },
+        { query: { staleTime: 5 * 60 * 1000 } }
+      );
     });
 
     it('should display data when API returns products', () => {
@@ -1066,7 +1079,7 @@ describe('InventoryScreen', () => {
     });
 
     it('should handle API returning null data', () => {
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: null,
         isLoading: false,
         error: null,
@@ -1078,8 +1091,8 @@ describe('InventoryScreen', () => {
     });
 
     it('should handle API returning empty array', () => {
-      (useInventory as jest.Mock).mockReturnValue({
-        data: [],
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
+        data: { items: [], total: 0, page: 1, size: 10, has_next: false, has_previous: false },
         isLoading: false,
         error: null,
       });
@@ -1127,7 +1140,7 @@ describe('InventoryScreen', () => {
         id: `INV-${i + 100}`,
       }));
 
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: manyProducts,
         isLoading: false,
         error: null,
@@ -1146,14 +1159,14 @@ describe('InventoryScreen', () => {
     });
 
     it('should handle product with very high price', () => {
-      const expensiveProduct: MockInventory = {
+      const expensiveProduct: CommonSchemasInventoryResponse = {
         ...mockInventoryData[0],
         id: 'INV-EXP',
-        price: 999999999,
+        product_price: 999999999,
       };
 
-      (useInventory as jest.Mock).mockReturnValue({
-        data: [expensiveProduct],
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
+        data: { items: [expensiveProduct], total: 1, page: 1, size: 10, has_next: false, has_previous: false },
         isLoading: false,
         error: null,
       });
@@ -1164,14 +1177,16 @@ describe('InventoryScreen', () => {
     });
 
     it('should handle product with very large available quantity', () => {
-      const largeQuantityProduct: MockInventory = {
+      const largeQuantityProduct: CommonSchemasInventoryResponse = {
         ...mockInventoryData[0],
         id: 'INV-LARGE',
+        total_quantity: 999999,
+        reserved_quantity: 0,
         available_quantity: 999999,
       };
 
-      (useInventory as jest.Mock).mockReturnValue({
-        data: [largeQuantityProduct],
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
+        data: { items: [largeQuantityProduct], total: 1, page: 1, size: 10, has_next: false, has_previous: false },
         isLoading: false,
         error: null,
       });
@@ -1182,7 +1197,7 @@ describe('InventoryScreen', () => {
     });
 
     it('should handle multiple errors in sequence', () => {
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: null,
         isLoading: false,
         error: new Error('First error'),
@@ -1236,8 +1251,8 @@ describe('InventoryScreen', () => {
 
   describe('Product Rendering with Different Data Scenarios', () => {
     it('should render single product', () => {
-      (useInventory as jest.Mock).mockReturnValue({
-        data: [mockInventoryData[0]],
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
+        data: { items: [mockInventoryData[0]], total: 1, page: 1, size: 10, has_next: false, has_previous: false },
         isLoading: false,
         error: null,
       });
@@ -1271,8 +1286,8 @@ describe('InventoryScreen', () => {
     });
 
     it('should handle single client gracefully', () => {
-      (useInventory as jest.Mock).mockReturnValue({
-        data: [mockInventoryData[0]],
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
+        data: { items: [mockInventoryData[0]], total: 1, page: 1, size: 10, has_next: false, has_previous: false },
         isLoading: false,
         error: null,
       });
@@ -1289,7 +1304,7 @@ describe('InventoryScreen', () => {
         id: `INV-${String(i + 1).padStart(3, '0')}`,
       }));
 
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: manyProducts,
         isLoading: false,
         error: null,
@@ -1308,8 +1323,8 @@ describe('InventoryScreen', () => {
       expect(getByTestId('product-card-INV-001')).toBeTruthy();
 
       // Rerender with different data
-      (useInventory as jest.Mock).mockReturnValue({
-        data: [mockInventoryData[0]],
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
+        data: { items: [mockInventoryData[0]], total: 1, page: 1, size: 10, has_next: false, has_previous: false },
         isLoading: false,
         error: null,
       });
@@ -1325,7 +1340,7 @@ describe('InventoryScreen', () => {
 
       expect(getByText('inventory.title')).toBeTruthy();
 
-      (useInventory as jest.Mock).mockReturnValue({
+      (useGetInventoriesBffInventoriesGet as jest.Mock).mockReturnValue({
         data: [],
         isLoading: true,
         error: null,

@@ -5,6 +5,7 @@
  * Backend For Frontend service aggregating microservices
  * OpenAPI spec version: 1.0.0
  */
+import type { InventoryResponseProductCategory } from "./inventoryResponseProductCategory";
 
 export interface InventoryResponse {
   id: string;
@@ -17,6 +18,7 @@ export interface InventoryResponse {
   product_sku: string;
   product_name: string;
   product_price: number;
+  product_category?: InventoryResponseProductCategory;
   warehouse_name: string;
   warehouse_city: string;
   created_at: string;

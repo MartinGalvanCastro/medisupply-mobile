@@ -4,7 +4,7 @@ import {
   useRefreshAuthRefreshPost,
   useSignupAuthSignupPost,
 } from '@/api/generated/authentication/authentication';
-import { useToast } from '@/providers';
+import { useToast } from '@/providers/ToastProvider';
 import { useAuthStore } from '@/store';
 import { transformTokensFromLogin, transformUserData } from '@/utils/auth';
 import { isNetworkError } from '@/utils/error';
@@ -42,6 +42,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     isLoading: isFetchingUser,
     error: meError,
     isError: hasMeError,
+    refetch: refetchMe,
   } = useGetMeAuthMeGet({
     query: {
       enabled: shouldFetchUser,
@@ -56,7 +57,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
    */
   useEffect(() => {
     if (meData) {
-      console.log('[AuthProvider] meData received, transforming user data');
+      console.log('[AuthProvider] ========== /me API Response Received ==========');
+      console.log('[AuthProvider] RAW /me response:', JSON.stringify(meData, null, 2));
+      console.log('[AuthProvider] Response keys:', Object.keys(meData));
+      console.log('[AuthProvider] user_id:', meData.user_id);
+      console.log('[AuthProvider] email:', meData.email);
+      console.log('[AuthProvider] name:', meData.name);
+      console.log('[AuthProvider] user_type:', meData.user_type);
+      console.log('[AuthProvider] groups:', meData.groups);
+      console.log('[AuthProvider] user_details:', meData.user_details);
+      console.log('[AuthProvider] ================================================');
+
       const user = transformUserData(meData);
       authStore.setUser(user);
       console.log('[AuthProvider] Setting shouldFetchUser to false after successful fetch');
@@ -146,13 +157,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           showToastIfNotRecent('success', 'login-success', 'Login Successful', 'Welcome back!');
         })
         .catch((error) => {
-          authStore.logout();
+          // Only clear tokens on login, don't call logout (which clears query cache)
+          // This allows retry without clearing all app state
+          authStore.setTokens(null);
+          authStore.setUser(null);
+
           if (isNetworkError(error)) {
             showToastIfNotRecent('error', 'login-error', 'No Connection', 'Please check your internet connection and try again.');
           } else {
             showToastIfNotRecent('error', 'login-error', 'Login Failed', 'Invalid credentials. Please try again.');
           }
-          throw error;
+          // Don't rethrow - error is handled, avoids uncaught promise rejection
         });
     },
     [loginMutate, showToastIfNotRecent] // authStore methods are stable
@@ -166,6 +181,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     console.log('[AuthProvider] logout - cache cleared');
     showToastIfNotRecent('success', 'logout-success', 'Logged Out', 'You have been successfully logged out.');
   }, [queryClient, showToastIfNotRecent]); // authStore methods are stable
+
+  const refetchUser = useCallback(async () => {
+    console.log('[AuthProvider] refetchUser - manually triggering /me refetch');
+    await refetchMe();
+  }, [refetchMe]);
 
   const refresh = useCallback(() => {
     const currentTokens = authStore.tokens;
@@ -188,13 +208,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         });
       })
       .catch((error) => {
-        authStore.logout();
-        if (isNetworkError(error)) {
+        // Only logout on authentication errors (401, 403), not on server errors (5xx)
+        const status = error?.response?.status;
+        if (status === 401 || status === 403) {
+          console.log('[AuthProvider] Refresh failed with auth error, logging out');
+          authStore.logout();
+          showToastIfNotRecent('error', 'session-expired', 'Session Expired', 'Please log in again.');
+        } else if (isNetworkError(error)) {
+          console.log('[AuthProvider] Refresh failed with network error, keeping user logged in');
           showToastIfNotRecent('error', 'session-expired', 'No Connection', 'Please check your internet connection and try again.');
         } else {
-          showToastIfNotRecent('error', 'session-expired', 'Session Expired', 'Please log in again.');
+          console.log('[AuthProvider] Refresh failed with server error, keeping user logged in');
+          showToastIfNotRecent('error', 'refresh-error', 'Refresh Failed', 'Server error. Please try again.');
         }
-        throw error;
+        // Don't rethrow - error is handled, avoids uncaught promise rejection
       });
   }, [refreshMutate, showToastIfNotRecent]); // authStore methods are stable, reading .tokens at execution time
 
@@ -238,6 +265,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           } else {
             showToastIfNotRecent('error', 'signup-error', 'Signup Failed', 'Unable to create account. Please try again.');
           }
+          // Rethrow to maintain Promise<SignupResponse> type
           throw error;
         });
     },
@@ -248,10 +276,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     login,
     logout,
     refresh,
+    refetchUser,
     signup,
     isLoginPending,
     isRefreshPending,
     isSignupPending,
+    isLoadingUser: isFetchingUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

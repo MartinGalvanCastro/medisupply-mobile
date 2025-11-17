@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import { VisitCard, VisitStatus } from './VisitCard';
+import { VisitCard } from './VisitCard';
 
 // Mock lucide-react-native icons
 jest.mock('lucide-react-native', () => ({
@@ -79,7 +79,7 @@ describe('VisitCard Component', () => {
     clientName: 'Dr. Carlos Hernández',
     institutionName: 'Hospital General San José',
     visitDate: '2025-01-15T09:00:00Z',
-    status: 'pending' as VisitStatus,
+    status: 'pending',
   };
 
   const defaultProps = {
@@ -190,7 +190,7 @@ describe('VisitCard Component', () => {
       const { getByTestId, getByText } = render(
         <VisitCard
           {...defaultProps}
-          visit={{ ...mockVisit, status: 'unknown' as VisitStatus }}
+          visit={{ ...mockVisit, status: 'unknown' }}
         />
       );
 
@@ -689,7 +689,7 @@ describe('VisitCard Component', () => {
         clientName: 'Dr. Smith',
         institutionName: 'Hospital',
         visitDate: '2025-01-15T09:00:00Z',
-        status: 'pending' as VisitStatus,
+        status: 'pending',
       };
 
       const { getByText, getByTestId, queryByTestId } = render(
@@ -705,7 +705,7 @@ describe('VisitCard Component', () => {
     });
 
     it('should handle multiple visits with different statuses', () => {
-      const statuses: VisitStatus[] = ['pending', 'completed', 'cancelled'];
+      const statuses: string[] = ['pending', 'completed', 'cancelled'];
 
       statuses.forEach((status) => {
         const { getByTestId } = render(
@@ -745,9 +745,9 @@ describe('VisitCard Component', () => {
   describe('Status label edge cases', () => {
     it('should return correct label for all valid statuses', () => {
       const statusTests = [
-        { status: 'pending' as VisitStatus, expectedLabel: 'Pending' },
-        { status: 'completed' as VisitStatus, expectedLabel: 'Completed' },
-        { status: 'cancelled' as VisitStatus, expectedLabel: 'Cancelled' },
+        { status: 'pending', expectedLabel: 'Pending' },
+        { status: 'completed', expectedLabel: 'Completed' },
+        { status: 'cancelled', expectedLabel: 'Cancelled' },
       ];
 
       statusTests.forEach(({ status, expectedLabel }) => {
@@ -760,7 +760,7 @@ describe('VisitCard Component', () => {
     });
 
     it('should return status as-is for unknown status', () => {
-      const unknownStatus = 'in-progress' as VisitStatus;
+      const unknownStatus = 'in-progress';
       const { getByText } = render(
         <VisitCard
           {...defaultProps}
@@ -775,9 +775,9 @@ describe('VisitCard Component', () => {
   describe('Status badge action edge cases', () => {
     it('should return correct badge action for all valid statuses', () => {
       const statusTests = [
-        { status: 'pending' as VisitStatus, expectedAction: 'warning' },
-        { status: 'completed' as VisitStatus, expectedAction: 'success' },
-        { status: 'cancelled' as VisitStatus, expectedAction: 'error' },
+        { status: 'pending', expectedAction: 'warning' },
+        { status: 'completed', expectedAction: 'success' },
+        { status: 'cancelled', expectedAction: 'error' },
       ];
 
       statusTests.forEach(({ status, expectedAction }) => {
@@ -791,7 +791,7 @@ describe('VisitCard Component', () => {
     });
 
     it('should return muted action for unknown status', () => {
-      const unknownStatus = 'archived' as VisitStatus;
+      const unknownStatus = 'archived';
       const { getByTestId } = render(
         <VisitCard
           {...defaultProps}

@@ -11,6 +11,10 @@ import type { ClientResponse } from "./clientResponse";
  * Response schema for listing clients.
  */
 export interface ClientListResponse {
-  clients: ClientResponse[];
+  items: ClientResponse[];
   total: number;
+  page: number;
+  size: number;
+  has_next: boolean;
+  has_previous: boolean;
 }

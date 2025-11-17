@@ -5,7 +5,23 @@
  * Backend For Frontend service aggregating microservices
  * OpenAPI spec version: 1.0.0
  */
+import type { VisitStatusFilter } from "./visitStatusFilter";
 
 export type ListVisitsBffSellersAppVisitsGetParams = {
-  date: string;
+  status: VisitStatusFilter;
+  /**
+   * Page number (1-indexed)
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * Number of items per page
+   * @minimum 1
+   * @maximum 100
+   */
+  page_size?: number;
+  /**
+   * Filter by client institution name (partial match)
+   */
+  client_name?: string | null;
 };

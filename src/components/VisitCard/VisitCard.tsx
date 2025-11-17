@@ -7,8 +7,8 @@ import { Text } from '@/components/ui/text';
 import { Badge, BadgeText } from '@/components/ui/badge';
 import { ChevronRight, Calendar, MapPin } from 'lucide-react-native';
 import { formatDateTime } from '@/utils/formatDate';
-
-export type VisitStatus = 'pending' | 'completed' | 'cancelled';
+import { useTranslation } from '@/i18n/hooks';
+import { getVisitStatusBadgeAction } from '@/utils/getVisitStatusBadgeAction';
 
 interface VisitCardProps {
   visit: {
@@ -16,7 +16,7 @@ interface VisitCardProps {
     clientName: string;
     institutionName: string;
     visitDate: string;
-    status: VisitStatus;
+    status: string;
     notes?: string | null;
     location?: string;
   };
@@ -24,27 +24,8 @@ interface VisitCardProps {
   testID?: string;
 }
 
-const getStatusBadgeAction = (
-  status: VisitStatus
-): 'info' | 'success' | 'warning' | 'error' | 'muted' => {
-  const statusMap: Record<VisitStatus, 'info' | 'success' | 'warning' | 'error' | 'muted'> = {
-    pending: 'warning',
-    completed: 'success',
-    cancelled: 'error',
-  };
-  return statusMap[status] || 'muted';
-};
-
-const getStatusLabel = (status: VisitStatus): string => {
-  const statusLabels: Record<VisitStatus, string> = {
-    pending: 'Pending',
-    completed: 'Completed',
-    cancelled: 'Cancelled',
-  };
-  return statusLabels[status] || status;
-};
-
 export const VisitCard = ({ visit, onPress, testID }: VisitCardProps) => {
+  const { t } = useTranslation();
   return (
     <Pressable
       onPress={onPress}
@@ -82,8 +63,8 @@ export const VisitCard = ({ visit, onPress, testID }: VisitCardProps) => {
             )}
 
             <HStack space="sm" className="items-center mt-2">
-              <Badge action={getStatusBadgeAction(visit.status)} size="sm">
-                <BadgeText>{getStatusLabel(visit.status)}</BadgeText>
+              <Badge action={getVisitStatusBadgeAction(visit.status)} size="sm">
+                <BadgeText>{t(`visits.status.${visit.status?.toLowerCase()}` as any)}</BadgeText>
               </Badge>
             </HStack>
 

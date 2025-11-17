@@ -37,7 +37,6 @@ import type {
   InventoryCreateResponse,
   ListReportsBffWebReportsGetParams,
   NotFoundErrorResponse,
-  PaginatedInventoriesResponse,
   PaginatedProductsResponse,
   PaginatedProvidersResponse,
   PaginatedReportsResponse,
@@ -56,6 +55,7 @@ import type {
   ValidationErrorResponse,
   WarehouseCreate,
   WarehouseCreateResponse,
+  WebSchemasInventorySchemasPaginatedInventoriesResponse,
 } from ".././models";
 
 import { customInstance } from "../../client";
@@ -1160,7 +1160,7 @@ export const getInventoriesBffWebInventoriesGet = (
   options?: SecondParameter<typeof customInstance>,
   signal?: AbortSignal,
 ) => {
-  return customInstance<PaginatedInventoriesResponse>(
+  return customInstance<WebSchemasInventorySchemasPaginatedInventoriesResponse>(
     { url: `/bff/web/inventories`, method: "GET", params, signal },
     options,
   );

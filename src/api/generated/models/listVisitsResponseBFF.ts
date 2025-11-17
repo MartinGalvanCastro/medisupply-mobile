@@ -5,12 +5,25 @@
  * Backend For Frontend service aggregating microservices
  * OpenAPI spec version: 1.0.0
  */
+import type { VisitStatusFilter } from "./visitStatusFilter";
 import type { VisitResponseBFF } from "./visitResponseBFF";
 
 /**
  * Response schema for listing visits (BFF).
  */
 export interface ListVisitsResponseBFF {
-  visits: VisitResponseBFF[];
-  count: number;
+  /** Temporal status filter applied */
+  status: VisitStatusFilter;
+  /** List of visits */
+  items: VisitResponseBFF[];
+  /** Total number of results across all pages */
+  total: number;
+  /** Current page number (1-indexed) */
+  page: number;
+  /** Number of items per page */
+  size: number;
+  /** Whether there is a next page */
+  has_next: boolean;
+  /** Whether there is a previous page */
+  has_previous: boolean;
 }

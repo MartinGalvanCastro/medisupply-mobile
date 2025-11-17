@@ -12,7 +12,6 @@
 export interface OrderItemResponse {
   id: string;
   pedido_id: string;
-  producto_id: string;
   inventario_id: string;
   cantidad: number;
   precio_unitario: number;

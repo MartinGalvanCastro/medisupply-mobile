@@ -10,6 +10,6 @@
  * Input schema for a single order item.
  */
 export interface OrderItemInput {
-  producto_id: string;
+  inventario_id: string;
   cantidad: number;
 }

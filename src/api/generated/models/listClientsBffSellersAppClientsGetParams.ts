@@ -11,4 +11,19 @@ export type ListClientsBffSellersAppClientsGetParams = {
    * Filter clients by assigned seller ID
    */
   vendedor_asignado_id?: string | null;
+  /**
+   * Filter by institution name (partial match)
+   */
+  client_name?: string | null;
+  /**
+   * Page number (1-indexed)
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * Number of items per page
+   * @minimum 1
+   * @maximum 100
+   */
+  page_size?: number;
 };

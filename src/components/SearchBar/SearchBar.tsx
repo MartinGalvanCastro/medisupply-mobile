@@ -32,7 +32,7 @@ export const SearchBar = ({
   };
 
   return (
-    <Input variant="outline" size="md" className="rounded-lg" testID={testID}>
+    <Input variant="outline" size="md" className="rounded-lg border-outline-500" testID={testID}>
       <InputSlot className="pl-3">
         <InputIcon as={Search} />
       </InputSlot>

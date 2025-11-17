@@ -79,18 +79,10 @@ describe('useEvidenceUpload', () => {
         mutateAsync: mockConfirmUpload,
       });
 
-      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
-        // Mock response for file fetch (to get blob)
-        if (url.startsWith('file://')) {
-          return {
-            blob: jest.fn().mockResolvedValue(new Blob(['file content'], { type: 'image/jpeg' })),
-          };
-        }
-        // Mock response for S3 upload
-        return {
-          ok: true,
-          status: 200,
-        };
+      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
       });
 
       const file: MediaFile = {
@@ -135,18 +127,10 @@ describe('useEvidenceUpload', () => {
         mutateAsync: mockConfirmUpload,
       });
 
-      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
-        // Mock response for file fetch (to get blob)
-        if (url.startsWith('file://')) {
-          return {
-            blob: jest.fn().mockResolvedValue(new Blob(['file content'], { type: 'image/jpeg' })),
-          };
-        }
-        // Mock response for S3 upload
-        return {
-          ok: true,
-          status: 200,
-        };
+      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
       });
 
       const files: MediaFile[] = [
@@ -299,18 +283,10 @@ describe('useEvidenceUpload', () => {
         mutateAsync: mockConfirmUpload,
       });
 
-      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
-        // Mock response for file fetch (to get blob)
-        if (url.startsWith('file://')) {
-          return {
-            blob: jest.fn().mockResolvedValue(new Blob(['file content'], { type: 'image/jpeg' })),
-          };
-        }
-        // Mock response for S3 upload
-        return {
-          ok: true,
-          status: 200,
-        };
+      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
       });
 
       const file: MediaFile = {
@@ -361,18 +337,10 @@ describe('useEvidenceUpload', () => {
         mutateAsync: mockConfirmUpload,
       });
 
-      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
-        // Mock response for file fetch (to get blob)
-        if (url.startsWith('file://')) {
-          return {
-            blob: jest.fn().mockResolvedValue(new Blob(['file content'], { type: 'image/jpeg' })),
-          };
-        }
-        // Mock response for S3 upload
-        return {
-          ok: true,
-          status: 200,
-        };
+      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
       });
 
       const files: MediaFile[] = [
@@ -443,18 +411,10 @@ describe('useEvidenceUpload', () => {
         mutateAsync: mockConfirmUpload,
       });
 
-      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
-        // Mock response for file fetch (to get blob)
-        if (url.startsWith('file://')) {
-          return {
-            blob: jest.fn().mockResolvedValue(new Blob(['file content'], { type: 'image/jpeg' })),
-          };
-        }
-        // Mock response for S3 upload
-        return {
-          ok: true,
-          status: 200,
-        };
+      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
       });
 
       const file: MediaFile = {
@@ -496,18 +456,10 @@ describe('useEvidenceUpload', () => {
         mutateAsync: mockConfirmUpload,
       });
 
-      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
-        // Mock response for file fetch (to get blob)
-        if (url.startsWith('file://')) {
-          return {
-            blob: jest.fn().mockResolvedValue(new Blob(['file content'], { type: 'image/jpeg' })),
-          };
-        }
-        // Mock response for S3 upload
-        return {
-          ok: true,
-          status: 200,
-        };
+      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
       });
 
       const file: MediaFile = {
@@ -551,18 +503,10 @@ describe('useEvidenceUpload', () => {
         mutateAsync: mockConfirmUpload,
       });
 
-      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
-        // Mock response for file fetch (to get blob)
-        if (url.startsWith('file://')) {
-          return {
-            blob: jest.fn().mockResolvedValue(new Blob(['file content'], { type: 'image/jpeg' })),
-          };
-        }
-        // Mock response for S3 upload
-        return {
-          ok: true,
-          status: 200,
-        };
+      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
       });
 
       const files: MediaFile[] = Array.from({ length: 3 }, (_, i) => ({
@@ -617,18 +561,10 @@ describe('useEvidenceUpload', () => {
         mutateAsync: mockConfirmUpload,
       });
 
-      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
-        // Mock response for file fetch (to get blob)
-        if (url.startsWith('file://')) {
-          return {
-            blob: jest.fn().mockResolvedValue(new Blob(['file content'], { type: 'image/jpeg' })),
-          };
-        }
-        // Mock response for S3 upload
-        return {
-          ok: true,
-          status: 200,
-        };
+      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
       });
 
       const file: MediaFile = {
@@ -677,18 +613,10 @@ describe('useEvidenceUpload', () => {
         mutateAsync: mockConfirmUpload,
       });
 
-      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
-        // Mock response for file fetch (to get blob)
-        if (url.startsWith('file://')) {
-          return {
-            blob: jest.fn().mockResolvedValue(new Blob(['file content'], { type: 'image/jpeg' })),
-          };
-        }
-        // Mock response for S3 upload
-        return {
-          ok: true,
-          status: 200,
-        };
+      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
       });
 
       const file: MediaFile = {
@@ -730,18 +658,10 @@ describe('useEvidenceUpload', () => {
         mutateAsync: mockConfirmUpload,
       });
 
-      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
-        // Mock response for file fetch (to get blob)
-        if (url.startsWith('file://')) {
-          return {
-            blob: jest.fn().mockResolvedValue(new Blob(['file content'], { type: 'image/jpeg' })),
-          };
-        }
-        // Mock response for S3 upload
-        return {
-          ok: true,
-          status: 200,
-        };
+      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
       });
 
       const files: MediaFile[] = Array.from({ length: 5 }, (_, i) => ({
@@ -785,18 +705,10 @@ describe('useEvidenceUpload', () => {
         mutateAsync: mockConfirmUpload,
       });
 
-      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
-        // Mock response for file fetch (to get blob)
-        if (url.startsWith('file://')) {
-          return {
-            blob: jest.fn().mockResolvedValue(new Blob(['file content'], { type: 'image/jpeg' })),
-          };
-        }
-        // Mock response for S3 upload
-        return {
-          ok: true,
-          status: 200,
-        };
+      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
       });
 
       const file: MediaFile = {
@@ -841,18 +753,10 @@ describe('useEvidenceUpload', () => {
         mutateAsync: mockConfirmUpload,
       });
 
-      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
-        // Mock response for file fetch (to get blob)
-        if (url.startsWith('file://')) {
-          return {
-            blob: jest.fn().mockResolvedValue(new Blob(['file content'], { type: 'image/jpeg' })),
-          };
-        }
-        // Mock response for S3 upload
-        return {
-          ok: true,
-          status: 200,
-        };
+      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
       });
 
       const files: MediaFile[] = [
@@ -912,18 +816,10 @@ describe('useEvidenceUpload', () => {
         mutateAsync: mockConfirmUpload,
       });
 
-      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
-        // Mock response for file fetch (to get blob)
-        if (url.startsWith('file://')) {
-          return {
-            blob: jest.fn().mockResolvedValue(new Blob(['file content'], { type: 'image/jpeg' })),
-          };
-        }
-        // Mock response for S3 upload
-        return {
-          ok: true,
-          status: 200,
-        };
+      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
       });
 
       const files: MediaFile[] = [
@@ -1016,18 +912,10 @@ describe('useEvidenceUpload', () => {
         mutateAsync: mockConfirmUpload,
       });
 
-      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
-        // Mock response for file fetch (to get blob)
-        if (url.startsWith('file://')) {
-          return {
-            blob: jest.fn().mockResolvedValue(new Blob(['file content'], { type: 'image/jpeg' })),
-          };
-        }
-        // Mock response for S3 upload
-        return {
-          ok: true,
-          status: 200,
-        };
+      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
       });
 
       const file: MediaFile = {
@@ -1070,18 +958,10 @@ describe('useEvidenceUpload', () => {
         mutateAsync: mockConfirmUpload,
       });
 
-      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
-        // Mock response for file fetch (to get blob)
-        if (url.startsWith('file://')) {
-          return {
-            blob: jest.fn().mockResolvedValue(new Blob(['file content'], { type: 'image/jpeg' })),
-          };
-        }
-        // Mock response for S3 upload
-        return {
-          ok: true,
-          status: 200,
-        };
+      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
       });
 
       const file: MediaFile = {

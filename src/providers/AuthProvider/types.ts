@@ -4,6 +4,7 @@ export interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
+  refetchUser: () => Promise<void>;
   signup: (
     email: string,
     password: string,
@@ -20,6 +21,7 @@ export interface AuthContextValue {
   isLoginPending: boolean;
   isRefreshPending: boolean;
   isSignupPending: boolean;
+  isLoadingUser: boolean;
 }
 
 export interface AuthProviderProps {

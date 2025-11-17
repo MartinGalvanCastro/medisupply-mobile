@@ -1,5 +1,4 @@
 import { ScrollView, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { VStack } from '@/components/ui/vstack';
 import { HStack } from '@/components/ui/hstack';
@@ -9,9 +8,10 @@ import { Heading } from '@/components/ui/heading';
 import { Card } from '@/components/ui/card';
 import { Badge, BadgeText } from '@/components/ui/badge';
 import { Avatar, AvatarFallbackText } from '@/components/ui/avatar';
-import { Divider } from '@/components/ui/divider';
 import { Icon } from '@/components/ui/icon';
 import { InfoRow } from '@/components/InfoRow';
+import { ScreenContainer } from '@/components/ScreenContainer';
+import { InfoSection } from '@/components/InfoSection';
 import { useAuthStore } from '@/store';
 import { useAuth } from '@/providers';
 import { useTranslation } from '@/i18n/hooks';
@@ -41,8 +41,8 @@ export const AccountScreen = () => {
   const userTypeBadge = getUserTypeBadge(user?.role, t);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <ScreenContainer testID="account-screen">
+      <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
         <VStack space="lg" className="p-4 pb-8">
           {/* Header */}
           <Heading size="xl" className="mb-2">{t('account.title')}</Heading>
@@ -80,14 +80,8 @@ export const AccountScreen = () => {
                 </VStack>
               </HStack>
 
-              <Divider className="my-2" />
-
               {/* Contact Information */}
-              <VStack space="md">
-                <Text className="text-sm font-semibold text-typography-700 uppercase tracking-wide">
-                  {t('account.contactInfo')}
-                </Text>
-
+              <InfoSection title={t('account.contactInfo')} testID="contact-info">
                 <InfoRow
                   icon={Mail}
                   label={t('account.profile.email')}
@@ -101,86 +95,72 @@ export const AccountScreen = () => {
                     value={user.profile.telefono}
                   />
                 )}
-              </VStack>
+              </InfoSection>
 
               {/* Institution Information - Only show for clients with institution data */}
               {user?.role === 'client' && (user?.profile?.nombreInstitucion || user?.profile?.tipoInstitucion) && (
-                <>
-                  <Divider className="my-2" />
-                  <VStack space="md">
-                    <Text className="text-sm font-semibold text-typography-700 uppercase tracking-wide">
-                      {t('account.institutionInfo')}
-                    </Text>
+                <InfoSection title={t('account.institutionInfo')} testID="institution-info">
+                  {user?.profile?.nombreInstitucion && (
+                    <InfoRow
+                      icon={Building2}
+                      label={t('account.profile.institution')}
+                      value={user.profile.nombreInstitucion}
+                    />
+                  )}
 
-                    {user?.profile?.nombreInstitucion && (
-                      <InfoRow
-                        icon={Building2}
-                        label={t('account.profile.institution')}
-                        value={user.profile.nombreInstitucion}
-                      />
-                    )}
+                  {user?.profile?.tipoInstitucion && (
+                    <InfoRow
+                      icon={Building2}
+                      label={t('account.profile.type')}
+                      value={getInstitutionTypeLabel(user.profile.tipoInstitucion, t)}
+                    />
+                  )}
 
-                    {user?.profile?.tipoInstitucion && (
-                      <InfoRow
-                        icon={Building2}
-                        label={t('account.profile.type')}
-                        value={getInstitutionTypeLabel(user.profile.tipoInstitucion, t)}
-                      />
-                    )}
+                  {user?.profile?.nit && (
+                    <InfoRow
+                      icon={FileText}
+                      label={t('account.profile.nit')}
+                      value={user.profile.nit}
+                    />
+                  )}
 
-                    {user?.profile?.nit && (
-                      <InfoRow
-                        icon={FileText}
-                        label={t('account.profile.nit')}
-                        value={user.profile.nit}
-                      />
-                    )}
-
-                    {user?.profile?.representante && (
-                      <InfoRow
-                        icon={UserCircle}
-                        label={t('account.profile.representative')}
-                        value={user.profile.representante}
-                      />
-                    )}
-                  </VStack>
-                </>
+                  {user?.profile?.representante && (
+                    <InfoRow
+                      icon={UserCircle}
+                      label={t('account.profile.representative')}
+                      value={user.profile.representante}
+                    />
+                  )}
+                </InfoSection>
               )}
 
               {/* Location Information */}
               {(user?.profile?.direccion || user?.profile?.ciudad || user?.profile?.pais) && (
-                <>
-                  <Divider className="my-2" />
-                  <VStack space="md">
-                    <Text className="text-sm font-semibold text-typography-700 uppercase tracking-wide">
-                      {t('account.location')}
-                    </Text>
+                <InfoSection title={t('account.location')} testID="location-info">
+                  {user?.profile?.direccion && (
+                    <InfoRow
+                      icon={MapPin}
+                      label={t('account.profile.address')}
+                      value={user.profile.direccion}
+                    />
+                  )}
 
-                    {user?.profile?.direccion && (
-                      <InfoRow
-                        icon={MapPin}
-                        label={t('account.profile.address')}
-                        value={user.profile.direccion}
-                      />
-                    )}
+                  {user?.profile?.ciudad && (
+                    <InfoRow
+                      icon={MapPin}
+                      label={t('account.profile.city')}
+                      value={user.profile.ciudad}
+                    />
+                  )}
 
-                    {user?.profile?.ciudad && (
-                      <InfoRow
-                        icon={MapPin}
-                        label={t('account.profile.city')}
-                        value={user.profile.ciudad}
-                      />
-                    )}
-
-                    {user?.profile?.pais && (
-                      <InfoRow
-                        icon={MapPin}
-                        label={t('account.profile.country')}
-                        value={user.profile.pais}
-                      />
-                    )}
-                  </VStack>
-                </>
+                  {user?.profile?.pais && (
+                    <InfoRow
+                      icon={MapPin}
+                      label={t('account.profile.country')}
+                      value={user.profile.pais}
+                    />
+                  )}
+                </InfoSection>
               )}
             </VStack>
           </Card>
@@ -209,12 +189,12 @@ export const AccountScreen = () => {
           </Card>
         </VStack>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  scrollView: {
     flex: 1,
     backgroundColor: '#f9fafb',
   },

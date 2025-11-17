@@ -121,6 +121,7 @@ export const LoginScreen = () => {
                   secureTextEntry
                   autoCapitalize="none"
                   testID="password-input"
+                  showPasswordToggle
                 />
               </View>
 

@@ -91,7 +91,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
     : null;
 
   return (
-    <Card variant="elevated" className="bg-white" testID={`order-card-${order.id}`}>
+    <Card variant="elevated" className="bg-white my-2" testID={`order-card-${order.id}`}>
       <Pressable
         onPress={() => setIsExpanded(!isExpanded)}
         testID={`order-card-pressable-${order.id}`}
@@ -104,7 +104,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
               <HStack space="xs" className="items-center">
                 <Package size={16} color="#6b7280" />
                 <Text className="font-semibold text-typography-900">
-                  {t('orders.orderId')}: {order.id}
+                  {t('orders.orderId')}: #{order.id.slice(0, 8).toUpperCase()}
                 </Text>
               </HStack>
               <Text className="text-sm text-typography-600">
@@ -204,19 +204,22 @@ export const OrderCard = ({ order }: OrderCardProps) => {
 
                 <VStack space="xs">
                   {order.items.map((item, index) => (
-                    <HStack key={index} className="justify-between items-center py-1">
-                      <Text className="text-sm text-typography-700 flex-1">
-                        {item.product_name}
-                      </Text>
-                      <HStack space="md" className="items-center">
-                        <Text className="text-sm text-typography-600">
-                          x{item.cantidad}
+                    <VStack key={index} space="xs">
+                      <HStack className="justify-between items-center py-1">
+                        <Text className="text-sm text-typography-700 flex-1">
+                          {item.product_name}
                         </Text>
-                        <Text className="text-sm font-medium text-typography-900 min-w-[80px] text-right">
-                          {formatCurrency(item.precio_unitario * item.cantidad)}
-                        </Text>
+                        <HStack space="md" className="items-center">
+                          <Text className="text-sm text-typography-600">
+                            x{item.cantidad}
+                          </Text>
+                          <Text className="text-sm font-medium text-typography-900 min-w-[80px] text-right">
+                            {formatCurrency(item.precio_unitario * item.cantidad)}
+                          </Text>
+                        </HStack>
                       </HStack>
-                    </HStack>
+                      {index < order.items.length - 1 && <Divider />}
+                    </VStack>
                   ))}
                 </VStack>
 

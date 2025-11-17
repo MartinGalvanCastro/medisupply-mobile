@@ -3,10 +3,12 @@ import {
   FormControlError,
   FormControlErrorText,
 } from '@/components/ui/form-control';
-import { Input, InputField } from '@/components/ui/input';
+import { Input, InputField, InputSlot, InputIcon } from '@/components/ui/input';
 import { Controller } from 'react-hook-form';
 import type { Control, FieldError } from 'react-hook-form';
 import type { KeyboardTypeOptions } from 'react-native';
+import { Eye, EyeOff } from 'lucide-react-native';
+import { useState } from 'react';
 
 interface FormInputProps {
   control: Control<any>;
@@ -18,6 +20,7 @@ interface FormInputProps {
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   autoCorrect?: boolean;
   testID?: string;
+  showPasswordToggle?: boolean;
 }
 
 export const FormInput = ({
@@ -30,7 +33,14 @@ export const FormInput = ({
   autoCapitalize,
   autoCorrect,
   testID,
+  showPasswordToggle = false,
 }: FormInputProps) => {
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleTogglePassword = () => {
+    setShowPassword((prev) => !prev);
+  };
+
   return (
     <FormControl isInvalid={!!error} className="mb-4">
       <Controller
@@ -44,11 +54,16 @@ export const FormInput = ({
               value={value}
               onChangeText={onChange}
               onBlur={onBlur}
-              secureTextEntry={secureTextEntry}
+              secureTextEntry={showPasswordToggle ? !showPassword : secureTextEntry}
               keyboardType={keyboardType}
               autoCapitalize={autoCapitalize}
               autoCorrect={autoCorrect}
             />
+            {showPasswordToggle && (
+              <InputSlot onPress={handleTogglePassword} className="pr-3">
+                <InputIcon as={showPassword ? EyeOff : Eye} className="text-gray-400" />
+              </InputSlot>
+            )}
           </Input>
         )}
       />
