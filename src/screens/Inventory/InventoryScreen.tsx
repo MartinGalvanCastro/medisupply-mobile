@@ -1,29 +1,73 @@
-import React, { useState } from 'react';
-import { StyleSheet, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { FlashList } from '@shopify/flash-list';
-import { Box } from '@/components/ui/box';
-import { VStack } from '@/components/ui/vstack';
-import { Heading } from '@/components/ui/heading';
-import { Text } from '@/components/ui/text';
-import { SearchBar } from '@/components/SearchBar';
+import { getInventoriesBffInventoriesGet } from '@/api/generated/common/common';
+import type { CommonSchemasInventoryResponse } from '@/api/generated/models';
+import { BottomSheet } from '@/components/BottomSheet';
+import { EmptyState } from '@/components/EmptyState';
+import { ErrorStateCard } from '@/components/ErrorStateCard';
+import { ListScreenLayout } from '@/components/ListScreenLayout';
+import { LoadingCard } from '@/components/LoadingCard';
 import { ProductCard } from '@/components/ProductCard';
+import { SearchBar } from '@/components/SearchBar';
+import { Button, ButtonText } from '@/components/ui/button';
+import { Box } from '@/components/ui/box';
+import { HStack } from '@/components/ui/hstack';
+import { VStack } from '@/components/ui/vstack';
+import { Text } from '@/components/ui/text';
+import { Spinner } from '@/components/ui/spinner';
 import { useTranslation } from '@/i18n/hooks';
-import { useInventory } from '@/api/useInventory';
 import { useCartStore } from '@/store/useCartStore';
+import { useInfinitePaginatedQuery } from '@/hooks';
+import { FlashList } from '@shopify/flash-list';
+import { Filter, PackageOpen } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { Alert } from 'react-native';
 import { AddToCartModal } from './AddToCartModal';
-import type { MockInventory } from '@/api/mocks/inventory';
+
+type FilterType = 'name' | 'sku' | 'category';
 
 export const InventoryScreen = () => {
   const { t } = useTranslation();
   const [searchText, setSearchText] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selectedProduct, setSelectedProduct] = useState<MockInventory | null>(null);
+  const [filterType, setFilterType] = useState<FilterType>('name');
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<CommonSchemasInventoryResponse | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  const { data, isLoading, error } = useInventory({
-    search: debouncedSearch,
+  // Use infinite pagination hook
+  const {
+    data: inventoryData,
+    total,
+    isLoading,
+    isError,
+    error,
+    isFetchingNextPage,
+    isRefetching,
+    hasNextPage,
+    fetchNextPage,
+    refetch,
+  } = useInfinitePaginatedQuery<CommonSchemasInventoryResponse>({
+    queryKey: ['inventories', { name: filterType === 'name' ? debouncedSearch : undefined, sku: filterType === 'sku' ? debouncedSearch : undefined }],
+    queryFn: ({ offset, limit }) =>
+      getInventoriesBffInventoriesGet({
+        offset,
+        limit,
+        name: filterType === 'name' ? (debouncedSearch || undefined) : undefined,
+        sku: filterType === 'sku' ? (debouncedSearch || undefined) : undefined,
+      }),
+    extractItems: (response) => response.items,
+    extractTotal: (response) => response.total,
+    hasNextPage: (response) => response.has_next ?? false,
+    pageSize: 20,
+    staleTime: 5 * 60 * 1000,
   });
+
+
+  // Pull-to-refresh handler
+  const handleRefresh = () => {
+    console.log('[InventoryScreen] 🔄 Pull-to-refresh triggered!');
+    console.log('[InventoryScreen] Calling refetch()...');
+    refetch();
+  };
 
   const addItem = useCartStore((state) => state.addItem);
 
@@ -35,8 +79,36 @@ export const InventoryScreen = () => {
     setDebouncedSearch(text);
   };
 
-  const handleProductPress = (item: MockInventory) => {
-    if (item.available_quantity > 0) {
+  const handleFilterSelect = (selected: string) => {
+    setFilterType(selected as FilterType);
+    setShowFilterModal(false);
+  };
+
+  const getFilterLabel = () => {
+    switch (filterType) {
+      case 'name':
+        return t('inventory.filterByName') || 'Name';
+      case 'sku':
+        return t('inventory.filterBySKU') || 'SKU';
+      case 'category':
+        return t('inventory.filterByCategory') || 'Category';
+    }
+  };
+
+  const getSearchPlaceholder = () => {
+    switch (filterType) {
+      case 'name':
+        return t('inventory.searchByName') || 'Search by name...';
+      case 'sku':
+        return t('inventory.searchBySKU') || 'Search by SKU...';
+      case 'category':
+        return t('inventory.searchByCategory') || 'Search by category...';
+    }
+  };
+
+  const handleProductPress = (item: CommonSchemasInventoryResponse) => {
+    const availableQuantity = item.total_quantity - item.reserved_quantity;
+    if (availableQuantity > 0) {
       setSelectedProduct(item);
       setModalVisible(true);
     }
@@ -47,15 +119,17 @@ export const InventoryScreen = () => {
       return;
     }
 
+    const availableQuantity = selectedProduct.total_quantity - selectedProduct.reserved_quantity;
+
     addItem(
       {
         inventoryId: selectedProduct.id,
         productId: selectedProduct.product_id,
-        productName: selectedProduct.product.name,
-        productSku: selectedProduct.product.sku,
-        productPrice: selectedProduct.price,
+        productName: selectedProduct.product_name,
+        productSku: selectedProduct.product_sku,
+        productPrice: selectedProduct.product_price,
         warehouseName: selectedProduct.warehouse_name,
-        availableQuantity: selectedProduct.available_quantity,
+        availableQuantity: availableQuantity,
       },
       quantity
     );
@@ -67,7 +141,7 @@ export const InventoryScreen = () => {
       t('inventory.addedToCart'),
       t('inventory.addedToCartMessage', {
         quantity,
-        productName: selectedProduct.product.name,
+        productName: selectedProduct.product_name,
       })
     );
   };
@@ -77,17 +151,18 @@ export const InventoryScreen = () => {
     setSelectedProduct(null);
   };
 
-  const renderProduct = ({ item }: { item: MockInventory }) => {
+  const renderProduct = ({ item }: { item: CommonSchemasInventoryResponse }) => {
+    const availableQuantity = item.total_quantity - item.reserved_quantity;
     const productData = {
       id: item.id,
-      name: item.product.name,
-      sku: item.product.sku,
-      description: item.product.description,
-      category: item.product.category,
-      manufacturer: item.product.manufacturer,
+      name: item.product_name,
+      sku: item.product_sku,
+      description: '', // Not available in CommonSchemasInventoryResponse
+      category: item.product_category || '',
+      manufacturer: '', // Not available in CommonSchemasInventoryResponse
       warehouseName: item.warehouse_name,
-      availableQuantity: item.available_quantity,
-      price: item.price,
+      availableQuantity: availableQuantity,
+      price: item.product_price,
     };
 
     return (
@@ -99,61 +174,158 @@ export const InventoryScreen = () => {
     );
   };
 
-  const renderEmpty = () => {
-    if (isLoading) {
-      return (
-        <Box className="flex-1 justify-center items-center p-8">
-          <Text className="text-typography-600 text-center">
-            {t('inventory.loadingProducts')}
-          </Text>
-        </Box>
-      );
+  // Handle load more (automatic on scroll)
+  const handleLoadMore = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
     }
-
-    if (error) {
-      return (
-        <Box className="flex-1 justify-center items-center p-8">
-          <Text className="text-typography-600 text-center">{t('common.error')}</Text>
-        </Box>
-      );
-    }
-
-    return (
-      <Box className="flex-1 justify-center items-center p-8">
-        <Text className="text-typography-900 text-lg font-semibold mb-2">
-          {t('inventory.emptyState')}
-        </Text>
-        <Text className="text-typography-600 text-center">
-          {t('inventory.emptyStateDescription')}
-        </Text>
-      </Box>
-    );
   };
 
-  return (
-    <SafeAreaView testID="inventory-screen" style={styles.container}>
-      <VStack space="lg" className="flex-1 px-4 py-2">
-        <Heading size="2xl" className="text-typography-900">
-          {t('inventory.title')}
-        </Heading>
-
-        <SearchBar
-          value={searchText}
-          onChangeText={handleSearchChange}
-          onDebouncedChange={handleDebouncedChange}
-          placeholder={t('inventory.searchPlaceholder')}
-          testID="inventory-search-bar"
-        />
-
-        <Box className="flex-1">
-          <FlashList
-            data={data || []}
-            renderItem={renderProduct}
-            ListEmptyComponent={renderEmpty}
-            keyExtractor={(item) => item.id}
-            testID="inventory-list"
-          />
+  // Footer component for loading indicator
+  const renderFooter = () => {
+    if (isFetchingNextPage) {
+      return (
+        <Box className="p-4 items-center">
+          <VStack space="sm" className="items-center">
+            <Spinner size="small" testID="inventory-load-more-spinner" />
+            <Text className="text-typography-500 text-sm">
+              {t('inventory.loadingMore') || 'Loading more...'}
+            </Text>
+          </VStack>
         </Box>
+      );
+    }
+    return null;
+  };
+
+  // Early returns for loading/error states
+  if (isLoading) {
+    return (
+      <ListScreenLayout
+        title={t('inventory.title')}
+        testID="inventory-screen"
+      >
+        <VStack space="lg" className="flex-1">
+          <HStack space="sm" className="items-center">
+            <Box className="flex-1">
+              <SearchBar
+                value={searchText}
+                onChangeText={handleSearchChange}
+                onDebouncedChange={handleDebouncedChange}
+                placeholder={getSearchPlaceholder()}
+                testID="inventory-search-bar"
+              />
+            </Box>
+            <Button
+              size="sm"
+              variant="outline"
+              action="secondary"
+              onPress={() => setShowFilterModal(true)}
+              testID="filter-type-button"
+              className="border-outline-500"
+            >
+              <Filter size={16} color="#6B7280" />
+              <ButtonText className="ml-2 text-typography-900">{getFilterLabel()}</ButtonText>
+            </Button>
+          </HStack>
+          <LoadingCard
+            message={t('inventory.loadingProducts')}
+            testID="inventory-loading"
+          />
+        </VStack>
+      </ListScreenLayout>
+    );
+  }
+
+  if (isError) {
+    const errorMessage = error?.message || 'Failed to load inventory';
+    return (
+      <ListScreenLayout
+        title={t('inventory.title')}
+        testID="inventory-screen"
+      >
+        <VStack space="lg" className="flex-1">
+          <HStack space="sm" className="items-center">
+            <Box className="flex-1">
+              <SearchBar
+                value={searchText}
+                onChangeText={handleSearchChange}
+                onDebouncedChange={handleDebouncedChange}
+                placeholder={getSearchPlaceholder()}
+                testID="inventory-search-bar"
+              />
+            </Box>
+            <Button
+              size="sm"
+              variant="outline"
+              action="secondary"
+              onPress={() => setShowFilterModal(true)}
+              testID="filter-type-button"
+              className="border-outline-500"
+            >
+              <Filter size={16} color="#6B7280" />
+              <ButtonText className="ml-2 text-typography-900">{getFilterLabel()}</ButtonText>
+            </Button>
+          </HStack>
+          <ErrorStateCard
+            title={t('common.error')}
+            message={errorMessage}
+            onRetry={() => refetch()}
+            retryLabel={t('common.retry') || 'Retry'}
+            testID="inventory-error"
+          />
+        </VStack>
+      </ListScreenLayout>
+    );
+  }
+
+  return (
+    <ListScreenLayout
+      title={t('inventory.title')}
+      testID="inventory-screen"
+    >
+      <VStack space="lg" className="flex-1">
+        <HStack space="sm" className="items-center">
+          <Box className="flex-1">
+            <SearchBar
+              value={searchText}
+              onChangeText={handleSearchChange}
+              onDebouncedChange={handleDebouncedChange}
+              placeholder={getSearchPlaceholder()}
+              testID="inventory-search-bar"
+            />
+          </Box>
+          <Button
+            size="sm"
+            variant="outline"
+            action="secondary"
+            onPress={() => setShowFilterModal(true)}
+            testID="filter-type-button"
+            className="border-outline-500"
+          >
+            <Filter size={16} color="#6B7280" />
+            <ButtonText className="ml-2 text-typography-900">{getFilterLabel()}</ButtonText>
+          </Button>
+        </HStack>
+        <FlashList
+        data={inventoryData}
+        renderItem={renderProduct}
+        ListEmptyComponent={
+          <EmptyState
+            icon={PackageOpen}
+            title={t('inventory.emptyState')}
+            description={t('inventory.emptyStateDescription')}
+            testID="inventory-empty-state"
+          />
+        }
+        ListFooterComponent={renderFooter}
+        keyExtractor={(item) => item.id}
+        testID="inventory-list"
+        onRefresh={handleRefresh}
+        refreshing={isRefetching}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+      />
       </VStack>
 
       <AddToCartModal
@@ -162,10 +334,10 @@ export const InventoryScreen = () => {
           selectedProduct
             ? {
                 id: selectedProduct.id,
-                name: selectedProduct.product.name,
-                sku: selectedProduct.product.sku,
-                price: selectedProduct.price,
-                availableQuantity: selectedProduct.available_quantity,
+                name: selectedProduct.product_name,
+                sku: selectedProduct.product_sku,
+                price: selectedProduct.product_price,
+                availableQuantity: selectedProduct.total_quantity - selectedProduct.reserved_quantity,
                 warehouseName: selectedProduct.warehouse_name,
               }
             : null
@@ -174,12 +346,25 @@ export const InventoryScreen = () => {
         onAddToCart={handleAddToCart}
         testID="inventory-add-to-cart-modal"
       />
-    </SafeAreaView>
+
+      <BottomSheet
+        visible={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        title={t('inventory.filterBy') || 'Filter By'}
+        options={[
+          {
+            label: t('inventory.filterByName') || 'Name',
+            value: 'name',
+          },
+          {
+            label: t('inventory.filterBySKU') || 'SKU',
+            value: 'sku',
+          },
+        ]}
+        selectedValue={filterType}
+        onSelect={handleFilterSelect}
+        testID="filter-type-modal"
+      />
+    </ListScreenLayout>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});

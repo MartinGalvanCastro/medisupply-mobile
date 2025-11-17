@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { zustandStorage } from '@/utils/storage';
+import { useCartStore } from '@/store/useCartStore';
 import type { AuthStore, AuthState } from './types';
 
 const initialState: AuthState = {
@@ -55,6 +56,8 @@ export const useAuthStore = create<AuthStore>()(
       logout: () => {
         console.log('[AuthStore] logout called');
         set(initialState);
+        // Clear cart on logout
+        useCartStore.getState().clearCart();
       },
 
       updateUser: (updates) =>

@@ -157,21 +157,8 @@ export const useCreateOrderBffSellersAppOrdersPost = <
   return useMutation(mutationOptions, queryClient);
 };
 /**
- * List clients, optionally filtered by assigned seller.
-
-Requires mobile seller authentication (seller_users group).
-
-Args:
-    vendedor_asignado_id: Optional seller ID to filter clients
-    client_port: Client port for service communication
-    user: Authenticated seller user
-
-Returns:
-    List of clients
-
-Raises:
-    HTTPException: If listing clients fails
- * @summary List Clients
+ * Retrieves clients, optionally filtered by assigned seller. Supports pagination with page and page_size parameters.
+ * @summary List clients with pagination
  */
 export const listClientsBffSellersAppClientsGet = (
   params?: ListClientsBffSellersAppClientsGetParams,
@@ -304,7 +291,7 @@ export function useListClientsBffSellersAppClientsGet<
   queryKey: DataTag<QueryKey, TData, TError>;
 };
 /**
- * @summary List Clients
+ * @summary List clients with pagination
  */
 
 export function useListClientsBffSellersAppClientsGet<
@@ -437,8 +424,8 @@ export const useCreateVisitBffSellersAppVisitsPost = <
   return useMutation(mutationOptions, queryClient);
 };
 /**
- * Retrieves all visits for the authenticated seller on a specific date, ordered chronologically by fecha_visita.
- * @summary List visits for a date
+ * Retrieves visits grouped by temporal status: today, past (most recent first), or future (nearest first). Supports pagination with page and page_size parameters.
+ * @summary List visits by temporal status
  */
 export const listVisitsBffSellersAppVisitsGet = (
   params: ListVisitsBffSellersAppVisitsGetParams,
@@ -570,7 +557,7 @@ export function useListVisitsBffSellersAppVisitsGet<
   queryKey: DataTag<QueryKey, TData, TError>;
 };
 /**
- * @summary List visits for a date
+ * @summary List visits by temporal status
  */
 
 export function useListVisitsBffSellersAppVisitsGet<

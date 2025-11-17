@@ -1,23 +1,25 @@
 import { transformUserData, transformTokensFromLogin } from './auth.utils';
-import type { GetMeAuthMeGet200, LoginResponse } from '@/api/generated/models';
+import type { UserMeResponse, LoginResponse } from '@/api/generated/models';
 
 describe('auth.utils', () => {
   describe('transformUserData', () => {
     it('should transform complete user data with all fields', () => {
-      const input: GetMeAuthMeGet200 = {
-        sub: 'user-123',
+      const input: UserMeResponse = {
+        user_id: 'user-123',
         email: 'test@example.com',
         name: 'John Doe',
-        'custom:role': 'admin',
-        'cognito:groups': ['group1', 'group2'],
-        'custom:telefono': '555-1234',
-        'custom:nombre_institucion': 'Test Hospital',
-        'custom:tipo_institucion': 'hospital',
-        'custom:nit': '123456789',
-        'custom:direccion': '123 Main St',
-        'custom:ciudad': 'Test City',
-        'custom:pais': 'Test Country',
-        'custom:representante': 'Jane Doe',
+        user_type: 'seller',
+        groups: ['group1', 'group2'],
+        user_details: {
+          telefono: '555-1234',
+          nombre_institucion: 'Test Hospital',
+          tipo_institucion: 'hospital',
+          nit: '123456789',
+          direccion: '123 Main St',
+          ciudad: 'Test City',
+          pais: 'Test Country',
+          representante: 'Jane Doe',
+        },
       };
 
       const result = transformUserData(input);
@@ -26,7 +28,7 @@ describe('auth.utils', () => {
         id: 'user-123',
         email: 'test@example.com',
         name: 'John Doe',
-        role: 'admin',
+        role: 'seller',
         groups: ['group1', 'group2'],
         profile: {
           telefono: '555-1234',
@@ -41,9 +43,9 @@ describe('auth.utils', () => {
       });
     });
 
-    it('should use id field when sub is not available', () => {
-      const input: GetMeAuthMeGet200 = {
-        id: 'user-456',
+    it('should handle basic user data without optional fields', () => {
+      const input: UserMeResponse = {
+        user_id: 'user-456',
         email: 'test@example.com',
         name: 'Test User',
       };
@@ -51,11 +53,13 @@ describe('auth.utils', () => {
       const result = transformUserData(input);
 
       expect(result.id).toBe('user-456');
+      expect(result.email).toBe('test@example.com');
+      expect(result.name).toBe('Test User');
     });
 
     it('should handle missing optional fields', () => {
-      const input: GetMeAuthMeGet200 = {
-        sub: 'user-123',
+      const input: UserMeResponse = {
+        user_id: 'user-123',
         email: 'test@example.com',
         name: 'Test User',
       };
@@ -72,12 +76,12 @@ describe('auth.utils', () => {
       });
     });
 
-    it('should use user_type when role is not available', () => {
-      const input: GetMeAuthMeGet200 = {
-        sub: 'user-123',
+    it('should use user_type as role', () => {
+      const input: UserMeResponse = {
+        user_id: 'user-123',
         email: 'test@example.com',
         name: 'Test User',
-        'custom:user_type': 'client',
+        user_type: 'client',
       };
 
       const result = transformUserData(input);
@@ -85,52 +89,42 @@ describe('auth.utils', () => {
       expect(result.role).toBe('client');
     });
 
-    it('should prioritize cognito:groups over groups field', () => {
-      const input: GetMeAuthMeGet200 = {
-        sub: 'user-123',
+    it('should handle groups field', () => {
+      const input: UserMeResponse = {
+        user_id: 'user-123',
         email: 'test@example.com',
         name: 'Test User',
-        'cognito:groups': ['cognito-group'],
-        groups: ['regular-group'],
+        groups: ['group1', 'group2'],
       };
 
       const result = transformUserData(input);
 
-      expect(result.groups).toEqual(['cognito-group']);
+      expect(result.groups).toEqual(['group1', 'group2']);
     });
 
-    it('should use groups field when cognito:groups is not available', () => {
-      const input: GetMeAuthMeGet200 = {
-        sub: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-        groups: ['regular-group'],
+    it('should handle seller user type', () => {
+      const input: UserMeResponse = {
+        user_id: 'user-123',
+        email: 'seller@example.com',
+        name: 'Test Seller',
+        user_type: 'seller',
+        groups: ['seller_users'],
       };
 
       const result = transformUserData(input);
 
-      expect(result.groups).toEqual(['regular-group']);
-    });
-
-    it('should handle non-array groups field', () => {
-      const input: GetMeAuthMeGet200 = {
-        sub: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-        groups: 'not-an-array' as any,
-      };
-
-      const result = transformUserData(input);
-
-      expect(result.groups).toBeUndefined();
+      expect(result.role).toBe('seller');
+      expect(result.groups).toEqual(['seller_users']);
     });
 
     it('should include profile when at least one profile field exists', () => {
-      const input: GetMeAuthMeGet200 = {
-        sub: 'user-123',
+      const input: UserMeResponse = {
+        user_id: 'user-123',
         email: 'test@example.com',
         name: 'Test User',
-        'custom:telefono': '555-1234',
+        user_details: {
+          telefono: '555-1234',
+        },
       };
 
       const result = transformUserData(input);
@@ -148,12 +142,14 @@ describe('auth.utils', () => {
     });
 
     it('should convert numeric profile values to strings', () => {
-      const input: GetMeAuthMeGet200 = {
-        sub: 'user-123',
+      const input: UserMeResponse = {
+        user_id: 'user-123',
         email: 'test@example.com',
         name: 'Test User',
-        'custom:telefono': 5551234 as any,
-        'custom:nit': 123456789 as any,
+        user_details: {
+          telefono: 5551234,
+          nit: 123456789,
+        },
       };
 
       const result = transformUserData(input);
@@ -162,28 +158,9 @@ describe('auth.utils', () => {
       expect(result.profile?.nit).toBe('123456789');
     });
 
-    it('should handle empty string values', () => {
-      const input: GetMeAuthMeGet200 = {
-        sub: '',
-        email: '',
-        name: '',
-      };
-
-      const result = transformUserData(input);
-
-      expect(result).toEqual({
-        id: '',
-        email: '',
-        name: '',
-        role: undefined,
-        groups: undefined,
-        profile: undefined,
-      });
-    });
-
     it('should handle all profile fields as undefined when none are provided', () => {
-      const input: GetMeAuthMeGet200 = {
-        sub: 'user-123',
+      const input: UserMeResponse = {
+        user_id: 'user-123',
         email: 'test@example.com',
         name: 'Test User',
       };
@@ -193,44 +170,30 @@ describe('auth.utils', () => {
       expect(result.profile).toBeUndefined();
     });
 
-    it('should handle null values for sub, id, email, and name', () => {
-      const input: GetMeAuthMeGet200 = {
-        sub: null as any,
-        id: null as any,
-        email: null as any,
-        name: null as any,
+    it('should handle null user_details', () => {
+      const input: UserMeResponse = {
+        user_id: 'user-123',
+        email: 'test@example.com',
+        name: 'Test User',
+        user_details: null,
       };
 
       const result = transformUserData(input);
 
-      expect(result).toEqual({
-        id: '',
-        email: '',
-        name: '',
-        role: undefined,
-        groups: undefined,
-        profile: undefined,
-      });
+      expect(result.profile).toBeUndefined();
     });
 
-    it('should handle undefined values for sub, id, email, and name', () => {
-      const input: GetMeAuthMeGet200 = {
-        sub: undefined,
-        id: undefined,
-        email: undefined,
-        name: undefined,
+    it('should handle empty user_details object', () => {
+      const input: UserMeResponse = {
+        user_id: 'user-123',
+        email: 'test@example.com',
+        name: 'Test User',
+        user_details: {},
       };
 
       const result = transformUserData(input);
 
-      expect(result).toEqual({
-        id: '',
-        email: '',
-        name: '',
-        role: undefined,
-        groups: undefined,
-        profile: undefined,
-      });
+      expect(result.profile).toBeUndefined();
     });
   });
 

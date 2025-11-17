@@ -23,7 +23,6 @@ import type {
 
 import type {
   ErrorResponse,
-  GetMeAuthMeGet200,
   HTTPValidationError,
   LoginRequest,
   LoginResponse,
@@ -31,6 +30,7 @@ import type {
   RefreshTokenResponse,
   SignupRequest,
   SignupResponse,
+  UserMeResponse,
 } from ".././models";
 
 import { customInstance } from "../../client";
@@ -351,23 +351,28 @@ export const useSignupAuthSignupPost = <
   return useMutation(mutationOptions, queryClient);
 };
 /**
- * Get current authenticated user information.
+ * Get current authenticated user information with complete user details.
 
 Requires valid JWT ID token in Authorization header (not access token).
 The ID token contains user profile information like email, name, and custom attributes.
+
+This endpoint also fetches additional user details from the appropriate microservice:
+- For sellers: Returns seller profile data (name, email, phone, city, etc.)
+- For clients: Returns client profile data (name, institution, NIT, address, etc.)
+- For web users: Returns only JWT claims
 
 Args:
     user: Current user from JWT token
 
 Returns:
-    User claims from JWT token
+    UserMeResponse with user claims and optional user_details from microservices
  * @summary Get Me
  */
 export const getMeAuthMeGet = (
   options?: SecondParameter<typeof customInstance>,
   signal?: AbortSignal,
 ) => {
-  return customInstance<GetMeAuthMeGet200>(
+  return customInstance<UserMeResponse>(
     { url: `/auth/me`, method: "GET", signal },
     options,
   );

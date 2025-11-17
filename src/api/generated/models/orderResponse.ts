@@ -6,7 +6,6 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { OrderResponseSellerId } from "./orderResponseSellerId";
-import type { OrderResponseVisitId } from "./orderResponseVisitId";
 import type { OrderResponseRouteId } from "./orderResponseRouteId";
 import type { OrderResponseFechaEntregaEstimada } from "./orderResponseFechaEntregaEstimada";
 import type { OrderResponseCustomerPhone } from "./orderResponseCustomerPhone";
@@ -22,7 +21,6 @@ export interface OrderResponse {
   id: string;
   customer_id: string;
   seller_id: OrderResponseSellerId;
-  visit_id: OrderResponseVisitId;
   route_id: OrderResponseRouteId;
   fecha_pedido: string;
   fecha_entrega_estimada: OrderResponseFechaEntregaEstimada;

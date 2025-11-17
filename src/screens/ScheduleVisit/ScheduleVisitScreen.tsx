@@ -16,6 +16,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/components/ui/toast';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Types
 type ScheduleVisitFormData = {
@@ -43,6 +44,7 @@ const createScheduleVisitSchema = (t: (key: any) => string) =>
 export const ScheduleVisitScreen = () => {
   const { t } = useTranslation();
   const toast = useToast();
+  const queryClient = useQueryClient();
   const { clientId } = useLocalSearchParams<{ clientId: string }>();
 
   // Picker state
@@ -79,6 +81,12 @@ export const ScheduleVisitScreen = () => {
   const createVisit = useCreateVisitBffSellersAppVisitsPost({
     mutation: {
       onSuccess: () => {
+        // Invalidate visits query cache to trigger refetch
+        // Use 'visits' key to match the actual query key used in VisitsScreen
+        queryClient.invalidateQueries({
+          queryKey: ['visits'],
+        });
+
         toast.show({
           placement: 'top',
           render: ({ id }) => {

@@ -1,50 +1,63 @@
 import type { ClientResponse } from '@/api/generated/models/clientResponse';
-import { useListClientsBffSellersAppClientsGet } from '@/api/generated/sellers-app/sellers-app';
+import { listClientsBffSellersAppClientsGet } from '@/api/generated/sellers-app/sellers-app';
 import { ClientCard } from '@/components/ClientCard';
+import { ListScreenLayout } from '@/components/ListScreenLayout';
+import { EmptyState } from '@/components/EmptyState';
+import { ErrorStateCard } from '@/components/ErrorStateCard';
+import { LoadingCard } from '@/components/LoadingCard';
 import { SearchBar } from '@/components/SearchBar';
 import { Box } from '@/components/ui/box';
-import { Heading } from '@/components/ui/heading';
-import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
+import { Text } from '@/components/ui/text';
+import { Spinner } from '@/components/ui/spinner';
 import { useTranslation } from '@/i18n/hooks';
+import { useInfinitePaginatedQuery } from '@/hooks';
+import { useNavigationStore } from '@/store/useNavigationStore';
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Users } from 'lucide-react-native';
 
 export const ClientsScreen = () => {
   const { t } = useTranslation();
+  const setCurrentClient = useNavigationStore((state) => state.setCurrentClient);
   const [searchText, setSearchText] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  const { data, isLoading, error } = useListClientsBffSellersAppClientsGet(
-    undefined,
-    {
-      query: {
-        enabled: true,
-        staleTime: 5 * 60 * 1000,
-      },
-    }
-  );
+  // Use infinite pagination hook with server-side filtering
+  const {
+    data: clients,
+    total,
+    isLoading,
+    isError,
+    error,
+    isFetchingNextPage,
+    isRefetching,
+    hasNextPage,
+    fetchNextPage,
+    refetch,
+  } = useInfinitePaginatedQuery<ClientResponse>({
+    queryKey: ['clients', { client_name: debouncedSearch || undefined }],
+    queryFn: ({ page, size }) =>
+      listClientsBffSellersAppClientsGet({
+        client_name: debouncedSearch || undefined,
+        page,
+        page_size: size,
+      }),
+    pageSize: 20,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  //TODO: FIlter in frontend
-  // Filter clients client-side based on search text
-  const allClients = data?.clients || [];
-  const clients = debouncedSearch
-    ? allClients.filter((client) => {
-        const searchLower = debouncedSearch.toLowerCase();
-        return (
-          client.representante?.toLowerCase().includes(searchLower) ||
-          client.nombre_institucion?.toLowerCase().includes(searchLower) ||
-          client.ciudad?.toLowerCase().includes(searchLower) ||
-          client.telefono?.toLowerCase().includes(searchLower)
-        );
-      })
-    : allClients;
+  // Pull-to-refresh handler
+  const handleRefresh = () => {
+    refetch();
+  };
 
-  const handleClientPress = (clientId: string) => {
-    router.push(`/client/${clientId}`);
+  const handleClientPress = (client: ClientResponse) => {
+    // Set client in global store (in-memory only)
+    setCurrentClient(client);
+    // Navigate with only the ID
+    router.push(`/client/${client.cliente_id}`);
   };
 
   const handleSearchChange = (text: string) => {
@@ -69,52 +82,93 @@ export const ClientsScreen = () => {
     return (
       <ClientCard
         client={clientData}
-        onPress={() => handleClientPress(item.cliente_id)}
+        onPress={() => handleClientPress(item)}
         testID={`client-card-${item.cliente_id}`}
       />
     );
   };
 
-  const renderEmpty = () => {
-    if (isLoading) {
-      return (
-        <Box className="flex-1 justify-center items-center p-8">
-          <Text className="text-typography-600 text-center">
-            {t('clients.loadingClients')}
-          </Text>
-        </Box>
-      );
+  // Handle load more (automatic on scroll)
+  const handleLoadMore = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
     }
-
-    if (error) {
-      return (
-        <Box className="flex-1 justify-center items-center p-8">
-          <Text className="text-typography-600 text-center">
-            {t('common.error')}
-          </Text>
-        </Box>
-      );
-    }
-
-    return (
-      <Box className="flex-1 justify-center items-center p-8">
-        <Text className="text-typography-900 text-lg font-semibold mb-2">
-          {t('clients.emptyState')}
-        </Text>
-        <Text className="text-typography-600 text-center">
-          {t('clients.emptyStateDescription')}
-        </Text>
-      </Box>
-    );
   };
 
-  return (
-    <SafeAreaView testID="clients-screen" style={styles.container}>
-      <VStack space="lg" className="flex-1 px-4 py-2">
-        <Heading size="2xl" className="text-typography-900">
-          {t('clients.title')}
-        </Heading>
+  // Footer component for loading indicator
+  const renderFooter = () => {
+    if (isFetchingNextPage) {
+      return (
+        <Box className="p-4 items-center">
+          <VStack space="sm" className="items-center">
+            <Spinner size="small" testID="clients-load-more-spinner" />
+            <Text className="text-typography-500 text-sm">
+              {t('clients.loadingMore') || 'Loading more...'}
+            </Text>
+          </VStack>
+        </Box>
+      );
+    }
+    return null;
+  };
 
+  // Early returns for loading/error states
+  if (isLoading) {
+    return (
+      <ListScreenLayout
+        title={t('clients.title')}
+        testID="clients-screen"
+      >
+        <VStack space="lg" className="flex-1">
+          <SearchBar
+            value={searchText}
+            onChangeText={handleSearchChange}
+            onDebouncedChange={handleDebouncedChange}
+            placeholder={t('clients.searchPlaceholder')}
+            testID="clients-search-bar"
+          />
+          <LoadingCard
+            message={t('clients.loadingClients')}
+            testID="clients-loading"
+          />
+        </VStack>
+      </ListScreenLayout>
+    );
+  }
+
+  if (isError) {
+    const errorMessage = error?.message || 'Failed to load clients';
+    return (
+      <ListScreenLayout
+        title={t('clients.title')}
+        testID="clients-screen"
+      >
+        <VStack space="lg" className="flex-1">
+          <SearchBar
+            value={searchText}
+            onChangeText={handleSearchChange}
+            onDebouncedChange={handleDebouncedChange}
+            placeholder={t('clients.searchPlaceholder')}
+            testID="clients-search-bar"
+          />
+          <ErrorStateCard
+            title={t('common.error')}
+            message={errorMessage}
+            onRetry={() => refetch()}
+            retryLabel={t('common.retry') || 'Retry'}
+            testID="clients-error"
+          />
+        </VStack>
+      </ListScreenLayout>
+    );
+  }
+
+  return (
+    <ListScreenLayout
+      title={t('clients.title')}
+      testID="clients-screen"
+    >
+      <VStack space="lg" className="flex-1">
         <SearchBar
           value={searchText}
           onChangeText={handleSearchChange}
@@ -122,23 +176,26 @@ export const ClientsScreen = () => {
           placeholder={t('clients.searchPlaceholder')}
           testID="clients-search-bar"
         />
-
-        <Box className="flex-1">
-          <FlashList
-            data={clients}
-            renderItem={renderClient}
-            ListEmptyComponent={renderEmpty}
-            keyExtractor={(item) => item.cliente_id}
-            testID="clients-list"
+        <FlashList
+        data={clients}
+        renderItem={renderClient}
+        ListEmptyComponent={
+          <EmptyState
+            icon={Users}
+            title={t('clients.emptyState')}
+            description={t('clients.emptyStateDescription')}
+            testID="clients-empty-state"
           />
-        </Box>
+        }
+        ListFooterComponent={renderFooter}
+        keyExtractor={(item) => item.cliente_id}
+        testID="clients-list"
+        onRefresh={handleRefresh}
+        refreshing={isRefetching}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+      />
       </VStack>
-    </SafeAreaView>
+    </ListScreenLayout>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});

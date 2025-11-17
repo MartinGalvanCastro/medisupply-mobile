@@ -20,7 +20,9 @@ import {
 } from '@/components/ui/modal';
 import { InfoRow } from '@/components/InfoRow';
 import { useTranslation } from '@/i18n/hooks';
-import { useListVisitsBffSellersAppVisitsGet, useUpdateVisitStatusBffSellersAppVisitsVisitIdStatusPatch } from '@/api/generated/sellers-app/sellers-app';
+import { useNavigationStore } from '@/store/useNavigationStore';
+import { useUpdateVisitStatusBffSellersAppVisitsVisitIdStatusPatch } from '@/api/generated/sellers-app/sellers-app';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
   MapPin,
@@ -30,26 +32,21 @@ import {
   CheckCircle,
   XCircle,
 } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { formatDate } from '@/utils/formatDate';
 import { useToast } from '@/components/ui/toast';
-
-const getStatusBadgeAction = (status: string): 'info' | 'success' | 'warning' | 'error' | 'muted' => {
-  const statusMap: Record<string, 'info' | 'success' | 'warning' | 'error' | 'muted'> = {
-    pending: 'warning',
-    programada: 'warning',
-    completed: 'success',
-    completada: 'success',
-    cancelled: 'error',
-    cancelada: 'error',
-  };
-  return statusMap[status?.toLowerCase()] || 'muted';
-};
+import { getVisitStatusBadgeAction } from '@/utils/getVisitStatusBadgeAction';
 
 export const VisitDetailScreen = () => {
   const { t } = useTranslation();
   const toast = useToast();
+  const queryClient = useQueryClient();
   const { visitId } = useLocalSearchParams<{ visitId: string }>();
+
+  // Get visit from global store
+  const currentVisit = useNavigationStore((state) => state.currentVisit);
+  const updateCurrentVisitStatus = useNavigationStore((state) => state.updateCurrentVisitStatus);
+  const clearCurrentVisit = useNavigationStore((state) => state.clearCurrentVisit);
 
   // Modal state
   const [showCompleteModal, setShowCompleteModal] = useState(false);
@@ -57,24 +54,29 @@ export const VisitDetailScreen = () => {
   const [notes, setNotes] = useState('');
   const [recommendations, setRecommendations] = useState('');
 
-  // Fetch all visits (since there's no single visit endpoint)
-  // Using today's date to get visits
-  const today = new Date().toISOString().split('T')[0];
-  const { data, isLoading, error, refetch } = useListVisitsBffSellersAppVisitsGet(
-    { date: today },
-    {
-      query: {
-        enabled: true,
-        staleTime: 5 * 60 * 1000,
-      },
-    }
-  );
-
   // Update visit status mutation
   const updateVisitStatus = useUpdateVisitStatusBffSellersAppVisitsVisitIdStatusPatch({
     mutation: {
       onSuccess: (data, variables) => {
-        refetch();
+        console.log('🔵 [VisitDetail] Mutation onSuccess - Backend response:', data);
+        console.log('🔵 [VisitDetail] Mutation variables sent:', variables);
+        console.log('🔵 [VisitDetail] Current visit before update:', currentVisit);
+
+        // Update the global store with the new status
+        updateCurrentVisitStatus(
+          variables.data.status,
+          variables.data.recomendaciones
+        );
+
+        console.log('🟢 [VisitDetail] Global store updated with status:', variables.data.status);
+
+        // Invalidate visits query cache to trigger refetch on list screen
+        // Use 'visits' key to match the actual query key used in VisitsScreen
+        queryClient.invalidateQueries({
+          queryKey: ['visits'],
+        });
+
+        console.log('🟢 [VisitDetail] Query cache invalidated with key: [\'visits\']');
 
         // Close modals
         setShowCompleteModal(false);
@@ -133,13 +135,16 @@ export const VisitDetailScreen = () => {
     },
   });
 
-  // Find the specific visit by ID
-  const visit = useMemo(() => {
-    if (!data?.visits || !visitId) return null;
-    return data.visits.find((v) => v.id === visitId);
-  }, [data?.visits, visitId]);
+  // Use visit from global store
+  const visit = currentVisit;
+
+  console.log('🟡 [VisitDetail] Render - Current visit from store:', visit);
+  console.log('🟡 [VisitDetail] Render - Visit status:', visit?.status);
 
   const handleBack = () => {
+    // Clear visit from store on back navigation
+    clearCurrentVisit();
+
     if (router.canGoBack()) {
       router.back();
     } else {
@@ -189,28 +194,8 @@ export const VisitDetailScreen = () => {
     setNotes('');
   };
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']} testID="visit-detail-screen">
-        <VStack space="lg" className="p-4">
-          <HStack space="md" className="items-center mb-4">
-            <Pressable onPress={handleBack} testID="back-button" style={styles.backButton}>
-              <ArrowLeft size={24} color="#6b7280" />
-            </Pressable>
-          </HStack>
-          <Card variant="elevated" className="p-8 bg-white">
-            <Text className="text-center text-typography-600">
-              {t('visitDetail.loading')}
-            </Text>
-          </Card>
-        </VStack>
-      </SafeAreaView>
-    );
-  }
-
   // Error or not found state
-  if (error || !visit) {
+  if (!visit) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']} testID="visit-detail-screen">
         <VStack space="lg" className="p-4">
@@ -293,13 +278,13 @@ export const VisitDetailScreen = () => {
                     {t('visitDetail.profile.status')}
                   </Text>
                   <Badge
-                    action={getStatusBadgeAction(visit.status)}
+                    action={getVisitStatusBadgeAction(visit.status)}
                     variant="solid"
                     size="sm"
                     className="self-start"
                   >
                     <BadgeText>
-                      {t(`visits.status.${visit.status?.toLowerCase()}` as any) || visit.status}
+                      {t(`visits.status.${visit.status?.toLowerCase()}` as any)}
                     </BadgeText>
                   </Badge>
                 </VStack>

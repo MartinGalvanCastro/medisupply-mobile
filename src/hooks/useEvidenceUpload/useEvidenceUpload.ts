@@ -37,7 +37,9 @@ export const useEvidenceUpload = ({
     async (
       presignedUrl: string,
       fields: Record<string, string>,
-      fileUri: string
+      fileUri: string,
+      fileName: string,
+      mimeType: string
     ): Promise<void> => {
       const formData = new FormData();
 
@@ -47,9 +49,12 @@ export const useEvidenceUpload = ({
       });
 
       // Add the file last (required by AWS S3)
-      const fileResponse = await fetch(fileUri);
-      const blob = await fileResponse.blob();
-      formData.append('file', blob);
+      // In React Native, FormData expects an object with uri, type, and name
+      formData.append('file', {
+        uri: fileUri,
+        type: mimeType,
+        name: fileName,
+      } as any);
 
       const response = await fetch(presignedUrl, {
         method: 'POST',
@@ -65,9 +70,6 @@ export const useEvidenceUpload = ({
 
   const uploadFiles = useCallback(
     async (files: MediaFile[]): Promise<UploadResult> => {
-      const uploadedUrls: string[] = [];
-      const errors: string[] = [];
-
       setProgress({
         uploadedCount: 0,
         totalCount: files.length,
@@ -75,15 +77,9 @@ export const useEvidenceUpload = ({
         isUploading: true,
       });
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-
+      // Upload all files in parallel
+      const uploadPromises = files.map(async (file) => {
         try {
-          setProgress((prev) => ({
-            ...prev,
-            currentFile: file.name,
-          }));
-
           // Step 1: Generate pre-signed upload URL
           const urlResponse = await generateUrlMutation.mutateAsync({
             visitId,
@@ -97,7 +93,9 @@ export const useEvidenceUpload = ({
           await uploadToS3(
             urlResponse.upload_url,
             urlResponse.fields,
-            file.uri
+            file.uri,
+            file.name,
+            getMimeType(file)
           );
 
           // Step 3: Confirm upload to backend
@@ -108,18 +106,34 @@ export const useEvidenceUpload = ({
             },
           });
 
-          uploadedUrls.push(urlResponse.s3_url);
-
+          // Update progress
           setProgress((prev) => ({
             ...prev,
             uploadedCount: prev.uploadedCount + 1,
           }));
+
+          return { success: true, url: urlResponse.s3_url };
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : 'Unknown error';
-          errors.push(`Failed to upload ${file.name}: ${errorMessage}`);
+          return {
+            success: false,
+            error: `Failed to upload ${file.name}: ${errorMessage}`
+          };
         }
-      }
+      });
+
+      // Wait for all uploads to complete
+      const results = await Promise.all(uploadPromises);
+
+      // Separate successes and errors
+      const uploadedUrls = results
+        .filter((r) => r.success)
+        .map((r) => r.url as string);
+
+      const errors = results
+        .filter((r) => !r.success)
+        .map((r) => r.error as string);
 
       setProgress((prev) => ({
         ...prev,
