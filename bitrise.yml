@@ -213,10 +213,10 @@ workflows:
             - gradlew_path: $BITRISE_SOURCE_DIR/android/gradlew
             - gradle_options: -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxMetaspaceSize=512m" --no-daemon --stacktrace
             - app_file_include_filter: "*.apk"
+            - app_file_exclude_filter: "*unaligned.apk\n*Test*.apk"
       - deploy-to-bitrise-io@2:
           title: Deploy Android artifacts
           inputs:
-            - deploy_path: $BITRISE_SOURCE_DIR/android/app/build/outputs/apk/debug/*.apk
             - is_compress: 'false'
             - notify_user_groups: none
             - is_enable_public_page: 'true'
