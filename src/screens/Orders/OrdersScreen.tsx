@@ -1,15 +1,11 @@
-import { useState, useCallback } from 'react';
-import { FlashList } from '@shopify/flash-list';
+import { useState, useCallback, useMemo } from 'react';
 import { Box } from '@/components/ui/box';
 import { VStack } from '@/components/ui/vstack';
 import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
-import { Spinner } from '@/components/ui/spinner';
 import { Button, ButtonText } from '@/components/ui/button';
 import { OrderCard } from '@/components/OrderCard';
-import { EmptyState } from '@/components/EmptyState';
-import { ErrorStateCard } from '@/components/ErrorStateCard';
-import { LoadingCard } from '@/components/LoadingCard';
+import { PaginatedList } from '@/components/PaginatedList';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { useTranslation } from '@/i18n/hooks';
 import { useInfinitePaginatedQuery } from '@/hooks';
@@ -29,18 +25,7 @@ export const OrdersScreen = () => {
   const [showPastOrders, setShowPastOrders] = useState(false);
 
   // Use infinite pagination hook
-  const {
-    data: allOrders,
-    total,
-    isLoading,
-    isError,
-    error,
-    isFetchingNextPage,
-    isRefetching,
-    hasNextPage,
-    fetchNextPage,
-    refetch,
-  } = useInfinitePaginatedQuery({
+  const query = useInfinitePaginatedQuery({
     queryKey: ['orders', { showPast: showPastOrders }],
     queryFn: ({ offset, limit }) =>
       listMyOrdersBffClientAppMyOrdersGet({
@@ -54,102 +39,52 @@ export const OrdersScreen = () => {
     staleTime: 30 * 1000,
   });
 
-  // Filter orders based on delivery date
-  const ordersArray = Array.isArray(allOrders) ? allOrders : [];
-  const orders = (ordersArray as ExtendedOrderResponse[]).filter((order) => {
-    const deliveryDate = order.fecha_entrega_estimada
-      ? new Date(order.fecha_entrega_estimada)
-      : null;
-    if (!deliveryDate) return !showPastOrders; // No date: show in upcoming only
+  // Filter orders based on delivery date (client-side filtering)
+  const filteredOrders = useMemo(() => {
+    const ordersArray = Array.isArray(query.data) ? query.data : [];
+    return (ordersArray as ExtendedOrderResponse[]).filter((order) => {
+      const deliveryDate = order.fecha_entrega_estimada
+        ? new Date(order.fecha_entrega_estimada)
+        : null;
+      if (!deliveryDate) return !showPastOrders; // No date: show in upcoming only
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    deliveryDate.setHours(0, 0, 0, 0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      deliveryDate.setHours(0, 0, 0, 0);
 
-    if (showPastOrders) {
-      // Show only past orders (delivery date < today)
-      return deliveryDate < today;
-    } else {
-      // Show only upcoming orders (delivery date >= today)
-      return deliveryDate >= today;
-    }
-  });
+      if (showPastOrders) {
+        // Show only past orders (delivery date < today)
+        return deliveryDate < today;
+      } else {
+        // Show only upcoming orders (delivery date >= today)
+        return deliveryDate >= today;
+      }
+    });
+  }, [query.data, showPastOrders]);
+
+  // Create a modified query object with filtered data
+  const filteredQuery = useMemo(
+    () => ({
+      ...query,
+      data: filteredOrders,
+    }),
+    [query, filteredOrders]
+  );
 
   const handleToggleFilter = () => {
     setShowPastOrders(!showPastOrders);
   };
 
-  const onRefresh = useCallback(async () => {
-    await refetch();
-  }, [refetch]);
-
   const renderOrder = ({ item }: { item: ExtendedOrderResponse }) => {
     return <OrderCard order={item} />;
   };
 
-  // Handle load more (automatic on scroll)
-  const handleLoadMore = () => {
-    if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
-  };
-
-  // Footer component for loading indicator
-  const renderFooter = () => {
-    if (isFetchingNextPage) {
-      return (
-        <Box className="p-4 items-center">
-          <VStack space="sm" className="items-center">
-            <Spinner size="small" testID="orders-load-more-spinner" />
-            <Text className="text-typography-500 text-sm">
-              {t('orders.loadingMore') || 'Loading more...'}
-            </Text>
-          </VStack>
-        </Box>
-      );
-    }
-    return null;
-  };
-
-  // Early returns for loading/error states
-  if (isLoading) {
-    return (
-      <ScreenContainer testID="orders-screen">
-        <VStack space="lg" className="flex-1 px-4 py-2">
-          <Text className="text-typography-900 text-3xl font-bold">
-            {t('orders.title')}
-          </Text>
-          <LoadingCard
-            message={t('orders.loadingOrders')}
-            testID="orders-loading"
-          />
-        </VStack>
-      </ScreenContainer>
-    );
-  }
-
-  if (isError) {
-    const errorMessage = error?.message || 'Failed to load orders';
-    return (
-      <ScreenContainer testID="orders-screen">
-        <VStack space="lg" className="flex-1 px-4 py-2">
-          <Text className="text-typography-900 text-3xl font-bold">
-            {t('orders.title')}
-          </Text>
-          <ErrorStateCard
-            title={t('common.error')}
-            message={errorMessage}
-            onRetry={() => refetch()}
-            retryLabel={t('common.retry') || 'Retry'}
-            testID="orders-error"
-          />
-        </VStack>
-      </ScreenContainer>
-    );
-  }
-
   return (
-    <ScreenContainer testID="orders-screen">
+    <PaginatedList.Container
+      query={filteredQuery}
+      testID="orders-screen"
+      layoutComponent={ScreenContainer}
+    >
       <VStack space="lg" className="flex-1 px-4 py-2">
         {/* Header */}
         <VStack space="md">
@@ -169,13 +104,15 @@ export const OrdersScreen = () => {
             >
               <Filter size={16} color={showPastOrders ? '#ffffff' : '#6B7280'} />
               <ButtonText className="ml-2">
-                {showPastOrders ? t('orders.showingPastOrders') : t('orders.showPastOrders')}
+                {showPastOrders
+                  ? t('orders.showingPastOrders')
+                  : t('orders.showPastOrders')}
               </ButtonText>
             </Button>
 
-            {orders.length > 0 && (
+            {filteredOrders.length > 0 && (
               <Text size="sm" className="text-typography-500">
-                {t('orders.totalOrders', { count: orders.length })}
+                {t('orders.totalOrders', { count: filteredOrders.length })}
               </Text>
             )}
           </HStack>
@@ -183,27 +120,31 @@ export const OrdersScreen = () => {
 
         {/* Orders List */}
         <Box className="flex-1">
-          <FlashList
-            data={orders}
+          <PaginatedList.Content
             renderItem={renderOrder}
+            keyExtractor={(item) => item.id}
+            testID="orders-list"
+            loadingMessage={t('orders.loadingOrders')}
+            loadingTestID="orders-loading"
+            errorTestID="orders-error"
+            footerLoadingMessage={t('orders.loadingMore') || 'Loading more...'}
+            footerLoadingTestID="orders-load-more-spinner"
             ListEmptyComponent={
-              <EmptyState
+              <PaginatedList.Empty
                 icon={Package}
                 title={t('orders.emptyState')}
-                description={showPastOrders ? t('orders.emptyStatePastOrders') : t('orders.emptyStateUpcomingOrders')}
+                description={
+                  showPastOrders
+                    ? t('orders.emptyStatePastOrders')
+                    : t('orders.emptyStateUpcomingOrders')
+                }
                 testID="orders-empty-state"
               />
             }
-            ListFooterComponent={renderFooter}
-            keyExtractor={(item) => item.id}
-            onRefresh={onRefresh}
-            refreshing={isRefetching}
-            onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.5}
-            testID="orders-list"
+            estimatedItemSize={150}
           />
         </Box>
       </VStack>
-    </ScreenContainer>
+    </PaginatedList.Container>
   );
 };

@@ -12,7 +12,7 @@ export const GlobalLoadingProvider: React.FC<GlobalLoadingProviderProps> = ({ ch
   return (
     <>
       {children}
-      <Modal isOpen={isLoading} onClose={() => {}} size="full">
+      <Modal isOpen={isLoading} size="full">
         <ModalBackdrop className="opacity-50" />
         <Box className="flex-1 justify-center items-center" pointerEvents="none">
           <Spinner size="large" color="#ffffff" />

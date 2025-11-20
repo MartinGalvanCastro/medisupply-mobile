@@ -1,0 +1,213 @@
+---
+format_version: '13'
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: react-native
+
+# Trigger configuration - only run on specific events to save credits
+trigger_map:
+  # Run E2E tests only on pull requests to main/master
+  - pull_request_target_branch: main
+    workflow: e2e_ios
+  - pull_request_target_branch: master
+    workflow: e2e_ios
+  # Build debug artifacts on pushes to main/master (after merge)
+  - push_branch: main
+    workflow: build_debug_artifacts
+  - push_branch: master
+    workflow: build_debug_artifacts
+
+workflows:
+  e2e_ios:
+    description: |
+      Run iOS E2E tests with Detox
+      Optimized for minimal credit usage:
+      - Uses gen2 medium machine (cheaper than large)
+      - Caches dependencies and build artifacts
+      - Runs mock server locally (no external services)
+    steps:
+      # Git clone with cache
+      - git-clone@8: {}
+
+      # Cache node_modules to avoid reinstalling every time
+      - cache-pull@2: {}
+
+      # Set Node.js version
+      - nvm@1:
+          title: Set Node.js version
+          inputs:
+            - node_version: "20.19.4"
+
+      # Install Node dependencies
+      - yarn@0:
+          title: Install dependencies
+          inputs:
+            - command: install
+            - cache_local_deps: 'yes'
+
+      # Cache CocoaPods to speed up iOS builds
+      - cocoapods-install@2:
+          inputs:
+            - source_root_path: $BITRISE_SOURCE_DIR/ios
+            - podfile_path: $BITRISE_SOURCE_DIR/ios/Podfile
+
+      # Install applesimutils for Detox
+      - script@1:
+          title: Install applesimutils
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                brew tap wix/brew
+                brew install applesimutils
+
+      # Build the iOS app for E2E testing
+      - script@1:
+          title: Build iOS app for Detox
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                export EXPO_PUBLIC_API_URL=http://localhost:8000
+                yarn e2e:prebuild:ios
+                yarn e2e:build:ios:release
+
+      # Start mock server in background
+      - script@1:
+          title: Start mock server
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                yarn e2e:mock-server &
+                # Wait for mock server to be ready
+                sleep 5
+                # Test if mock server is running
+                curl http://localhost:8000/ || echo "Mock server health check failed"
+
+      # Run Detox E2E tests
+      - script@1:
+          title: Run E2E tests
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                yarn e2e:test:ios:release
+
+      # Upload test results and artifacts
+      - deploy-to-bitrise-io@2:
+          inputs:
+            # Upload Detox artifacts (screenshots, videos) if tests fail
+            - deploy_path: $BITRISE_SOURCE_DIR/artifacts
+            - is_compress: 'true'
+
+      # Save cache for next build
+      - cache-push@2:
+          inputs:
+            - cache_paths: |
+                $BITRISE_SOURCE_DIR/node_modules
+                $BITRISE_SOURCE_DIR/ios/Pods
+                $BITRISE_CACHE_DIR
+
+  # Lightweight workflow for unit tests (runs on every PR)
+  unit_tests:
+    description: |
+      Run unit tests quickly (very cheap, runs on small machine)
+    steps:
+      - git-clone@8: {}
+      - cache-pull@2: {}
+      - yarn@0:
+          title: Install dependencies
+          inputs:
+            - command: install
+      - yarn@0:
+          title: Run unit tests
+          inputs:
+            - command: test:coverage
+      - cache-push@2: {}
+
+  # Build debug artifacts for iOS and Android on master pushes
+  build_debug_artifacts:
+    description: |
+      Build debug/dev builds for both iOS and Android
+      Triggered on every push to main/master branch
+      Produces installable .app (iOS) and .apk (Android) files
+    steps:
+      # Git clone
+      - git-clone@8: {}
+
+      # Cache dependencies
+      - cache-pull@2: {}
+
+      # Set Node.js version
+      - nvm@1:
+          title: Set Node.js version
+          inputs:
+            - node_version: "20.19.4"
+
+      # Install Node dependencies
+      - yarn@0:
+          title: Install dependencies
+          inputs:
+            - command: install
+            - cache_local_deps: 'yes'
+
+      # iOS Debug Build
+      - cocoapods-install@2:
+          title: Install iOS CocoaPods
+          inputs:
+            - source_root_path: $BITRISE_SOURCE_DIR/ios
+            - podfile_path: $BITRISE_SOURCE_DIR/ios/Podfile
+
+      - xcode-archive@5:
+          title: Build iOS Debug Archive
+          inputs:
+            - project_path: $BITRISE_SOURCE_DIR/ios/medisupplymobile.xcworkspace
+            - scheme: medisupplymobile
+            - configuration: Debug
+            - export_method: development
+            - upload_bitcode: 'no'
+            - compile_bitcode: 'no'
+
+      # Android Debug Build
+      - gradle-runner@2:
+          title: Build Android Debug APK
+          inputs:
+            - gradle_file: $BITRISE_SOURCE_DIR/android/build.gradle
+            - gradle_task: assembleDebug
+            - gradlew_path: $BITRISE_SOURCE_DIR/android/gradlew
+
+      # Deploy artifacts to Bitrise
+      - deploy-to-bitrise-io@2:
+          title: Deploy iOS and Android artifacts
+          inputs:
+            - deploy_path: |
+                $BITRISE_DEPLOY_DIR/*.ipa
+                $BITRISE_SOURCE_DIR/android/app/build/outputs/apk/debug/*.apk
+            - is_compress: 'false'
+            - notify_user_groups: none
+            - is_enable_public_page: 'true'
+
+      # Save cache
+      - cache-push@2:
+          inputs:
+            - cache_paths: |
+                $BITRISE_SOURCE_DIR/node_modules
+                $BITRISE_SOURCE_DIR/ios/Pods
+                $BITRISE_SOURCE_DIR/android/.gradle
+                $BITRISE_CACHE_DIR
+
+# Stack configuration - use cheaper machines
+app:
+  envs:
+    # Use gen2 medium for E2E (cheaper than large)
+    # Gen2 machines are faster and more cost-effective
+    - opts:
+        is_expand: false
+      BITRISE_STACK: osx-xcode-15.2.x-edge
+
+# Additional credit-saving tips in comments:
+# 1. Use "Skip CI" in commit messages: Add "[skip ci]" to commit message to skip builds
+# 2. Set up manual approval: Configure workflow to require manual trigger for E2E tests
+# 3. Run E2E only on labeled PRs: Add a trigger condition for specific PR labels like "run-e2e"
+# 4. Use build abort: Configure auto-abort for builds on same PR to avoid running multiple builds
+# LoL

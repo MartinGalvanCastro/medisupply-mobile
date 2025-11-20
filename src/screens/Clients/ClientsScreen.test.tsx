@@ -183,9 +183,9 @@ describe('ClientsScreen', () => {
       refetch: mockRefetch,
     } as any);
 
-    const { getByText } = render(<ClientsScreen />, { wrapper });
-
-    expect(getByText('Failed to load clients')).toBeTruthy();
+    const { getByTestId } = render(<ClientsScreen />, { wrapper });
+    // PaginatedList uses t('common.error') as fallback
+    expect(getByTestId('clients-error')).toBeTruthy();
   });
 
   it('should call refetch when retry button is pressed in error state', () => {

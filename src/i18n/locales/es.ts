@@ -216,6 +216,7 @@ export const es: TranslationKeys = {
     selectClient: 'Seleccionar Cliente',
     selectClientMessage: 'Por favor selecciona un cliente antes de realizar el pedido.',
     chooseClient: 'Elegir Cliente',
+    confirmOrder: 'Confirmar',
   },
   visits: {
     title: 'Visitas',

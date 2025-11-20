@@ -56,18 +56,20 @@ const testProducts = [
 
 const testClients = [
   {
-    id: 'client-001',
-    name: 'Hospital Central',
-    institution_name: 'Hospital Central de Bogotá',
+    cliente_id: 'client-001',
+    representante: 'Hospital Central',
+    nombre_institucion: 'Hospital Central de Bogotá',
     email: 'central@hospital.com',
-    phone: '+57 601 234 5678',
+    telefono: '+57 601 234 5678',
+    ciudad: 'Bogotá',
   },
   {
-    id: 'client-002',
-    name: 'Clínica Norte',
-    institution_name: 'Clínica del Norte',
+    cliente_id: 'client-002',
+    representante: 'Clínica Norte',
+    nombre_institucion: 'Clínica del Norte',
     email: 'norte@clinica.com',
-    phone: '+57 604 567 8901',
+    telefono: '+57 604 567 8901',
+    ciudad: 'Medellín',
   },
 ];
 
@@ -78,6 +80,9 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const path = url.pathname;
   const method = req.method;
+
+  // Log all incoming requests
+  console.log(`[${new Date().toISOString()}] ${method} ${path}`);
 
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -204,8 +209,8 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    // Ably token
-    if (path === '/realtime/ably-token' && method === 'POST') {
+    // Ably token (support both endpoints)
+    if ((path === '/realtime/ably-token' || path === '/auth/ably/token') && method === 'POST') {
       res.writeHead(200);
       res.end(JSON.stringify({
         token_request: {

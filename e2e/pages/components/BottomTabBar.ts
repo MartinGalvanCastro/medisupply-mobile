@@ -10,27 +10,27 @@ export class BottomTabBar extends BasePage {
   private readonly cartBadgeID = 'tab-cart-badge';
 
   async navigateToInventory(): Promise<void> {
-    await this.tap(this.inventoryTabID);
+    await this.tapByText('Inventory');
   }
 
   async navigateToCart(): Promise<void> {
-    await this.tap(this.cartTabID);
+    await this.tapByText('Cart');
   }
 
   async navigateToVisits(): Promise<void> {
-    await this.tap(this.visitsTabID);
+    await this.tapByText('Visits');
   }
 
   async navigateToClients(): Promise<void> {
-    await this.tap(this.clientsTabID);
+    await this.tapByText('Clients');
   }
 
   async navigateToOrders(): Promise<void> {
-    await this.tap(this.ordersTabID);
+    await this.tapByText('Orders');
   }
 
   async navigateToAccount(): Promise<void> {
-    await this.tap(this.accountTabID);
+    await this.tapByText('Account');
   }
 
   async expectCartBadge(count: string): Promise<void> {

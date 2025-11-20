@@ -186,8 +186,9 @@ describe('InventoryScreen', () => {
       refetch: mockRefetch,
     } as any);
 
-    const { getByText } = render(<InventoryScreen />, { wrapper });
-    expect(getByText('Failed to load inventory')).toBeTruthy();
+    const { getByTestId } = render(<InventoryScreen />, { wrapper });
+    // PaginatedList uses t('common.error') as fallback
+    expect(getByTestId('inventory-error')).toBeTruthy();
   });
 
   it('should display empty state when no products', () => {

@@ -7,7 +7,9 @@ export class ClientSelectorModal extends BasePage {
   private readonly cancelButtonID = 'client-selector-cancel';
 
   async waitForModal(): Promise<void> {
-    await this.waitForVisible(this.modalID);
+    // React Native Modal doesn't expose testID to native layer
+    // Wait for the client list inside the modal instead
+    await this.waitForVisible(this.clientListID);
   }
 
   async searchClient(name: string): Promise<void> {

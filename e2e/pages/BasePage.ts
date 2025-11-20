@@ -28,8 +28,9 @@ export abstract class BasePage {
   }
 
   protected async clearAndType(testID: string, text: string): Promise<void> {
-    await this.clearText(testID);
-    await this.typeText(testID, text);
+    // Use replaceText instead of clearText + typeText for better reliability
+    // replaceText doesn't require the element to be fully visible/hittable
+    await element(by.id(testID)).replaceText(text);
   }
 
   // ═══════════════════════════════════════════════════════════════════

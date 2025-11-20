@@ -182,9 +182,9 @@ describe('VisitsScreen', () => {
       refetch: mockRefetch,
     } as any);
 
-    const { getByText } = render(<VisitsScreen />, { wrapper });
-
-    expect(getByText('Failed to load visits')).toBeTruthy();
+    const { getByTestId } = render(<VisitsScreen />, { wrapper });
+    // PaginatedList uses t('common.error') as fallback
+    expect(getByTestId('visits-error')).toBeTruthy();
   });
 
   it('should call refetch when retry button is pressed', () => {

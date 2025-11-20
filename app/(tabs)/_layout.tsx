@@ -47,6 +47,7 @@ export default function TabLayout() {
         options={{
           title: 'Inventory',
           tabBarIcon: ({ color }) => <TabBarIcon name="shopping-basket" color={color} />,
+          // @ts-expect-error - tabBarTestID is a custom prop for e2e testing
           tabBarTestID: 'tab-inventory',
         }}
       />
@@ -55,6 +56,7 @@ export default function TabLayout() {
         options={{
           title: 'Cart',
           tabBarIcon: ({ color }) => <TabBarIcon name="shopping-cart" color={color} />,
+          // @ts-expect-error - tabBarTestID is a custom prop for e2e testing
           tabBarTestID: 'tab-cart',
         }}
       />
@@ -66,6 +68,7 @@ export default function TabLayout() {
           title: 'Orders',
           tabBarIcon: ({ color }) => <TabBarIcon name="list" color={color} />,
           href: userRole === 'client' ? '/orders' : null,
+          // @ts-expect-error - tabBarTestID is a custom prop for e2e testing
           tabBarTestID: 'tab-orders',
         }}
       />
@@ -77,6 +80,7 @@ export default function TabLayout() {
           title: 'Visits',
           tabBarIcon: ({ color }) => <TabBarIcon name="calendar" color={color} />,
           href: userRole === 'seller' ? '/visits' : null,
+          // @ts-expect-error - tabBarTestID is a custom prop for e2e testing
           tabBarTestID: 'tab-visits',
         }}
       />
@@ -86,6 +90,7 @@ export default function TabLayout() {
           title: 'Clients',
           tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
           href: userRole === 'seller' ? '/clients' : null,
+          // @ts-expect-error - tabBarTestID is a custom prop for e2e testing
           tabBarTestID: 'tab-clients',
         }}
       />
@@ -96,6 +101,7 @@ export default function TabLayout() {
         options={{
           title: 'Account',
           tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
+          // @ts-expect-error - tabBarTestID is a custom prop for e2e testing
           tabBarTestID: 'tab-account',
         }}
       />

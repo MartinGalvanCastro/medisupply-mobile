@@ -67,8 +67,9 @@ export const LoginScreen = () => {
   const isButtonDisabled = !isValid || !email || !password || isLoginPending;
 
   return (
-    <KeyboardAvoidingView testID="login-screen" behavior="padding" style={{ flex: 1 }}>
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
       <LinearGradient
+        testID="login-screen"
         colors={['#f0f8ff', '#e0f2fe']}
         style={{ flex: 1 }}
         start={{ x: 0, y: 0 }}

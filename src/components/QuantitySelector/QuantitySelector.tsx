@@ -105,6 +105,7 @@ export const QuantitySelector = ({
           keyboardType="number-pad"
           maxLength={String(maxQuantity).length}
           style={styles.input}
+          showSoftInputOnFocus={false}
         />
 
         <Pressable

@@ -12,9 +12,8 @@ export class AccountPage extends BasePage {
   }
 
   async tapLogout(): Promise<void> {
-    await this.scrollToElement(this.logoutButtonID, this.scrollViewID);
+    // Scroll down and tap logout button
     await this.tap(this.logoutButtonID);
-    await this.tapByText('Logout');
   }
 
   async expectUserEmail(email: string): Promise<void> {

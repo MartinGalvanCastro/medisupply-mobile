@@ -1,3 +1,4 @@
+import { element, by, waitFor } from 'detox';
 import { BasePage } from './BasePage';
 
 export class CartPage extends BasePage {
@@ -44,6 +45,12 @@ export class CartPage extends BasePage {
   async tapPlaceOrder(): Promise<void> {
     await this.scrollToElement(this.placeOrderButtonID, this.cartListID);
     await this.tap(this.placeOrderButtonID);
+    // Wait for confirmation dialog to appear
+    await waitFor(element(by.text('Ready to place your order?')))
+      .toBeVisible()
+      .withTimeout(3000);
+    // Tap the "Confirm" button in the alert dialog
+    await this.tapByText('Confirm');
   }
 
   async tapClearCart(): Promise<void> {

@@ -167,6 +167,7 @@ export const AccountScreen = () => {
 
           {/* Logout Button */}
           <Button
+            testID="account-logout-button"
             onPress={handleLogout}
             action="negative"
             size="lg"

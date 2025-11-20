@@ -43,14 +43,29 @@ export class InventoryPage extends BasePage {
     await this.tapByText(warehouseName);
   }
 
+  // Map indices to fixture product IDs
+  private readonly fixtureProductIds = ['prod-001', 'prod-002', 'prod-003'];
+
   getProductCardID(index: number): string {
-    return `product-card-${index}`;
+    // Use actual product ID from fixtures
+    const productId = this.fixtureProductIds[index] || `prod-${index}`;
+    return `product-card-${productId}`;
+  }
+
+  getProductCardIDByProductId(productId: string): string {
+    return `product-card-${productId}`;
   }
 
   async tapProductByIndex(index: number): Promise<void> {
     const productID = this.getProductCardID(index);
     await this.scrollToElement(productID, this.productListID);
     await this.tap(productID);
+  }
+
+  async tapProductById(productId: string): Promise<void> {
+    const testID = this.getProductCardIDByProductId(productId);
+    await this.scrollToElement(testID, this.productListID);
+    await this.tap(testID);
   }
 
   async tapProductByName(name: string): Promise<void> {

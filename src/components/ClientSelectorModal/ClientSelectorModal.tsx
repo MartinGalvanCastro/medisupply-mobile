@@ -1,13 +1,13 @@
-import React from 'react';
-import { StyleSheet, FlatList, TouchableOpacity, Modal, Pressable } from 'react-native';
+import type { ClientResponse } from '@/api/generated/models/clientResponse';
 import { Box } from '@/components/ui/box';
-import { VStack } from '@/components/ui/vstack';
-import { HStack } from '@/components/ui/hstack';
 import { Heading } from '@/components/ui/heading';
+import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
+import { VStack } from '@/components/ui/vstack';
 import { useTranslation } from '@/i18n/hooks';
 import { User } from 'lucide-react-native';
-import type { ClientResponse } from '@/api/generated/models/clientResponse';
+import React from 'react';
+import { FlatList, Modal, Pressable, StyleSheet, TouchableOpacity } from 'react-native';
 
 interface ClientSelectorModalProps {
   visible: boolean;
@@ -82,7 +82,7 @@ export const ClientSelectorModal = ({
                       <Text size="sm" className="text-typography-600">
                         {item.nombre_institucion}
                       </Text>
-                      {item.ciudad && (
+                      {!!item.ciudad && (
                         <Text size="xs" className="text-typography-500">
                           {item.ciudad}
                         </Text>
