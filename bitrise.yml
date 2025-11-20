@@ -17,14 +17,14 @@ workflows:
         machine_type_id: g2-m1.4core
     steps:
       - git-clone@8: {}
-      - restore-cache@1:
-          inputs:
-            - key: npm-cache-{{ checksum "yarn.lock" }}
-            - key: npm-cache-
       - nvm@1:
           title: Set Node.js version
           inputs:
             - node_version: "22.18.0"
+      - restore-cache@1:
+          inputs:
+            - key: npm-cache-{{ checksum "yarn.lock" }}
+            - key: npm-cache-
       - yarn@0:
           title: Install dependencies
           inputs:
@@ -85,6 +85,10 @@ workflows:
         machine_type_id: g2-m1.4core
     steps:
       - git-clone@8: {}
+      - nvm@1:
+          title: Set Node.js version
+          inputs:
+            - node_version: "22.18.0"
       - restore-cache@1:
           inputs:
             - key: npm-cache-{{ checksum "yarn.lock" }}
@@ -109,14 +113,14 @@ workflows:
         machine_type_id: g2-m1.4core
     steps:
       - git-clone@8: {}
-      - restore-cache@1:
-          inputs:
-            - key: npm-cache-{{ checksum "yarn.lock" }}
-            - key: npm-cache-
       - nvm@1:
           title: Set Node.js version
           inputs:
             - node_version: "22.18.0"
+      - restore-cache@1:
+          inputs:
+            - key: npm-cache-{{ checksum "yarn.lock" }}
+            - key: npm-cache-
       - yarn@0:
           title: Install dependencies
           inputs:
