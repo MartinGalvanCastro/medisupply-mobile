@@ -71,7 +71,7 @@ export const CartFooter = ({
                       <User size={16} color="#7c3aed" />
                     </Box>
                     <VStack space="xs" className="flex-1">
-                      <Text size="sm" className="text-typography-900 font-medium">
+                      <Text size="sm" className="text-typography-900 font-medium" testID="cart-selected-client">
                         {selectedClient.representante}
                       </Text>
                       <Text size="xs" className="text-typography-600">
@@ -83,7 +83,7 @@ export const CartFooter = ({
                     size="sm"
                     variant="link"
                     onPress={onSelectClient}
-                    testID="change-client-button"
+                    testID="cart-select-client-button"
                   >
                     <ButtonText className="text-primary-600">
                       {t('common.change')}
@@ -96,7 +96,7 @@ export const CartFooter = ({
                   variant="outline"
                   action="secondary"
                   onPress={onSelectClient}
-                  testID="select-client-button"
+                  testID="cart-select-client-button"
                 >
                   <User size={18} />
                   <ButtonText className="ml-2">{t('cart.chooseClient')}</ButtonText>
@@ -110,7 +110,7 @@ export const CartFooter = ({
         <Box className="bg-background-50 rounded-lg p-4">
           <HStack space="md" className="items-center justify-between">
             <VStack space="xs">
-              <Text size="sm" className="text-typography-500">
+              <Text size="sm" className="text-typography-500" testID="cart-total-items">
                 {t('cart.totalItems', { count: items.length })}
               </Text>
               <Text size="xs" className="text-typography-500">
@@ -123,7 +123,7 @@ export const CartFooter = ({
               <Text size="xs" className="text-typography-500">
                 {t('cart.total')}
               </Text>
-              <Heading size="lg" className="text-typography-900">
+              <Heading size="lg" className="text-typography-900" testID="cart-total-amount">
                 {formatCurrency(total)}
               </Heading>
             </VStack>
@@ -137,7 +137,7 @@ export const CartFooter = ({
             size="lg"
             onPress={onCheckout}
             isDisabled={isPending || (isSeller && !selectedClient)}
-            testID="cart-checkout-button"
+            testID="cart-place-order-button"
           >
             <ButtonText>
               {isPending ? t('cart.placingOrder') : t('cart.placeOrder')}

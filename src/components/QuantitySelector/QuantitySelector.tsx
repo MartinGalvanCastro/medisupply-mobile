@@ -79,7 +79,7 @@ export const QuantitySelector = ({
         <Pressable
           onPress={handleDecrease}
           disabled={quantity <= minQuantity}
-          testID={`${testID}-decrease`}
+          testID={`${testID}-decrement`}
           style={({ pressed }) => [
             styles.button,
             // istanbul ignore next - Pressable pressed state cannot be triggered in React Native Testing Library
@@ -110,7 +110,7 @@ export const QuantitySelector = ({
         <Pressable
           onPress={handleIncrease}
           disabled={quantity >= maxQuantity}
-          testID={`${testID}-increase`}
+          testID={`${testID}-increment`}
           style={({ pressed }) => [
             styles.button,
             // istanbul ignore next - Pressable pressed state cannot be triggered in React Native Testing Library

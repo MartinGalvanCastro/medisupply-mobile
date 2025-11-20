@@ -41,3 +41,7 @@ yarn-error.*
 /android
 
 /coverage
+
+# Detox E2E testing
+e2e/artifacts/
+e2e/reports/

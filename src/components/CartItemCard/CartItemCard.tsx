@@ -66,7 +66,7 @@ export const CartItemCard = ({
 
           <Pressable
             onPress={handleRemove}
-            testID={`${testID}-remove-button`}
+            testID={`cart-item-remove-${item.inventoryId}`}
             style={({ pressed }) => getRemoveButtonStyle(pressed)}
           >
             <Box className="bg-error-50 rounded-lg p-2 items-center justify-center">
@@ -82,6 +82,7 @@ export const CartItemCard = ({
           onQuantityChange={(quantity) => onQuantityChange(item.inventoryId, quantity)}
           showAvailable={false}
           testID={`${testID}-price-quantity`}
+          quantitySelectorTestID={`${testID}-qty`}
         />
       </Box>
     </Box>

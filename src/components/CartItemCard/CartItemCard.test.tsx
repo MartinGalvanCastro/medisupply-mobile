@@ -106,7 +106,7 @@ describe('CartItemCard', () => {
       />
     );
 
-    const removeButton = getByTestId('cart-item-remove-button');
+    const removeButton = getByTestId('cart-item-remove-inv-001');
     fireEvent.press(removeButton);
 
     expect(Alert.alert).toHaveBeenCalledWith(
@@ -130,7 +130,7 @@ describe('CartItemCard', () => {
       />
     );
 
-    const removeButton = getByTestId('cart-item-remove-button');
+    const removeButton = getByTestId('cart-item-remove-inv-special-123');
     fireEvent.press(removeButton);
 
     const buttons = (Alert.alert as any).lastButtons;
@@ -154,7 +154,7 @@ describe('CartItemCard', () => {
       />
     );
 
-    const removeButton = getByTestId('cart-item-remove-button');
+    const removeButton = getByTestId('cart-item-remove-inv-001');
     fireEvent.press(removeButton);
 
     const buttons = (Alert.alert as any).lastButtons;
@@ -183,7 +183,7 @@ describe('CartItemCard', () => {
     );
 
     // Click the increase button in the QuantitySelector
-    const increaseButton = getByTestId('cart-item-price-quantity-quantity-selector-increase');
+    const increaseButton = getByTestId('cart-item-qty-increment');
     fireEvent.press(increaseButton);
 
     // Verify onQuantityChange was called with the new quantity and inventory ID
@@ -248,7 +248,7 @@ describe('CartItemCard', () => {
       />
     );
 
-    expect(getByTestId('cart-item-remove-button')).toBeDefined();
+    expect(getByTestId('cart-item-remove-inv-001')).toBeDefined();
   });
 
 });

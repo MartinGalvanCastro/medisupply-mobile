@@ -164,7 +164,7 @@ describe('CartScreen', () => {
   it('should render cart list and footer when cart has items', () => {
     mockCartItems([mockItem()], 100);
     const { getByTestId } = render(<CartScreen />, { wrapper });
-    expect(getByTestId('cart-list')).toBeTruthy();
+    expect(getByTestId('cart-item-list')).toBeTruthy();
     expect(getByTestId('cart-footer')).toBeTruthy();
   });
 
@@ -225,7 +225,7 @@ describe('CartScreen', () => {
     mockCartItems([mockItem()], 100);
     const { getByTestId } = render(<CartScreen />, { wrapper });
 
-    fireEvent.press(getByTestId('cart-checkout-button'));
+    fireEvent.press(getByTestId('cart-place-order-button'));
 
     expect(alertSpy).toHaveBeenCalledWith(
       'Confirm Order',
@@ -246,7 +246,7 @@ describe('CartScreen', () => {
     });
 
     const { getByTestId } = render(<CartScreen />, { wrapper });
-    fireEvent.press(getByTestId('cart-checkout-button'));
+    fireEvent.press(getByTestId('cart-place-order-button'));
 
     expect(mockCreateOrderMutate).toHaveBeenCalledWith(
       {
@@ -283,9 +283,9 @@ describe('CartScreen', () => {
     });
 
     const { getByTestId } = render(<CartScreen />, { wrapper });
-    fireEvent.press(getByTestId('select-client-button'));
-    fireEvent.press(getByTestId('client-option-client-123'));
-    fireEvent.press(getByTestId('cart-checkout-button'));
+    fireEvent.press(getByTestId('cart-select-client-button'));
+    fireEvent.press(getByTestId('client-selector-item-0'));
+    fireEvent.press(getByTestId('cart-place-order-button'));
 
     expect(mockCreateOrderMutate).toHaveBeenCalledWith(
       {
@@ -304,7 +304,7 @@ describe('CartScreen', () => {
     });
 
     const { getByTestId } = render(<CartScreen />, { wrapper });
-    fireEvent.press(getByTestId('cart-checkout-button'));
+    fireEvent.press(getByTestId('cart-place-order-button'));
 
     expect(mockCreateOrderMutate).not.toHaveBeenCalled();
   });
@@ -319,7 +319,7 @@ describe('CartScreen', () => {
     });
 
     const { getByTestId } = render(<CartScreen />, { wrapper });
-    fireEvent.press(getByTestId('cart-checkout-button'));
+    fireEvent.press(getByTestId('cart-place-order-button'));
 
     const orderCallback = mockCreateOrderMutate.mock.calls[0][1];
     act(() => {
@@ -349,7 +349,7 @@ describe('CartScreen', () => {
     });
 
     const { getByTestId } = render(<CartScreen />, { wrapper });
-    fireEvent.press(getByTestId('cart-checkout-button'));
+    fireEvent.press(getByTestId('cart-place-order-button'));
 
     const orderCallback = mockCreateOrderMutate.mock.calls[0][1];
     act(() => {
@@ -368,7 +368,7 @@ describe('CartScreen', () => {
     });
 
     const { getByTestId } = render(<CartScreen />, { wrapper });
-    fireEvent.press(getByTestId('cart-checkout-button'));
+    fireEvent.press(getByTestId('cart-place-order-button'));
 
     const orderCallback = mockCreateOrderMutate.mock.calls[0][1];
     act(() => {
@@ -392,7 +392,7 @@ describe('CartScreen', () => {
     });
 
     const { getByTestId } = render(<CartScreen />, { wrapper });
-    fireEvent.press(getByTestId('cart-checkout-button'));
+    fireEvent.press(getByTestId('cart-place-order-button'));
 
     const orderCallback = mockCreateOrderMutate.mock.calls[0][1];
     act(() => {
@@ -420,7 +420,7 @@ describe('CartScreen', () => {
     mockCartItems([mockItem({ inventoryId: '1', quantity: 1 })], 100);
     const { getByTestId } = render(<CartScreen />, { wrapper });
 
-    fireEvent.press(getByTestId('cart-item-1-price-quantity-quantity-selector-increase'));
+    fireEvent.press(getByTestId('cart-item-1-qty-increment'));
 
     expect(mockUpdateQuantity).toHaveBeenCalledWith('1', 2);
   });
@@ -429,7 +429,7 @@ describe('CartScreen', () => {
     mockCartItems([mockItem({ inventoryId: '2', quantity: 3 })], 300);
     const { getByTestId } = render(<CartScreen />, { wrapper });
 
-    fireEvent.press(getByTestId('cart-item-2-price-quantity-quantity-selector-decrease'));
+    fireEvent.press(getByTestId('cart-item-2-qty-decrement'));
 
     expect(mockUpdateQuantity).toHaveBeenCalledWith('2', 2);
   });
@@ -442,7 +442,7 @@ describe('CartScreen', () => {
     });
 
     const { getByTestId } = render(<CartScreen />, { wrapper });
-    fireEvent.press(getByTestId('cart-item-1-remove-button'));
+    fireEvent.press(getByTestId('cart-item-remove-1'));
 
     expect(mockRemoveItem).toHaveBeenCalledWith('1');
   });
@@ -455,7 +455,7 @@ describe('CartScreen', () => {
     });
 
     const { getByTestId } = render(<CartScreen />, { wrapper });
-    fireEvent.press(getByTestId('cart-item-1-remove-button'));
+    fireEvent.press(getByTestId('cart-item-remove-1'));
 
     expect(mockRemoveItem).not.toHaveBeenCalled();
   });
@@ -496,11 +496,11 @@ describe('CartScreen', () => {
     } as any);
 
     const { getByTestId } = render(<CartScreen />, { wrapper });
-    fireEvent.press(getByTestId('select-client-button'));
-    fireEvent.press(getByTestId('client-option-client-1'));
+    fireEvent.press(getByTestId('cart-select-client-button'));
+    fireEvent.press(getByTestId('client-selector-item-0'));
 
     // Verify the change button appears (indicating client is selected)
-    expect(getByTestId('change-client-button')).toBeTruthy();
+    expect(getByTestId('cart-select-client-button')).toBeTruthy();
   });
 
   it('should close client selector modal when close pressed', () => {
@@ -510,10 +510,10 @@ describe('CartScreen', () => {
     mockCartItems([mockItem()], 100);
 
     const { getByTestId, queryByTestId } = render(<CartScreen />, { wrapper });
-    fireEvent.press(getByTestId('select-client-button'));
+    fireEvent.press(getByTestId('cart-select-client-button'));
     expect(getByTestId('client-selector-modal')).toBeTruthy();
 
-    fireEvent.press(getByTestId('close-client-selector'));
+    fireEvent.press(getByTestId('client-selector-cancel'));
     expect(queryByTestId('client-selector-modal')).toBeDefined();
   });
 

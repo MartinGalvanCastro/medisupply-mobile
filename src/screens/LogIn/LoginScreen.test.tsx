@@ -83,7 +83,7 @@ describe('LoginScreen', () => {
     setupMocks();
     render(<LoginScreen />);
 
-    const emailInput = screen.getByTestId('email-input');
+    const emailInput = screen.getByTestId('login-email-input');
     expect(emailInput).toBeTruthy();
     expect(emailInput.props.keyboardType).toBe('email-address');
     expect(emailInput.props.autoCapitalize).toBe('none');
@@ -94,7 +94,7 @@ describe('LoginScreen', () => {
     setupMocks();
     render(<LoginScreen />);
 
-    const passwordInput = screen.getByTestId('password-input');
+    const passwordInput = screen.getByTestId('login-password-input');
     expect(passwordInput).toBeTruthy();
     expect(passwordInput.props.secureTextEntry).toBe(true);
     expect(passwordInput.props.autoCapitalize).toBe('none');
@@ -104,7 +104,7 @@ describe('LoginScreen', () => {
     setupMocks();
     render(<LoginScreen />);
 
-    const signupLink = screen.getByTestId('signup-link');
+    const signupLink = screen.getByTestId('login-sign-up-link');
     fireEvent.press(signupLink);
 
     expect(router.push).toHaveBeenCalledWith('/signup');
@@ -129,9 +129,9 @@ describe('LoginScreen', () => {
     const mockLogin = setupMocks();
     render(<LoginScreen />);
 
-    const emailInput = screen.getByTestId('email-input');
-    const passwordInput = screen.getByTestId('password-input');
-    const submitButton = screen.getByTestId('submit-button');
+    const emailInput = screen.getByTestId('login-email-input');
+    const passwordInput = screen.getByTestId('login-password-input');
+    const submitButton = screen.getByTestId('login-sign-in-button');
 
     await act(async () => {
       fireEvent.changeText(emailInput, 'test@example.com');
@@ -149,7 +149,7 @@ describe('LoginScreen', () => {
     setupMocks({ isLoginPending: true });
     render(<LoginScreen />);
 
-    const submitButton = screen.getByTestId('submit-button');
+    const submitButton = screen.getByTestId('login-sign-in-button');
     expect(submitButton).toBeTruthy();
     // Verify button is visually disabled when loading
     expect(screen.getByText('Sign In')).toBeTruthy();
@@ -159,8 +159,8 @@ describe('LoginScreen', () => {
     setupMocks();
     render(<LoginScreen />);
 
-    const emailInput = screen.getByTestId('email-input');
-    const passwordInput = screen.getByTestId('password-input');
+    const emailInput = screen.getByTestId('login-email-input');
+    const passwordInput = screen.getByTestId('login-password-input');
 
     await act(async () => {
       fireEvent.changeText(emailInput, 'test@example.com');

@@ -187,7 +187,7 @@ export const CartScreen = () => {
             renderItem={renderItem}
             ListEmptyComponent={renderEmpty}
             keyExtractor={(item) => item.inventoryId}
-            testID="cart-list"
+            testID="cart-item-list"
           />
         </Box>
       </VStack>

@@ -83,7 +83,7 @@ export const AddToCartModal = ({
                 name={product.name}
                 sku={product.sku}
                 warehouseName={product.warehouseName}
-                testID="add-to-cart-modal-product-header"
+                testID="add-to-cart-product-name"
               />
 
               <PriceQuantitySection
@@ -94,6 +94,7 @@ export const AddToCartModal = ({
                 showAvailable={true}
                 availableQuantity={product.availableQuantity}
                 testID={`${testID}-price-quantity`}
+                quantitySelectorTestID="add-to-cart"
               />
 
               <VStack space="xs" className="border-t border-background-200 pt-4">
@@ -101,7 +102,7 @@ export const AddToCartModal = ({
                   <Text size="lg" className="text-typography-900 font-bold">
                     {t('inventory.addToCartModal.subtotal')}
                   </Text>
-                  <Text size="xl" className="text-primary-600 font-bold">
+                  <Text size="xl" className="text-primary-600 font-bold" testID="add-to-cart-subtotal">
                     {formatCurrency(subtotal)}
                   </Text>
                 </HStack>
@@ -112,14 +113,14 @@ export const AddToCartModal = ({
                   variant="outline"
                   onPress={handleClose}
                   className="flex-1"
-                  testID={`${testID}-cancel-button`}
+                  testID="add-to-cart-cancel-button"
                 >
                   <ButtonText>{t('inventory.addToCartModal.cancel')}</ButtonText>
                 </Button>
                 <Button
                   onPress={handleAddToCart}
                   className="flex-1"
-                  testID={`${testID}-confirm-button`}
+                  testID="add-to-cart-confirm-button"
                 >
                   <ButtonText>{t('inventory.addToCartModal.addToCart')}</ButtonText>
                 </Button>

@@ -43,4 +43,8 @@ module.exports = {
   coverageReporters: ['text', 'lcov', 'json', 'html'],
   testEnvironment: 'node',
   testMatch: ['**/__tests__/**/*.{ts,tsx}', '**/?(*.)+(spec|test).{ts,tsx}'],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/e2e/',
+  ],
 };

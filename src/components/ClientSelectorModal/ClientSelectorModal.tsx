@@ -50,7 +50,7 @@ export const ClientSelectorModal = ({
               <Heading size="lg">{t('cart.selectClient')}</Heading>
               <TouchableOpacity
                 onPress={onClose}
-                testID="close-client-selector"
+                testID="client-selector-cancel"
               >
                 <Text className="text-primary-600 font-semibold">
                   {t('common.close')}
@@ -64,10 +64,11 @@ export const ClientSelectorModal = ({
               keyExtractor={(item) => item.cliente_id}
               style={{ flex: 1 }}
               contentContainerStyle={{ flexGrow: 1 }}
-              renderItem={({ item }) => (
+              testID="client-selector-list"
+              renderItem={({ item, index }) => (
                 <TouchableOpacity
                   onPress={() => onSelectClient(item)}
-                  testID={`client-option-${item.cliente_id}`}
+                  testID={`client-selector-item-${index}`}
                   style={styles.clientItem}
                 >
                   <HStack space="sm" className="items-center">

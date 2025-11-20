@@ -118,7 +118,7 @@ describe('AddToCartModal', () => {
     );
 
     // Find and press the confirm button
-    const confirmButton = getByTestId('test-modal-confirm-button');
+    const confirmButton = getByTestId('add-to-cart-confirm-button');
     fireEvent.press(confirmButton);
 
     expect(mockOnAddToCart).toHaveBeenCalledWith(1); // default quantity is 1

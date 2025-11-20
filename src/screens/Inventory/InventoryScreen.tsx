@@ -179,7 +179,7 @@ export const InventoryScreen = () => {
       return (
         <Box className="p-4 items-center">
           <VStack space="sm" className="items-center">
-            <Spinner size="small" testID="inventory-load-more-spinner" />
+            <Spinner size="small" testID="inventory-loading-more" />
             <Text className="text-typography-500 text-sm">
               {t('inventory.loadingMore')}
             </Text>
@@ -205,7 +205,7 @@ export const InventoryScreen = () => {
                 onChangeText={handleSearchChange}
                 onDebouncedChange={handleDebouncedChange}
                 placeholder={getSearchPlaceholder()}
-                testID="inventory-search-bar"
+                testID="inventory-search-input"
               />
             </Box>
             <Button
@@ -213,7 +213,7 @@ export const InventoryScreen = () => {
               variant="outline"
               action="secondary"
               onPress={() => setShowFilterModal(true)}
-              testID="filter-type-button"
+              testID="inventory-filter-button"
               className="border-outline-500"
             >
               <Filter size={16} color="#6B7280" />
@@ -244,7 +244,7 @@ export const InventoryScreen = () => {
                 onChangeText={handleSearchChange}
                 onDebouncedChange={handleDebouncedChange}
                 placeholder={getSearchPlaceholder()}
-                testID="inventory-search-bar"
+                testID="inventory-search-input"
               />
             </Box>
             <Button
@@ -252,7 +252,7 @@ export const InventoryScreen = () => {
               variant="outline"
               action="secondary"
               onPress={() => setShowFilterModal(true)}
-              testID="filter-type-button"
+              testID="inventory-filter-button"
               className="border-outline-500"
             >
               <Filter size={16} color="#6B7280" />
@@ -292,7 +292,7 @@ export const InventoryScreen = () => {
             variant="outline"
             action="secondary"
             onPress={() => setShowFilterModal(true)}
-            testID="filter-type-button"
+            testID="inventory-filter-button"
             className="border-outline-500"
           >
             <Filter size={16} color="#6B7280" />
@@ -312,7 +312,7 @@ export const InventoryScreen = () => {
         }
         ListFooterComponent={renderFooter}
         keyExtractor={(item) => item.id}
-        testID="inventory-list"
+        testID="inventory-product-list"
         onRefresh={handleRefresh}
         refreshing={isRefetching}
         onEndReached={handleLoadMore}
@@ -336,7 +336,7 @@ export const InventoryScreen = () => {
         }
         onClose={handleCloseModal}
         onAddToCart={handleAddToCart}
-        testID="inventory-add-to-cart-modal"
+        testID="add-to-cart-modal"
       />
 
       <BottomSheet

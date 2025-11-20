@@ -47,6 +47,7 @@ export default function TabLayout() {
         options={{
           title: 'Inventory',
           tabBarIcon: ({ color }) => <TabBarIcon name="shopping-basket" color={color} />,
+          tabBarTestID: 'tab-inventory',
         }}
       />
       <Tabs.Screen
@@ -54,6 +55,7 @@ export default function TabLayout() {
         options={{
           title: 'Cart',
           tabBarIcon: ({ color }) => <TabBarIcon name="shopping-cart" color={color} />,
+          tabBarTestID: 'tab-cart',
         }}
       />
 
@@ -64,6 +66,7 @@ export default function TabLayout() {
           title: 'Orders',
           tabBarIcon: ({ color }) => <TabBarIcon name="list" color={color} />,
           href: userRole === 'client' ? '/orders' : null,
+          tabBarTestID: 'tab-orders',
         }}
       />
 
@@ -74,6 +77,7 @@ export default function TabLayout() {
           title: 'Visits',
           tabBarIcon: ({ color }) => <TabBarIcon name="calendar" color={color} />,
           href: userRole === 'seller' ? '/visits' : null,
+          tabBarTestID: 'tab-visits',
         }}
       />
       <Tabs.Screen
@@ -82,7 +86,7 @@ export default function TabLayout() {
           title: 'Clients',
           tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
           href: userRole === 'seller' ? '/clients' : null,
-      
+          tabBarTestID: 'tab-clients',
         }}
       />
 
@@ -92,6 +96,7 @@ export default function TabLayout() {
         options={{
           title: 'Account',
           tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
+          tabBarTestID: 'tab-account',
         }}
       />
     </Tabs>
