@@ -6,11 +6,7 @@ project_type: react-native
 trigger_map:
   - pull_request_target_branch: main
     workflow: e2e_ios
-  - pull_request_target_branch: master
-    workflow: e2e_ios
   - push_branch: main
-    workflow: build_debug_artifacts
-  - push_branch: master
     workflow: build_debug_artifacts
 
 workflows:
@@ -25,7 +21,7 @@ workflows:
       - nvm@1:
           title: Set Node.js version
           inputs:
-            - node_version: "20.19.4"
+            - node_version: "22.18.0"
       - yarn@0:
           title: Install dependencies
           inputs:
@@ -108,7 +104,7 @@ workflows:
       - nvm@1:
           title: Set Node.js version
           inputs:
-            - node_version: "20.19.4"
+            - node_version: "22.18.0"
       - yarn@0:
           title: Install dependencies
           inputs:
