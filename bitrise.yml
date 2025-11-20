@@ -31,21 +31,14 @@ workflows:
             - command: install
             - cache_local_deps: 'yes'
       - script@1:
-          title: Run Expo prebuild for Android
-          inputs:
-            - content: |
-                #!/usr/bin/env bash
-                set -ex
-                npx expo prebuild --platform android --clean
-      - script@1:
           title: Build Android app for Detox
           inputs:
             - content: |
                 #!/usr/bin/env bash
                 set -ex
                 export EXPO_PUBLIC_API_URL=http://localhost:8000
-                export GRADLE_OPTS="-Xmx2048m -XX:MaxMetaspaceSize=512m"
-                yarn e2e:build:android:release
+                export GRADLE_OPTS="-Xmx6144m -XX:MaxMetaspaceSize=1536m"
+                cd android && ./gradlew assembleRelease assembleAndroidTest -DtestBuildType=release -Dorg.gradle.jvmargs="-Xmx6144m -XX:MaxMetaspaceSize=1536m" --no-daemon --stacktrace --max-workers=2
       - script@1:
           title: Start mock server
           inputs:
@@ -198,13 +191,6 @@ workflows:
           inputs:
             - command: install
             - cache_local_deps: 'yes'
-      - script@1:
-          title: Run Expo prebuild for Android
-          inputs:
-            - content: |
-                #!/usr/bin/env bash
-                set -ex
-                npx expo prebuild --platform android --clean
       - gradle-runner@2:
           title: Build Android Debug APK
           inputs:
