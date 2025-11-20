@@ -6,7 +6,7 @@ module.exports = {
     '^.+\\.(js|jsx|ts|tsx)$': 'babel-jest',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(@gluestack-ui|@react-native|@react-native-community|react-native|@expo|expo|@legendapp|react-native-reanimated|react-native-mmkv|react-native-nitro-modules|nativewind|react-native-css-interop)/)',
+    'node_modules/(?!(@gluestack-ui|@react-native|@react-native-community|react-native|@expo|expo|expo-crypto|expo-modules-core|@legendapp|react-native-reanimated|react-native-mmkv|react-native-nitro-modules|nativewind|react-native-css-interop)/)',
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
@@ -43,4 +43,8 @@ module.exports = {
   coverageReporters: ['text', 'lcov', 'json', 'html'],
   testEnvironment: 'node',
   testMatch: ['**/__tests__/**/*.{ts,tsx}', '**/?(*.)+(spec|test).{ts,tsx}'],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/e2e/',
+  ],
 };

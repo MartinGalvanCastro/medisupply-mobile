@@ -13,6 +13,7 @@ export interface PriceQuantitySectionProps {
   showAvailable?: boolean;
   availableQuantity?: number;
   testID?: string;
+  quantitySelectorTestID?: string;
 }
 
 export const PriceQuantitySection = ({
@@ -23,6 +24,7 @@ export const PriceQuantitySection = ({
   showAvailable = false,
   availableQuantity,
   testID = 'price-quantity-section',
+  quantitySelectorTestID,
 }: PriceQuantitySectionProps) => {
   const { t } = useTranslation();
   const subtotal = unitPrice * quantity;
@@ -71,7 +73,7 @@ export const PriceQuantitySection = ({
           minQuantity={1}
           maxQuantity={maxQuantity}
           onQuantityChange={onQuantityChange}
-          testID={`${testID}-quantity-selector`}
+          testID={quantitySelectorTestID || `${testID}-quantity-selector`}
         />
       </VStack>
     </VStack>

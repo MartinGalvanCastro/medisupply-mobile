@@ -128,7 +128,7 @@ describe('ClientSelectorModal', () => {
       />
     );
 
-    const clientOption = getByTestId('client-option-client-special-123');
+    const clientOption = getByTestId('client-selector-item-0');
     fireEvent.press(clientOption);
 
     expect(onSelectClient).toHaveBeenCalledWith(client);
@@ -148,7 +148,7 @@ describe('ClientSelectorModal', () => {
       />
     );
 
-    const closeButton = getByTestId('close-client-selector');
+    const closeButton = getByTestId('client-selector-cancel');
     fireEvent.press(closeButton);
 
     expect(onClose).toHaveBeenCalled();
@@ -259,13 +259,13 @@ describe('ClientSelectorModal', () => {
     );
 
     // Select first client
-    fireEvent.press(getByTestId('client-option-client-001'));
+    fireEvent.press(getByTestId('client-selector-item-0'));
     expect(onSelectClient).toHaveBeenCalledWith(client1);
 
     onSelectClient.mockClear();
 
     // Select second client
-    fireEvent.press(getByTestId('client-option-client-002'));
+    fireEvent.press(getByTestId('client-selector-item-1'));
     expect(onSelectClient).toHaveBeenCalledWith(client2);
   });
 });

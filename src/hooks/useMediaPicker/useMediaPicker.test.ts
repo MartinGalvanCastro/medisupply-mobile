@@ -102,7 +102,7 @@ describe('useMediaPicker', () => {
       expect(mockOnFilesSelected).toHaveBeenCalledTimes(1);
       const [files] = mockOnFilesSelected.mock.calls[0];
       expect(files[0].id).toBeDefined();
-      expect(files[0].id).toMatch(/^\d+_[\d.]+$/);
+      expect(files[0].id).toMatch(/^\d+_[a-fA-F0-9-]+$/);
     });
 
     it('preserves asset URI in MediaFile', async () => {

@@ -128,7 +128,7 @@ describe('InventoryScreen', () => {
     const { getByTestId } = render(<InventoryScreen />, { wrapper });
     expect(getByTestId('inventory-screen')).toBeTruthy();
     expect(getByTestId('inventory-search-bar')).toBeTruthy();
-    expect(getByTestId('filter-type-button')).toBeTruthy();
+    expect(getByTestId('inventory-filter-button')).toBeTruthy();
   });
 
   it('should display loading state with LoadingCard', () => {
@@ -186,8 +186,9 @@ describe('InventoryScreen', () => {
       refetch: mockRefetch,
     } as any);
 
-    const { getByText } = render(<InventoryScreen />, { wrapper });
-    expect(getByText('Failed to load inventory')).toBeTruthy();
+    const { getByTestId } = render(<InventoryScreen />, { wrapper });
+    // PaginatedList uses t('common.error') as fallback
+    expect(getByTestId('inventory-error')).toBeTruthy();
   });
 
   it('should display empty state when no products', () => {
@@ -232,7 +233,7 @@ describe('InventoryScreen', () => {
     const { getByTestId } = render(<InventoryScreen />, { wrapper });
     fireEvent.press(getByTestId('product-card-inv-123'));
     // Modal should be visible
-    expect(getByTestId('inventory-add-to-cart-modal')).toBeTruthy();
+    expect(getByTestId('add-to-cart-modal')).toBeTruthy();
   });
 
   it('should NOT open modal when product has zero available quantity', () => {
@@ -253,7 +254,7 @@ describe('InventoryScreen', () => {
     fireEvent.press(getByTestId('product-card-inv-789'));
     // Modal should not open - when product has 0 available, modalVisible stays false
     // The modal returns null when product is null, so modal testID won't be found
-    const modal = queryByTestId('inventory-add-to-cart-modal');
+    const modal = queryByTestId('add-to-cart-modal');
     expect(modal).toBeNull();
   });
 
@@ -278,7 +279,7 @@ describe('InventoryScreen', () => {
 
     // Add to cart (trigger the onAddToCart callback)
     // Find and press the confirm button in the modal
-    const confirmButton = getByTestId('inventory-add-to-cart-modal-confirm-button');
+    const confirmButton = getByTestId('add-to-cart-confirm-button');
     fireEvent.press(confirmButton);
 
     expect(mockAddItem).toHaveBeenCalled();
@@ -289,7 +290,7 @@ describe('InventoryScreen', () => {
     const { getByTestId, getByText } = render(<InventoryScreen />, { wrapper });
 
     // Open filter modal
-    fireEvent.press(getByTestId('filter-type-button'));
+    fireEvent.press(getByTestId('inventory-filter-button'));
     expect(getByTestId('filter-type-modal')).toBeTruthy();
 
     // Select SKU filter
@@ -322,7 +323,7 @@ describe('InventoryScreen', () => {
     } as any);
 
     const { getByTestId } = render(<InventoryScreen />, { wrapper });
-    fireEvent(getByTestId('inventory-list'), 'refresh');
+    fireEvent(getByTestId('inventory-product-list'), 'refresh');
     expect(mockRefetch).toHaveBeenCalled();
   });
 
@@ -341,7 +342,7 @@ describe('InventoryScreen', () => {
     } as any);
 
     const { getByTestId } = render(<InventoryScreen />, { wrapper });
-    fireEvent(getByTestId('inventory-list'), 'endReached');
+    fireEvent(getByTestId('inventory-product-list'), 'endReached');
     expect(mockFetchNextPage).toHaveBeenCalled();
   });
 
@@ -360,7 +361,7 @@ describe('InventoryScreen', () => {
     } as any);
 
     const { getByTestId } = render(<InventoryScreen />, { wrapper });
-    fireEvent(getByTestId('inventory-list'), 'endReached');
+    fireEvent(getByTestId('inventory-product-list'), 'endReached');
     expect(mockFetchNextPage).not.toHaveBeenCalled();
   });
 
@@ -379,7 +380,7 @@ describe('InventoryScreen', () => {
     } as any);
 
     const { getByTestId, getByText } = render(<InventoryScreen />, { wrapper });
-    expect(getByTestId('inventory-load-more-spinner')).toBeTruthy();
+    expect(getByTestId('inventory-loading-more')).toBeTruthy();
     expect(getByText('Loading more...')).toBeTruthy();
   });
 
@@ -427,7 +428,7 @@ describe('InventoryScreen', () => {
     } as any);
 
     const { getByTestId } = render(<InventoryScreen />, { wrapper });
-    const filterButton = getByTestId('filter-type-button');
+    const filterButton = getByTestId('inventory-filter-button');
     expect(filterButton).toBeTruthy();
     // Press to cover the onPress handler
     fireEvent.press(filterButton);
@@ -448,7 +449,7 @@ describe('InventoryScreen', () => {
     } as any);
 
     const { getByTestId } = render(<InventoryScreen />, { wrapper });
-    const filterButton = getByTestId('filter-type-button');
+    const filterButton = getByTestId('inventory-filter-button');
     expect(filterButton).toBeTruthy();
     // Press to cover the onPress handler
     fireEvent.press(filterButton);
@@ -474,12 +475,12 @@ describe('InventoryScreen', () => {
     fireEvent.press(getByTestId('product-card-inv-123'));
 
     // Close modal
-    const closeButton = getByTestId('inventory-add-to-cart-modal-close');
+    const closeButton = getByTestId('add-to-cart-modal-close');
     fireEvent.press(closeButton);
 
     // Modal should be closed (can re-open to verify state reset)
     fireEvent.press(getByTestId('product-card-inv-123'));
-    expect(getByTestId('inventory-add-to-cart-modal')).toBeTruthy();
+    expect(getByTestId('add-to-cart-modal')).toBeTruthy();
   });
 
   it('should display name filter label initially', () => {
@@ -497,7 +498,7 @@ describe('InventoryScreen', () => {
     expect(getByText('Name')).toBeTruthy();
 
     // Open filter modal
-    fireEvent.press(getByTestId('filter-type-button'));
+    fireEvent.press(getByTestId('inventory-filter-button'));
     expect(getByTestId('filter-type-modal')).toBeTruthy();
 
     // Select SKU filter
@@ -505,7 +506,7 @@ describe('InventoryScreen', () => {
 
     // After selection, filter modal should be closed
     // Verify the list is still visible
-    expect(getByTestId('inventory-list')).toBeTruthy();
+    expect(getByTestId('inventory-product-list')).toBeTruthy();
   });
 
   // Test switch cases in getFilterLabel and getSearchPlaceholder
@@ -535,7 +536,7 @@ describe('InventoryScreen', () => {
     expect(searchBar.props.placeholder).toBe('Search by name...');
 
     // Test SKU filter case (lines 91-92, 102-103)
-    fireEvent.press(getByTestId('filter-type-button'));
+    fireEvent.press(getByTestId('inventory-filter-button'));
     fireEvent.press(getByText('SKU'));
     expect(getByText('SKU')).toBeTruthy();
 
@@ -547,7 +548,7 @@ describe('InventoryScreen', () => {
     render(<InventoryScreen />, { wrapper });
 
     // Switch to SKU filter
-    const filterButton = screen.getByTestId('filter-type-button');
+    const filterButton = screen.getByTestId('inventory-filter-button');
     fireEvent.press(filterButton);
     fireEvent.press(screen.getByText('SKU'));
 
@@ -626,11 +627,11 @@ describe('InventoryScreen', () => {
 
     // Open modal by clicking product
     fireEvent.press(getByTestId('product-card-inv-123'));
-    expect(getByTestId('inventory-add-to-cart-modal')).toBeTruthy();
+    expect(getByTestId('add-to-cart-modal')).toBeTruthy();
 
     // Press the add to cart button - this tests stopPropagation
     // by confirming that clicking the modal content works properly
-    const confirmButton = getByTestId('inventory-add-to-cart-modal-confirm-button');
+    const confirmButton = getByTestId('add-to-cart-confirm-button');
     fireEvent.press(confirmButton);
 
     // Verify addItem was called (modal content click worked)

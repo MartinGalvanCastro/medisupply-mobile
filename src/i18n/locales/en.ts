@@ -208,6 +208,7 @@ export const en = {
     removeItemConfirmation: 'Remove {{productName}} from cart?',
     checkout: 'Checkout',
     checkoutMessage: 'Ready to place your order?',
+    confirmOrder: 'Confirm',
     orderSuccess: 'Order Placed Successfully',
     orderSuccessMessage: 'Your order has been placed and is being processed',
     orderError: 'Failed to place order. Please try again.',

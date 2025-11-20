@@ -67,8 +67,9 @@ export const LoginScreen = () => {
   const isButtonDisabled = !isValid || !email || !password || isLoginPending;
 
   return (
-    <KeyboardAvoidingView testID="login-screen" behavior="padding" style={{ flex: 1 }}>
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
       <LinearGradient
+        testID="login-screen"
         colors={['#f0f8ff', '#e0f2fe']}
         style={{ flex: 1 }}
         start={{ x: 0, y: 0 }}
@@ -113,7 +114,7 @@ export const LoginScreen = () => {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
-                testID="email-input"
+                testID="login-email-input"
               />
 
               {/* Password Field */}
@@ -125,18 +126,18 @@ export const LoginScreen = () => {
                   error={errors.password}
                   secureTextEntry
                   autoCapitalize="none"
-                  testID="password-input"
+                  testID="login-password-input"
                   showPasswordToggle
                 />
               </View>
 
               {/* Submit Button */}
               <Button
-                testID="submit-button"
+                testID="login-sign-in-button"
                 onPress={handleSubmit(onSubmit)}
                 isDisabled={isButtonDisabled}
               >
-                {isLoginPending && <ButtonSpinner className="mr-1" />}
+                {isLoginPending && <ButtonSpinner testID="login-loading" className="mr-1" />}
                 <ButtonText>{t('auth.login.signIn')}</ButtonText>
               </Button>
 
@@ -144,7 +145,7 @@ export const LoginScreen = () => {
               <HStack space="xs" className="mt-4 justify-center">
                 <Text size="sm">{t('auth.login.noAccount')}</Text>
                 <Link
-                  testID="signup-link"
+                  testID="login-sign-up-link"
                   onPress={() => router.push('/signup')}
                 >
                   <LinkText size="sm">{t('auth.login.signUp')}</LinkText>

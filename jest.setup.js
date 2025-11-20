@@ -39,6 +39,11 @@ jest.mock('expo-localization', () => ({
   getLocales: jest.fn(() => [{ languageCode: 'en' }]),
 }));
 
+// Mock expo-crypto
+jest.mock('expo-crypto', () => ({
+  randomUUID: jest.fn(() => '12345678-1234-5678-90ab-cdef12345678'),
+}));
+
 // Mock expo-image-picker
 jest.mock('expo-image-picker', () => ({
   launchCameraAsync: jest.fn(),

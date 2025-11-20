@@ -119,7 +119,7 @@ export const CartScreen = () => {
         style: 'cancel',
       },
       {
-        text: t('cart.placeOrder'),
+        text: t('cart.confirmOrder'),
         onPress: () => {
           // Map cart items to OrderItemInput format
           const orderItems = items.map((item) => ({
@@ -187,7 +187,7 @@ export const CartScreen = () => {
             renderItem={renderItem}
             ListEmptyComponent={renderEmpty}
             keyExtractor={(item) => item.inventoryId}
-            testID="cart-list"
+            testID="cart-item-list"
           />
         </Box>
       </VStack>

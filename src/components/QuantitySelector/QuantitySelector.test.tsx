@@ -16,8 +16,8 @@ describe('QuantitySelector', () => {
 
     expect(getByTestId('quantity-selector')).toBeDefined();
     expect(getByTestId('quantity-selector-input')).toBeDefined();
-    expect(getByTestId('quantity-selector-increase')).toBeDefined();
-    expect(getByTestId('quantity-selector-decrease')).toBeDefined();
+    expect(getByTestId('quantity-selector-increment')).toBeDefined();
+    expect(getByTestId('quantity-selector-decrement')).toBeDefined();
     expect(getByText('Max: 10')).toBeDefined();
   });
 
@@ -32,8 +32,8 @@ describe('QuantitySelector', () => {
 
     expect(getByTestId('custom-selector')).toBeDefined();
     expect(getByTestId('custom-selector-input')).toBeDefined();
-    expect(getByTestId('custom-selector-increase')).toBeDefined();
-    expect(getByTestId('custom-selector-decrease')).toBeDefined();
+    expect(getByTestId('custom-selector-increment')).toBeDefined();
+    expect(getByTestId('custom-selector-decrement')).toBeDefined();
   });
 
   it('should initialize with initial quantity value', () => {
@@ -67,7 +67,7 @@ describe('QuantitySelector', () => {
       />
     );
 
-    const increaseButton = getByTestId('quantity-selector-increase');
+    const increaseButton = getByTestId('quantity-selector-increment');
     fireEvent.press(increaseButton);
 
     await waitFor(() => {
@@ -85,7 +85,7 @@ describe('QuantitySelector', () => {
       />
     );
 
-    const decreaseButton = getByTestId('quantity-selector-decrease');
+    const decreaseButton = getByTestId('quantity-selector-decrement');
     fireEvent.press(decreaseButton);
 
     await waitFor(() => {
@@ -102,7 +102,7 @@ describe('QuantitySelector', () => {
       />
     );
 
-    const increaseButton = getByTestId('quantity-selector-increase');
+    const increaseButton = getByTestId('quantity-selector-increment');
     fireEvent.press(increaseButton);
 
     expect(mockOnQuantityChange).not.toHaveBeenCalled();
@@ -118,7 +118,7 @@ describe('QuantitySelector', () => {
       />
     );
 
-    const decreaseButton = getByTestId('quantity-selector-decrease');
+    const decreaseButton = getByTestId('quantity-selector-decrement');
     fireEvent.press(decreaseButton);
 
     expect(mockOnQuantityChange).not.toHaveBeenCalled();

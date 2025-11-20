@@ -136,7 +136,7 @@ export const ClientDetailScreen = () => {
                   value={client.email || 'N/A'}
                 />
 
-                {client.telefono && (
+                {!!client.telefono && (
                   <InfoRow
                     icon={Phone}
                     label={t('clientDetail.profile.phone')}
@@ -146,9 +146,9 @@ export const ClientDetailScreen = () => {
               </InfoSection>
 
               {/* Institution Information */}
-              {(client.nombre_institucion || client.nit) && (
+              {!!(client.nombre_institucion || client.nit) && (
                 <InfoSection title={t('clientDetail.institutionInfo')} testID="institution-info">
-                  {client.nombre_institucion && (
+                  {!!client.nombre_institucion && (
                     <InfoRow
                       icon={Building2}
                       label={t('clientDetail.profile.institution')}
@@ -156,7 +156,7 @@ export const ClientDetailScreen = () => {
                     />
                   )}
 
-                  {client.tipo_institucion && (
+                  {!!client.tipo_institucion && (
                     <InfoRow
                       icon={Building2}
                       label={t('clientDetail.profile.type')}
@@ -164,7 +164,7 @@ export const ClientDetailScreen = () => {
                     />
                   )}
 
-                  {client.nit && (
+                  {!!client.nit && (
                     <InfoRow
                       icon={FileText}
                       label={t('clientDetail.profile.nit')}
@@ -172,7 +172,7 @@ export const ClientDetailScreen = () => {
                     />
                   )}
 
-                  {client.representante && (
+                  {!!client.representante && (
                     <InfoRow
                       icon={UserCircle}
                       label={t('clientDetail.profile.name')}
@@ -183,9 +183,9 @@ export const ClientDetailScreen = () => {
               )}
 
               {/* Location Information */}
-              {(client.direccion || client.ciudad || client.pais) && (
+              {!!(client.direccion || client.ciudad || client.pais) && (
                 <InfoSection title={t('clientDetail.location')} testID="location-info">
-                  {client.direccion && (
+                  {!!client.direccion && (
                     <InfoRow
                       icon={MapPin}
                       label={t('clientDetail.profile.address')}
@@ -193,7 +193,7 @@ export const ClientDetailScreen = () => {
                     />
                   )}
 
-                  {client.ciudad && (
+                  {!!client.ciudad && (
                     <InfoRow
                       icon={MapPin}
                       label={t('clientDetail.profile.city')}
@@ -201,7 +201,7 @@ export const ClientDetailScreen = () => {
                     />
                   )}
 
-                  {client.pais && (
+                  {!!client.pais && (
                     <InfoRow
                       icon={MapPin}
                       label={t('clientDetail.profile.country')}

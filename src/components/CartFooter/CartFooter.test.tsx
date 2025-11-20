@@ -92,7 +92,7 @@ describe('CartFooter', () => {
       const { getByTestId } = render(<CartFooter {...defaultProps} />);
 
       expect(getByTestId('cart-footer')).toBeTruthy();
-      expect(getByTestId('cart-checkout-button')).toBeTruthy();
+      expect(getByTestId('cart-place-order-button')).toBeTruthy();
       expect(getByTestId('cart-clear-button')).toBeTruthy();
     });
 
@@ -112,7 +112,7 @@ describe('CartFooter', () => {
     it('should show client selector only for sellers', () => {
       const { queryByTestId } = render(<CartFooter {...defaultProps} isSeller={false} />);
 
-      expect(queryByTestId('select-client-button')).toBeNull();
+      expect(queryByTestId('cart-select-client-button')).toBeNull();
     });
 
     it('should show select client button for sellers without client', () => {
@@ -120,7 +120,7 @@ describe('CartFooter', () => {
         <CartFooter {...defaultProps} isSeller={true} selectedClient={null} />
       );
 
-      expect(getByTestId('select-client-button')).toBeTruthy();
+      expect(getByTestId('cart-select-client-button')).toBeTruthy();
     });
 
     it('should show selected client info and change button for sellers with client', () => {
@@ -130,7 +130,7 @@ describe('CartFooter', () => {
 
       expect(getByText('John Doe')).toBeTruthy();
       expect(getByText('Hospital 1')).toBeTruthy();
-      expect(getByTestId('change-client-button')).toBeTruthy();
+      expect(getByTestId('cart-select-client-button')).toBeTruthy();
     });
   });
 
@@ -156,7 +156,7 @@ describe('CartFooter', () => {
         <CartFooter {...defaultProps} isSeller={false} />
       );
 
-      expect(getByTestId('cart-checkout-button')).toBeTruthy();
+      expect(getByTestId('cart-place-order-button')).toBeTruthy();
     });
 
     it('should render checkout button for seller with client', () => {
@@ -164,7 +164,7 @@ describe('CartFooter', () => {
         <CartFooter {...defaultProps} isSeller={true} selectedClient={mockClient} />
       );
 
-      expect(getByTestId('cart-checkout-button')).toBeTruthy();
+      expect(getByTestId('cart-place-order-button')).toBeTruthy();
     });
   });
 
@@ -175,7 +175,7 @@ describe('CartFooter', () => {
         <CartFooter {...defaultProps} isSeller={true} selectedClient={null} onSelectClient={onSelectClient} />
       );
 
-      fireEvent.press(getByTestId('select-client-button'));
+      fireEvent.press(getByTestId('cart-select-client-button'));
 
       expect(onSelectClient).toHaveBeenCalled();
     });
@@ -186,7 +186,7 @@ describe('CartFooter', () => {
         <CartFooter {...defaultProps} isSeller={true} selectedClient={mockClient} onSelectClient={onSelectClient} />
       );
 
-      fireEvent.press(getByTestId('change-client-button'));
+      fireEvent.press(getByTestId('cart-select-client-button'));
 
       expect(onSelectClient).toHaveBeenCalled();
     });
@@ -197,7 +197,7 @@ describe('CartFooter', () => {
         <CartFooter {...defaultProps} onCheckout={onCheckout} />
       );
 
-      fireEvent.press(getByTestId('cart-checkout-button'));
+      fireEvent.press(getByTestId('cart-place-order-button'));
 
       expect(onCheckout).toHaveBeenCalled();
     });

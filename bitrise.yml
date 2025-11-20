@@ -1,0 +1,152 @@
+---
+format_version: '23'
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: react-native
+
+trigger_map:
+  - pull_request_target_branch: main
+    workflow: e2e_ios
+  - pull_request_target_branch: master
+    workflow: e2e_ios
+  - push_branch: main
+    workflow: build_debug_artifacts
+  - push_branch: master
+    workflow: build_debug_artifacts
+
+workflows:
+  e2e_ios:
+    meta:
+      bitrise.io:
+        stack: osx-xcode-15.0.x
+        machine_type_id: g2-m1.4core
+    steps:
+      - git-clone@8: {}
+      - cache-pull@2: {}
+      - nvm@1:
+          title: Set Node.js version
+          inputs:
+            - node_version: "20.19.4"
+      - yarn@0:
+          title: Install dependencies
+          inputs:
+            - command: install
+            - cache_local_deps: 'yes'
+      - cocoapods-install@2:
+          inputs:
+            - source_root_path: $BITRISE_SOURCE_DIR/ios
+            - podfile_path: $BITRISE_SOURCE_DIR/ios/Podfile
+      - script@1:
+          title: Install applesimutils
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                brew tap wix/brew
+                brew install applesimutils
+      - script@1:
+          title: Build iOS app for Detox
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                export EXPO_PUBLIC_API_URL=http://localhost:8000
+                yarn e2e:prebuild:ios
+                yarn e2e:build:ios:release
+      - script@1:
+          title: Start mock server
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                yarn e2e:mock-server &
+                sleep 5
+                curl http://localhost:8000/ || echo "Mock server health check failed"
+      - script@1:
+          title: Run E2E tests
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                yarn e2e:test:ios:release
+      - deploy-to-bitrise-io@2:
+          inputs:
+            - deploy_path: $BITRISE_SOURCE_DIR/artifacts
+            - is_compress: 'true'
+      - cache-push@2:
+          inputs:
+            - cache_paths: |
+                $BITRISE_SOURCE_DIR/node_modules
+                $BITRISE_SOURCE_DIR/ios/Pods
+                $BITRISE_CACHE_DIR
+
+  unit_tests:
+    meta:
+      bitrise.io:
+        stack: osx-xcode-15.0.x
+        machine_type_id: g2-m1.4core
+    steps:
+      - git-clone@8: {}
+      - cache-pull@2: {}
+      - yarn@0:
+          title: Install dependencies
+          inputs:
+            - command: install
+      - yarn@0:
+          title: Run unit tests
+          inputs:
+            - command: test:coverage
+      - cache-push@2: {}
+
+  build_debug_artifacts:
+    meta:
+      bitrise.io:
+        stack: osx-xcode-15.0.x
+        machine_type_id: g2-m1.4core
+    steps:
+      - git-clone@8: {}
+      - cache-pull@2: {}
+      - nvm@1:
+          title: Set Node.js version
+          inputs:
+            - node_version: "20.19.4"
+      - yarn@0:
+          title: Install dependencies
+          inputs:
+            - command: install
+            - cache_local_deps: 'yes'
+      - cocoapods-install@2:
+          title: Install iOS CocoaPods
+          inputs:
+            - source_root_path: $BITRISE_SOURCE_DIR/ios
+            - podfile_path: $BITRISE_SOURCE_DIR/ios/Podfile
+      - xcode-archive@5:
+          title: Build iOS Debug Archive
+          inputs:
+            - project_path: $BITRISE_SOURCE_DIR/ios/medisupplymobile.xcworkspace
+            - scheme: medisupplymobile
+            - configuration: Debug
+            - export_method: development
+            - upload_bitcode: 'no'
+            - compile_bitcode: 'no'
+      - gradle-runner@2:
+          title: Build Android Debug APK
+          inputs:
+            - gradle_file: $BITRISE_SOURCE_DIR/android/build.gradle
+            - gradle_task: assembleDebug
+            - gradlew_path: $BITRISE_SOURCE_DIR/android/gradlew
+      - deploy-to-bitrise-io@2:
+          title: Deploy iOS and Android artifacts
+          inputs:
+            - deploy_path: |
+                $BITRISE_DEPLOY_DIR/*.ipa
+                $BITRISE_SOURCE_DIR/android/app/build/outputs/apk/debug/*.apk
+            - is_compress: 'false'
+            - notify_user_groups: none
+            - is_enable_public_page: 'true'
+      - cache-push@2:
+          inputs:
+            - cache_paths: |
+                $BITRISE_SOURCE_DIR/node_modules
+                $BITRISE_SOURCE_DIR/ios/Pods
+                $BITRISE_SOURCE_DIR/android/.gradle
+                $BITRISE_CACHE_DIR

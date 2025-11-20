@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import * as ImagePicker from 'expo-image-picker';
+import * as Crypto from 'expo-crypto';
 import { PermissionManager } from '@/utils/permissions';
 import { useMediaPermissions } from '@/hooks/useMediaPermissions';
 import type { MediaFile } from '@/hooks/useMediaFileManager';
@@ -15,8 +16,9 @@ export const useMediaPicker = ({
 
   const createMediaFile = useCallback(
     (asset: ImagePicker.ImagePickerAsset, type: 'photo' | 'video'): MediaFile => {
+      const randomId = Crypto.randomUUID();
       return {
-        id: `${Date.now()}_${Math.random()}`,
+        id: `${Date.now()}_${randomId}`,
         uri: asset.uri,
         type,
         name: asset.fileName || `${type}_${Date.now()}.${type === 'photo' ? 'jpg' : 'mp4'}`,

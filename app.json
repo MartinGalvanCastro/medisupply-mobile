@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "medisupply-mobile",
+    "name": "Medisupply",
     "slug": "medisupply-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#b6c6d5"
     },
     "ios": {
       "supportsTablet": true,
@@ -19,7 +19,16 @@
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs access to your camera to take photos of medical supplies and equipment.",
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select and upload images of medical supplies.",
-        "NSPhotoLibraryAddUsageDescription": "This app needs access to save photos to your photo library."
+        "NSPhotoLibraryAddUsageDescription": "This app needs access to save photos to your photo library.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true,
+          "NSExceptionDomains": {
+            "localhost": {
+              "NSExceptionAllowsInsecureHTTPLoads": true,
+              "NSIncludesSubdomains": true
+            }
+          }
+        }
       }
     },
     "android": {
