@@ -30,10 +30,6 @@ workflows:
           inputs:
             - command: install
             - cache_local_deps: 'yes'
-      - cocoapods-install@2:
-          inputs:
-            - source_root_path: $BITRISE_SOURCE_DIR/ios
-            - podfile_path: $BITRISE_SOURCE_DIR/ios/Podfile
       - script@1:
           title: Install applesimutils
           inputs:
@@ -141,8 +137,8 @@ workflows:
       - xcode-archive@5:
           title: Build iOS Debug Archive
           inputs:
-            - project_path: $BITRISE_SOURCE_DIR/ios/medisupplymobile.xcworkspace
-            - scheme: medisupplymobile
+            - project_path: $BITRISE_SOURCE_DIR/ios/Medisupply.xcworkspace
+            - scheme: Medisupply
             - configuration: Debug
             - export_method: development
             - upload_bitcode: 'no'
