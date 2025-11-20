@@ -38,6 +38,13 @@ workflows:
                 set -ex
                 npx expo prebuild --platform android --clean
       - script@1:
+          title: Set Gradle JVM options
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                envman add --key GRADLE_OPTS --value "-Xmx2048m -XX:MaxMetaspaceSize=512m"
+      - script@1:
           title: Build Android app for Detox
           inputs:
             - content: |
@@ -204,6 +211,13 @@ workflows:
                 #!/usr/bin/env bash
                 set -ex
                 npx expo prebuild --platform android --clean
+      - script@1:
+          title: Set Gradle JVM options
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                envman add --key GRADLE_OPTS --value "-Xmx2048m -XX:MaxMetaspaceSize=512m"
       - gradle-runner@2:
           title: Build Android Debug APK
           inputs:
