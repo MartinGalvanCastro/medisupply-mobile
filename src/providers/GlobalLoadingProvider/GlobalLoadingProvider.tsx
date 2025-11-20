@@ -1,8 +1,8 @@
-import React from 'react';
-import { useIsMutating } from '@tanstack/react-query';
+import { Box } from '@/components/ui/box';
 import { Modal, ModalBackdrop } from '@/components/ui/modal';
 import { Spinner } from '@/components/ui/spinner';
-import { Box } from '@/components/ui/box';
+import { useIsMutating } from '@tanstack/react-query';
+import React from 'react';
 import type { GlobalLoadingProviderProps } from './types';
 
 export const GlobalLoadingProvider: React.FC<GlobalLoadingProviderProps> = ({ children }) => {

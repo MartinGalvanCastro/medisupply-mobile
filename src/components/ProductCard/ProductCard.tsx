@@ -1,20 +1,19 @@
-import { Pressable, StyleSheet } from 'react-native';
-import { Box } from '@/components/ui/box';
-import { HStack } from '@/components/ui/hstack';
-import { VStack } from '@/components/ui/vstack';
-import { Heading } from '@/components/ui/heading';
-import { Text } from '@/components/ui/text';
 import { Badge, BadgeText } from '@/components/ui/badge';
+import { Box } from '@/components/ui/box';
+import { Heading } from '@/components/ui/heading';
+import { HStack } from '@/components/ui/hstack';
+import { Text } from '@/components/ui/text';
+import { VStack } from '@/components/ui/vstack';
+import { useTranslation } from '@/i18n/hooks';
 import { ChevronRight, Package } from 'lucide-react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
 export interface ProductCardProps {
   product: {
     id: string;
     name: string;
     sku: string;
-    description: string;
     category: string;
-    manufacturer: string;
     warehouseName: string;
     availableQuantity: number;
     price: number;
@@ -57,6 +56,7 @@ const formatCurrency = (amount: number): string => {
 };
 
 export const ProductCard = ({ product, onPress, testID }: ProductCardProps) => {
+  const { t } = useTranslation();
   const isLowStock = product.availableQuantity < 100;
   const isOutOfStock = product.availableQuantity === 0;
 
@@ -85,11 +85,11 @@ export const ProductCard = ({ product, onPress, testID }: ProductCardProps) => {
               </Heading>
               {isOutOfStock ? (
                 <Badge action="error" size="sm">
-                  <BadgeText>Out of Stock</BadgeText>
+                  <BadgeText>{t('inventory.outOfStock')}</BadgeText>
                 </Badge>
               ) : isLowStock ? (
                 <Badge action="warning" size="sm">
-                  <BadgeText>Low Stock</BadgeText>
+                  <BadgeText>{t('inventory.lowStock')}</BadgeText>
                 </Badge>
               ) : null}
             </HStack>
@@ -98,9 +98,6 @@ export const ProductCard = ({ product, onPress, testID }: ProductCardProps) => {
               SKU: {product.sku}
             </Text>
 
-            <Text size="sm" className="text-typography-600 mt-1" numberOfLines={2}>
-              {product.description}
-            </Text>
 
             <HStack space="sm" className="items-center mt-2">
               <Badge action={getCategoryBadgeAction(product.category)} size="sm">
@@ -110,9 +107,6 @@ export const ProductCard = ({ product, onPress, testID }: ProductCardProps) => {
 
             <HStack space="md" className="items-center justify-between mt-2">
               <VStack space="xs" className="flex-1">
-                <Text size="xs" className="text-typography-500">
-                  {product.manufacturer}
-                </Text>
                 <Text size="xs" className="text-typography-500">
                   {product.warehouseName}
                 </Text>
@@ -132,7 +126,7 @@ export const ProductCard = ({ product, onPress, testID }: ProductCardProps) => {
                       : 'text-success-600'
                   }
                 >
-                  {product.availableQuantity} available
+                  {t('inventory.availableUnits', { count: product.availableQuantity })}
                 </Text>
               </VStack>
             </HStack>

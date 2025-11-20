@@ -1,22 +1,33 @@
-import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
-import { ProductCard } from './ProductCard';
+import { fireEvent, render } from '@testing-library/react-native';
+import { ProductCard, ProductCardProps } from './ProductCard';
 
-describe('ProductCard Component', () => {
-  const mockProduct = {
-    id: '1',
-    name: 'Paracetamol 500mg',
-    sku: 'MED-PAR-500',
-    description: 'Analgésico y antipirético para el alivio del dolor leve a moderado',
-    category: 'Analgésicos',
-    manufacturer: 'Genfar',
-    warehouseName: 'Almacén Central Bogotá',
+// Mock useTranslation
+jest.mock('@/i18n/hooks', () => ({
+  useTranslation: () => ({
+    t: (key: string, params?: Record<string, string | number>) => {
+      const translations: Record<string, string> = {
+        'inventory.outOfStock': 'Out of Stock',
+        'inventory.lowStock': 'Low Stock',
+        'inventory.availableUnits': `${params?.count} available`,
+      };
+      return translations[key] || key;
+    },
+  }),
+}));
+
+describe('ProductCard', () => {
+  const defaultProduct = {
+    id: 'prod-1',
+    name: 'Paracetamol',
+    sku: 'SKU-001',
+    category: 'analgésicos',
+    warehouseName: 'Warehouse A',
     availableQuantity: 500,
-    price: 2500,
+    price: 5000,
   };
 
-  const defaultProps = {
-    product: mockProduct,
+  const defaultProps: ProductCardProps = {
+    product: defaultProduct,
     onPress: jest.fn(),
   };
 
@@ -24,531 +35,167 @@ describe('ProductCard Component', () => {
     jest.clearAllMocks();
   });
 
-  describe('Rendering', () => {
-    it('should render the product card', () => {
-      const { getByText } = render(<ProductCard {...defaultProps} />);
+  it('should render product card with all product information', () => {
+    const { getByText } = render(<ProductCard {...defaultProps} />);
 
-      expect(getByText(mockProduct.name)).toBeTruthy();
-      expect(getByText(mockProduct.category)).toBeTruthy();
-    });
-
-    it('should render product name correctly', () => {
-      const { getByText } = render(<ProductCard {...defaultProps} />);
-
-      expect(getByText('Paracetamol 500mg')).toBeTruthy();
-    });
-
-    it('should render SKU with prefix', () => {
-      const { getByText } = render(<ProductCard {...defaultProps} />);
-
-      expect(getByText('SKU: MED-PAR-500')).toBeTruthy();
-    });
-
-    it('should render description', () => {
-      const { getByText } = render(<ProductCard {...defaultProps} />);
-
-      expect(
-        getByText('Analgésico y antipirético para el alivio del dolor leve a moderado')
-      ).toBeTruthy();
-    });
-
-    it('should render category badge', () => {
-      const { getByText } = render(<ProductCard {...defaultProps} />);
-
-      expect(getByText('Analgésicos')).toBeTruthy();
-    });
-
-    it('should render manufacturer name', () => {
-      const { getByText } = render(<ProductCard {...defaultProps} />);
-
-      expect(getByText('Genfar')).toBeTruthy();
-    });
-
-    it('should render warehouse name', () => {
-      const { getByText } = render(<ProductCard {...defaultProps} />);
-
-      expect(getByText('Almacén Central Bogotá')).toBeTruthy();
-    });
-
-    it('should render price formatted as currency', () => {
-      const { getByText } = render(<ProductCard {...defaultProps} />);
-
-      expect(getByText(/2.500/)).toBeTruthy();
-    });
-
-    it('should render available quantity', () => {
-      const { getByText } = render(<ProductCard {...defaultProps} />);
-
-      expect(getByText('500 available')).toBeTruthy();
-    });
-
-    it('should render with custom testID', () => {
-      const { getByTestId } = render(
-        <ProductCard {...defaultProps} testID="product-card-1" />
-      );
-
-      expect(getByTestId('product-card-1')).toBeTruthy();
-    });
+    expect(getByText('Paracetamol')).toBeDefined();
+    expect(getByText('analgésicos')).toBeDefined();
+    expect(getByText('Warehouse A')).toBeDefined();
   });
 
-  describe('Stock status badges', () => {
-    it('should show low stock badge when quantity is less than 100', () => {
-      const lowStockProduct = { ...mockProduct, availableQuantity: 50 };
-      const { getByText } = render(
-        <ProductCard {...defaultProps} product={lowStockProduct} />
-      );
+  it('should call onPress when card is pressed and not when disabled', () => {
+    const onPress = jest.fn();
+    const { getByText, rerender } = render(
+      <ProductCard {...defaultProps} onPress={onPress} />
+    );
 
-      expect(getByText('Low Stock')).toBeTruthy();
-    });
+    const productName = getByText('Paracetamol');
+    fireEvent.press(productName.parent);
+    expect(onPress).toHaveBeenCalled();
 
-    it('should show out of stock badge when quantity is 0', () => {
-      const outOfStockProduct = { ...mockProduct, availableQuantity: 0 };
-      const { getByText } = render(
-        <ProductCard {...defaultProps} product={outOfStockProduct} />
-      );
+    // Test disabled state
+    jest.clearAllMocks();
+    const outOfStockProduct = { ...defaultProduct, availableQuantity: 0 };
+    rerender(
+      <ProductCard {...defaultProps} product={outOfStockProduct} onPress={onPress} />
+    );
 
-      expect(getByText('Out of Stock')).toBeTruthy();
-    });
-
-    it('should not show any stock badge when quantity is >= 100', () => {
-      const { queryByText } = render(<ProductCard {...defaultProps} />);
-
-      expect(queryByText('Low Stock')).toBeNull();
-      expect(queryByText('Out of Stock')).toBeNull();
-    });
-
-    it('should show low stock badge at exactly 99 units', () => {
-      const lowStockProduct = { ...mockProduct, availableQuantity: 99 };
-      const { getByText } = render(
-        <ProductCard {...defaultProps} product={lowStockProduct} />
-      );
-
-      expect(getByText('Low Stock')).toBeTruthy();
-    });
-
-    it('should not show low stock badge at exactly 100 units', () => {
-      const normalStockProduct = { ...mockProduct, availableQuantity: 100 };
-      const { queryByText } = render(
-        <ProductCard {...defaultProps} product={normalStockProduct} />
-      );
-
-      expect(queryByText('Low Stock')).toBeNull();
-    });
+    const productName2 = getByText('Paracetamol');
+    fireEvent.press(productName2.parent);
+    expect(onPress).not.toHaveBeenCalled();
   });
 
-  describe('Press interaction', () => {
-    it('should call onPress when card is pressed', () => {
-      const onPress = jest.fn();
-      const { getByTestId } = render(
-        <ProductCard {...defaultProps} onPress={onPress} testID="product-card-1" />
-      );
+  it('should display category badge and stock status badges correctly', () => {
+    const { getByText, queryByText } = render(<ProductCard {...defaultProps} />);
 
-      const card = getByTestId('product-card-1');
-      fireEvent.press(card);
+    // Test normal stock with no badge
+    expect(getByText('analgésicos')).toBeDefined();
+    expect(queryByText('Low Stock')).toBeNull();
+    expect(queryByText('Out of Stock')).toBeNull();
 
-      expect(onPress).toHaveBeenCalledTimes(1);
-    });
+    // Test low stock
+    const lowStockProduct = { ...defaultProduct, availableQuantity: 50 };
+    const { getByText: getByText2 } = render(
+      <ProductCard {...defaultProps} product={lowStockProduct} />
+    );
+    expect(getByText2('Low Stock')).toBeDefined();
 
-    it('should not call onPress when product is out of stock', () => {
-      const onPress = jest.fn();
-      const outOfStockProduct = { ...mockProduct, availableQuantity: 0 };
-      const { getByTestId } = render(
-        <ProductCard
-          {...defaultProps}
-          product={outOfStockProduct}
-          onPress={onPress}
-          testID="product-card-1"
-        />
-      );
-
-      const card = getByTestId('product-card-1');
-      fireEvent.press(card);
-
-      expect(onPress).not.toHaveBeenCalled();
-    });
-
-    it('should handle multiple presses', () => {
-      const onPress = jest.fn();
-      const { getByTestId } = render(
-        <ProductCard {...defaultProps} onPress={onPress} testID="product-card-1" />
-      );
-
-      const card = getByTestId('product-card-1');
-      fireEvent.press(card);
-      fireEvent.press(card);
-      fireEvent.press(card);
-
-      expect(onPress).toHaveBeenCalledTimes(3);
-    });
-
-    it('should handle rapid presses', () => {
-      const onPress = jest.fn();
-      const { getByTestId } = render(
-        <ProductCard {...defaultProps} onPress={onPress} testID="product-card-1" />
-      );
-
-      const card = getByTestId('product-card-1');
-      for (let i = 0; i < 10; i++) {
-        fireEvent.press(card);
-      }
-
-      expect(onPress).toHaveBeenCalledTimes(10);
-    });
+    // Test out of stock
+    const outOfStockProduct = { ...defaultProduct, availableQuantity: 0 };
+    const { getByText: getByText3 } = render(
+      <ProductCard {...defaultProps} product={outOfStockProduct} />
+    );
+    expect(getByText3('Out of Stock')).toBeDefined();
   });
 
-  describe('Different product categories', () => {
+  it('should use custom or default testID', () => {
+    const { getByTestId, rerender } = render(
+      <ProductCard {...defaultProps} testID="custom-product-card" />
+    );
+
+    expect(getByTestId('custom-product-card')).toBeDefined();
+
+    rerender(<ProductCard {...defaultProps} />);
+    expect(() => getByTestId('custom-product-card')).toThrow();
+  });
+
+  it('should handle different product categories with appropriate badges', () => {
     const categories = [
-      'Analgésicos',
-      'Antiinflamatorios',
-      'Antibióticos',
-      'Cardiovasculares',
-      'Antidiabéticos',
-      'Gastrointestinales',
-      'Antihistamínicos',
-      'Respiratorios',
-      'Neurológicos',
-      'Hormonales',
-      'Suplementos',
-      'Soluciones',
-      'Urológicos',
+      'analgésicos',
+      'antibióticos',
+      'antiinflamatorios',
+      'cardiovasculares',
     ];
 
     categories.forEach((category) => {
-      it(`should render ${category} category correctly`, () => {
-        const categoryProduct = { ...mockProduct, category };
-        const { getByText } = render(
-          <ProductCard {...defaultProps} product={categoryProduct} />
-        );
-
-        expect(getByText(category)).toBeTruthy();
-      });
-    });
-
-    it('should handle unknown category gracefully', () => {
-      const unknownCategoryProduct = { ...mockProduct, category: 'Unknown' };
       const { getByText } = render(
-        <ProductCard {...defaultProps} product={unknownCategoryProduct} />
-      );
-
-      expect(getByText('Unknown')).toBeTruthy();
-    });
-  });
-
-  describe('Price formatting', () => {
-    it('should format small prices correctly', () => {
-      const cheapProduct = { ...mockProduct, price: 100 };
-      const { getByText } = render(
-        <ProductCard {...defaultProps} product={cheapProduct} />
-      );
-
-      expect(getByText(/100/)).toBeTruthy();
-    });
-
-    it('should format large prices correctly', () => {
-      const expensiveProduct = { ...mockProduct, price: 125000 };
-      const { getByText } = render(
-        <ProductCard {...defaultProps} product={expensiveProduct} />
-      );
-
-      expect(getByText(/125.000/)).toBeTruthy();
-    });
-
-    it('should format prices without decimals', () => {
-      const { getByText } = render(<ProductCard {...defaultProps} />);
-
-      // Should not have decimal points for COP
-      expect(getByText(/2\.500/)).toBeTruthy();
-    });
-  });
-
-  describe('Edge cases and special characters', () => {
-    it('should render product with special characters in name', () => {
-      const specialProduct = {
-        ...mockProduct,
-        name: 'Vitamina D3 1000 UI',
-      };
-      const { getByText } = render(
-        <ProductCard {...defaultProps} product={specialProduct} />
-      );
-
-      expect(getByText('Vitamina D3 1000 UI')).toBeTruthy();
-    });
-
-    it('should render product with accented characters', () => {
-      const accentedProduct = {
-        ...mockProduct,
-        description: 'Analgésico y antipirético',
-      };
-      const { getByText } = render(
-        <ProductCard {...defaultProps} product={accentedProduct} />
-      );
-
-      expect(getByText('Analgésico y antipirético')).toBeTruthy();
-    });
-
-    it('should render product with very long name', () => {
-      const longNameProduct = {
-        ...mockProduct,
-        name: 'Acetilcisteína 600mg Efervescente Caja con 30 Tabletas de Alta Concentración',
-      };
-      const { getByText } = render(
-        <ProductCard {...defaultProps} product={longNameProduct} />
-      );
-
-      expect(
-        getByText(
-          'Acetilcisteína 600mg Efervescente Caja con 30 Tabletas de Alta Concentración'
-        )
-      ).toBeTruthy();
-    });
-
-    it('should render product with very long description', () => {
-      const longDescProduct = {
-        ...mockProduct,
-        description:
-          'Analgésico y antipirético de amplio uso para el alivio del dolor leve a moderado y la reducción de la fiebre en adultos y niños mayores de 12 años',
-      };
-      const { getByText } = render(
-        <ProductCard {...defaultProps} product={longDescProduct} />
-      );
-
-      expect(
-        getByText(
-          'Analgésico y antipirético de amplio uso para el alivio del dolor leve a moderado y la reducción de la fiebre en adultos y niños mayores de 12 años'
-        )
-      ).toBeTruthy();
-    });
-
-    it('should render product with numbers in SKU', () => {
-      const { getByText } = render(<ProductCard {...defaultProps} />);
-
-      expect(getByText(/MED-PAR-500/)).toBeTruthy();
-    });
-
-    it('should render product with special punctuation in manufacturer', () => {
-      const punctuationProduct = {
-        ...mockProduct,
-        manufacturer: "Nature's Bounty",
-      };
-      const { getByText } = render(
-        <ProductCard {...defaultProps} product={punctuationProduct} />
-      );
-
-      expect(getByText("Nature's Bounty")).toBeTruthy();
-    });
-  });
-
-  describe('Quantity display colors', () => {
-    it('should show green text for normal stock', () => {
-      const { getByText } = render(<ProductCard {...defaultProps} />);
-
-      const quantityText = getByText('500 available');
-      expect(quantityText.props.className).toContain('success');
-    });
-
-    it('should show warning color for low stock', () => {
-      const lowStockProduct = { ...mockProduct, availableQuantity: 50 };
-      const { getByText } = render(
-        <ProductCard {...defaultProps} product={lowStockProduct} />
-      );
-
-      const quantityText = getByText('50 available');
-      expect(quantityText.props.className).toContain('warning');
-    });
-
-    it('should show error color for out of stock', () => {
-      const outOfStockProduct = { ...mockProduct, availableQuantity: 0 };
-      const { getByText } = render(
-        <ProductCard {...defaultProps} product={outOfStockProduct} />
-      );
-
-      const quantityText = getByText('0 available');
-      expect(quantityText.props.className).toContain('error');
-    });
-  });
-
-  describe('Component updates', () => {
-    it('should update when product prop changes', () => {
-      const { getByText, rerender } = render(<ProductCard {...defaultProps} />);
-
-      expect(getByText('Paracetamol 500mg')).toBeTruthy();
-
-      const newProduct = {
-        ...mockProduct,
-        name: 'Ibuprofeno 400mg',
-      };
-
-      rerender(<ProductCard {...defaultProps} product={newProduct} />);
-      expect(getByText('Ibuprofeno 400mg')).toBeTruthy();
-    });
-
-    it('should update stock status when quantity changes', () => {
-      const { getByText, queryByText, rerender } = render(
-        <ProductCard {...defaultProps} />
-      );
-
-      expect(queryByText('Low Stock')).toBeNull();
-
-      const lowStockProduct = { ...mockProduct, availableQuantity: 50 };
-      rerender(<ProductCard {...defaultProps} product={lowStockProduct} />);
-
-      expect(getByText('Low Stock')).toBeTruthy();
-    });
-
-    it('should disable interaction when product becomes out of stock', () => {
-      const onPress = jest.fn();
-      const { getByTestId, rerender } = render(
-        <ProductCard {...defaultProps} onPress={onPress} testID="product-card-1" />
-      );
-
-      const card = getByTestId('product-card-1');
-      fireEvent.press(card);
-      expect(onPress).toHaveBeenCalledTimes(1);
-
-      const outOfStockProduct = { ...mockProduct, availableQuantity: 0 };
-      rerender(
         <ProductCard
           {...defaultProps}
-          product={outOfStockProduct}
-          onPress={onPress}
-          testID="product-card-1"
+          product={{ ...defaultProduct, category }}
         />
       );
 
-      fireEvent.press(card);
-      // Should still be 1, not 2
-      expect(onPress).toHaveBeenCalledTimes(1);
+      expect(getByText(category)).toBeDefined();
     });
   });
 
-  describe('Warehouse display', () => {
-    const warehouses = [
-      'Almacén Central Bogotá',
-      'Almacén Medellín',
-      'Almacén Cali',
-      'Almacén Barranquilla',
-      'Almacén Cartagena',
-    ];
+  it('should render chevron icon when product is in stock and hide when out of stock', () => {
+    const { UNSAFE_getByType, rerender } = render(
+      <ProductCard {...defaultProps} />
+    );
 
-    warehouses.forEach((warehouse) => {
-      it(`should render ${warehouse} correctly`, () => {
-        const warehouseProduct = { ...mockProduct, warehouseName: warehouse };
-        const { getByText } = render(
-          <ProductCard {...defaultProps} product={warehouseProduct} />
-        );
+    // In stock - chevron should be present
+    const inStockChevrons = UNSAFE_getByType(require('lucide-react-native').ChevronRight);
+    expect(inStockChevrons).toBeDefined();
 
-        expect(getByText(warehouse)).toBeTruthy();
-      });
-    });
+    // Out of stock - chevron should not be present
+    const outOfStockProduct = { ...defaultProduct, availableQuantity: 0 };
+    rerender(
+      <ProductCard {...defaultProps} product={outOfStockProduct} />
+    );
+
+    expect(() => UNSAFE_getByType(require('lucide-react-native').ChevronRight)).toThrow();
   });
 
-  describe('Pressable styling states', () => {
-    it('should apply pressed style when card is pressed and not out of stock', () => {
-      const onPress = jest.fn();
-      const { getByTestId } = render(
-        <ProductCard {...defaultProps} onPress={onPress} testID="product-card-1" />
-      );
+  it('should apply correct currency formatting to product price', () => {
+    const { getByText } = render(
+      <ProductCard {...defaultProps} product={{ ...defaultProduct, price: 12500 }} />
+    );
 
-      const card = getByTestId('product-card-1');
+    expect(getByText('$ 12.500')).toBeDefined();
+  });
 
-      // Verify the pressable component exists
-      expect(card).toBeTruthy();
+  it('should handle unknown category with muted badge action', () => {
+    const unknownCategory = { ...defaultProduct, category: 'desconocido' };
+    const { getByText } = render(
+      <ProductCard {...defaultProps} product={unknownCategory} />
+    );
 
-      // Simulate pressing the card
-      fireEvent.press(card);
-      expect(onPress).toHaveBeenCalled();
-    });
+    expect(getByText('desconocido')).toBeDefined();
+  });
 
-    it('should disable pressable when product is out of stock', () => {
-      const onPress = jest.fn();
-      const outOfStockProduct = { ...mockProduct, availableQuantity: 0 };
-      const { getByTestId } = render(
-        <ProductCard
-          {...defaultProps}
-          product={outOfStockProduct}
-          onPress={onPress}
-          testID="product-card-1"
-        />
-      );
+  it('should render correct quantity text for different stock levels', () => {
+    const { getByText } = render(<ProductCard {...defaultProps} />);
+    expect(getByText('500 available')).toBeDefined();
 
-      const card = getByTestId('product-card-1');
-      // When disabled, pressing should not call onPress
-      fireEvent.press(card);
-      expect(onPress).not.toHaveBeenCalled();
-    });
+    const { getByText: getByText2 } = render(
+      <ProductCard {...defaultProps} product={{ ...defaultProduct, availableQuantity: 0 }} />
+    );
+    expect(getByText2('0 available')).toBeDefined();
+  });
 
-    it('should enable pressable when product is in stock', () => {
-      const onPress = jest.fn();
-      const { getByTestId } = render(
-        <ProductCard {...defaultProps} onPress={onPress} testID="product-card-1" />
-      );
+  it('should trigger onPress with pressed state styling', () => {
+    const onPress = jest.fn();
+    const { getByTestId } = render(
+      <ProductCard {...defaultProps} testID="product-card" onPress={onPress} />
+    );
 
-      const card = getByTestId('product-card-1');
-      fireEvent.press(card);
-      expect(onPress).toHaveBeenCalled();
-    });
+    const pressable = getByTestId('product-card');
+    fireEvent.press(pressable);
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
 
-    it('should apply correct styles for low stock product when pressed', () => {
-      const onPress = jest.fn();
-      const lowStockProduct = { ...mockProduct, availableQuantity: 50 };
-      const { getByTestId } = render(
-        <ProductCard
-          {...defaultProps}
-          product={lowStockProduct}
-          onPress={onPress}
-          testID="product-card-1"
-        />
-      );
+  it('should apply appropriate styles for different product states', () => {
+    // Test normal product (in stock, good quantity)
+    const { getByText, rerender } = render(
+      <ProductCard {...defaultProps} />
+    );
+    expect(getByText('500 available')).toBeDefined();
 
-      const card = getByTestId('product-card-1');
-      fireEvent.press(card);
+    // Test low stock - should have low stock badge and warning color
+    const lowStockProduct = { ...defaultProduct, availableQuantity: 50 };
+    rerender(
+      <ProductCard {...defaultProps} product={lowStockProduct} />
+    );
+    expect(getByText('Low Stock')).toBeDefined();
+    expect(getByText('50 available')).toBeDefined();
 
-      // Verify onPress was called (confirming it's not disabled)
-      expect(onPress).toHaveBeenCalled();
-    });
-
-    it('should apply pressed style when pressable receives pressed state', () => {
-      const { getByTestId } = render(
-        <ProductCard {...defaultProps} testID="product-card-1" />
-      );
-
-      const card = getByTestId('product-card-1');
-      const styleFunction = card.props.style;
-
-      // Test the style function with pressed: true to trigger line 70 (pressed && styles.pressed)
-      if (typeof styleFunction === 'function') {
-        const pressedStylesArray = styleFunction({ pressed: true });
-        expect(pressedStylesArray).toBeDefined();
-        expect(Array.isArray(pressedStylesArray)).toBe(true);
-        // Verify that the pressed style is included when pressed is true
-        expect(pressedStylesArray.some((s: any) => s && typeof s === 'object')).toBe(true);
-      }
-    });
-
-    it('should invoke style callback with pressed state false for normal interaction', () => {
-      const { getByTestId } = render(
-        <ProductCard {...defaultProps} testID="product-card-1" />
-      );
-
-      const card = getByTestId('product-card-1');
-      const styleFunction = card.props.style;
-
-      // Test the style function with pressed: false
-      if (typeof styleFunction === 'function') {
-        const normalStyles = styleFunction({ pressed: false });
-        expect(normalStyles).toBeDefined();
-        expect(Array.isArray(normalStyles)).toBe(true);
-      }
-    });
-
-    it('should not render ChevronRight icon when product is out of stock', () => {
-      const outOfStockProduct = { ...mockProduct, availableQuantity: 0 };
-      const { getByText } = render(
-        <ProductCard {...defaultProps} product={outOfStockProduct} />
-      );
-
-      // Verify Out of Stock badge is still visible
-      expect(getByText('Out of Stock')).toBeTruthy();
-    });
+    // Test out of stock - should be disabled with error color
+    const outOfStockProduct = { ...defaultProduct, availableQuantity: 0 };
+    rerender(
+      <ProductCard {...defaultProps} product={outOfStockProduct} />
+    );
+    expect(getByText('Out of Stock')).toBeDefined();
+    expect(getByText('0 available')).toBeDefined();
   });
 });

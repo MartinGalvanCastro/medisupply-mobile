@@ -39,6 +39,7 @@ export const FormDropdown = ({
         name={name}
         render={({ field: { onChange, value } }) => (
           <Dropdown
+            testID={testID}
             style={styles.dropdown}
             placeholderStyle={styles.placeholderStyle}
             selectedTextStyle={styles.selectedTextStyle}

@@ -156,6 +156,10 @@ export const useCreateOrder = () => {
   // Return the selected mutation state with our wrapped mutate functions
   const selectedMutation = userRole === 'seller' ? sellerMutation : clientMutation;
 
+  const reset = useCallback(() => {
+    selectedMutation.reset();
+  }, [selectedMutation]);
+
   return {
     mutate,
     mutateAsync,
@@ -164,6 +168,6 @@ export const useCreateOrder = () => {
     isSuccess: selectedMutation.isSuccess,
     error: selectedMutation.error,
     data: selectedMutation.data,
-    reset: selectedMutation.reset,
+    reset,
   };
 };

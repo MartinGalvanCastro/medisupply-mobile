@@ -1,68 +1,135 @@
-import { act, renderHook } from '@testing-library/react-native';
+import React from 'react';
+import { renderHook, render, act } from '@testing-library/react-native';
+import { Text } from 'react-native';
+import { useToast as useGluestackToast } from '@/components/ui/toast';
 import { ToastProvider, useToast } from './ToastProvider';
 
-const mockShow = jest.fn();
-
-jest.mock('@/components/ui/toast', () => {
-  const actual = jest.requireActual('@/components/ui/toast');
-  return {
-    ...actual,
-    useToast: () => ({ show: mockShow }),
-  };
-});
-
+jest.mock('@/components/ui/toast', () => ({
+  ...jest.requireActual('@/components/ui/toast'),
+  useToast: jest.fn(),
+}));
 
 describe('ToastProvider', () => {
+  const mockShow = jest.fn();
+
   beforeEach(() => {
     jest.clearAllMocks();
+    (useGluestackToast as jest.Mock).mockReturnValue({ show: mockShow });
   });
 
-  it('should throw error when useToast is called outside provider', () => {
-    expect(() => {
-      renderHook(() => useToast());
-    }).toThrow('useToast must be used within ToastProvider');
-  });
-
-  it('should provide toast context when used within provider', () => {
-    const { result } = renderHook(() => useToast(), {
-      wrapper: ToastProvider,
+  describe('useToast hook', () => {
+    it('should throw error when used outside provider', () => {
+      expect(() => {
+        renderHook(() => useToast());
+      }).toThrow('useToast must be used within ToastProvider');
     });
-
-    expect(result.current).toHaveProperty('show');
-    expect(result.current).toHaveProperty('success');
-    expect(result.current).toHaveProperty('error');
-    expect(result.current).toHaveProperty('info');
-    expect(result.current).toHaveProperty('warning');
   });
 
-  describe('success', () => {
-    it('should call gluestack toast show', () => {
+  describe('show method', () => {
+    it('should call gluestack toast.show with correct parameters including description', () => {
       const { result } = renderHook(() => useToast(), {
         wrapper: ToastProvider,
       });
 
       act(() => {
-        result.current.success('Success!');
+        result.current.show({
+          title: 'Test Title',
+          description: 'Test Description',
+          type: 'error',
+          duration: 5000,
+        });
       });
 
-      expect(mockShow).toHaveBeenCalledTimes(1);
+      expect(mockShow).toHaveBeenCalledWith({
+        placement: 'top',
+        duration: 5000,
+        render: expect.any(Function),
+      });
+
+      const renderFn = mockShow.mock.calls[0][0].render;
+      const rendered = renderFn({ id: '123' });
+      expect(rendered.props.nativeID).toBe('toast-123');
+      expect(rendered.props.action).toBe('error');
     });
 
-    it('should call with title and description', () => {
+    it('should use default duration and type when not provided', () => {
       const { result } = renderHook(() => useToast(), {
         wrapper: ToastProvider,
       });
 
       act(() => {
-        result.current.success('Success!', 'All done');
+        result.current.show({ title: 'Test' });
+      });
+
+      expect(mockShow).toHaveBeenCalledWith({
+        placement: 'top',
+        duration: 3000,
+        render: expect.any(Function),
+      });
+
+      const renderFn = mockShow.mock.calls[0][0].render;
+      const rendered = renderFn({ id: 'abc' });
+      expect(rendered.props.action).toBe('info');
+    });
+
+    it('should handle toast without description gracefully', () => {
+      const { result } = renderHook(() => useToast(), {
+        wrapper: ToastProvider,
+      });
+
+      act(() => {
+        result.current.show({
+          title: 'Title Only',
+          type: 'success',
+          duration: 2000,
+        });
       });
 
       expect(mockShow).toHaveBeenCalledTimes(1);
+      const renderFn = mockShow.mock.calls[0][0].render;
+      const rendered = renderFn({ id: 'test' });
+      expect(rendered.props.action).toBe('success');
+    });
+
+    it('should use correct placement in all toast calls', () => {
+      const { result } = renderHook(() => useToast(), {
+        wrapper: ToastProvider,
+      });
+
+      act(() => {
+        result.current.show({ title: 'First' });
+        result.current.show({ title: 'Second' });
+      });
+
+      expect(mockShow).toHaveBeenCalledTimes(2);
+      expect(mockShow.mock.calls[0][0].placement).toBe('top');
+      expect(mockShow.mock.calls[1][0].placement).toBe('top');
     });
   });
 
-  describe('error', () => {
-    it('should call gluestack toast show', () => {
+  describe('convenience methods', () => {
+    it('should call show with success type', () => {
+      const { result } = renderHook(() => useToast(), {
+        wrapper: ToastProvider,
+      });
+
+      act(() => {
+        result.current.success('Success!', 'Details');
+      });
+
+      expect(mockShow).toHaveBeenCalledTimes(1);
+      expect(mockShow).toHaveBeenCalledWith({
+        placement: 'top',
+        duration: 3000,
+        render: expect.any(Function),
+      });
+
+      const renderFn = mockShow.mock.calls[0][0].render;
+      const rendered = renderFn({ id: '1' });
+      expect(rendered.props.action).toBe('success');
+    });
+
+    it('should call show with error type', () => {
       const { result } = renderHook(() => useToast(), {
         wrapper: ToastProvider,
       });
@@ -72,25 +139,39 @@ describe('ToastProvider', () => {
       });
 
       expect(mockShow).toHaveBeenCalledTimes(1);
-    });
-  });
+      expect(mockShow).toHaveBeenCalledWith({
+        placement: 'top',
+        duration: 3000,
+        render: expect.any(Function),
+      });
 
-  describe('info', () => {
-    it('should call gluestack toast show', () => {
+      const renderFn = mockShow.mock.calls[0][0].render;
+      const rendered = renderFn({ id: '1' });
+      expect(rendered.props.action).toBe('error');
+    });
+
+    it('should call show with info type', () => {
       const { result } = renderHook(() => useToast(), {
         wrapper: ToastProvider,
       });
 
       act(() => {
-        result.current.info('Info!');
+        result.current.info('Info!', 'More info');
       });
 
       expect(mockShow).toHaveBeenCalledTimes(1);
-    });
-  });
+      expect(mockShow).toHaveBeenCalledWith({
+        placement: 'top',
+        duration: 3000,
+        render: expect.any(Function),
+      });
 
-  describe('warning', () => {
-    it('should call gluestack toast show', () => {
+      const renderFn = mockShow.mock.calls[0][0].render;
+      const rendered = renderFn({ id: '1' });
+      expect(rendered.props.action).toBe('info');
+    });
+
+    it('should call show with warning type', () => {
       const { result } = renderHook(() => useToast(), {
         wrapper: ToastProvider,
       });
@@ -100,291 +181,27 @@ describe('ToastProvider', () => {
       });
 
       expect(mockShow).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('show', () => {
-    it('should call gluestack toast with options', () => {
-      const { result } = renderHook(() => useToast(), {
-        wrapper: ToastProvider,
-      });
-
-      act(() => {
-        result.current.show({
-          title: 'Custom',
-          description: 'Message',
-          type: 'info',
-          duration: 5000,
-        });
-      });
-
-      expect(mockShow).toHaveBeenCalledWith(
-        expect.objectContaining({
-          placement: 'top',
-          duration: 5000,
-        })
-      );
-    });
-
-    it('should use default duration', () => {
-      const { result } = renderHook(() => useToast(), {
-        wrapper: ToastProvider,
-      });
-
-      act(() => {
-        result.current.show({ title: 'Test' });
-      });
-
-      expect(mockShow).toHaveBeenCalledWith(
-        expect.objectContaining({
-          duration: 3000,
-        })
-      );
-    });
-
-    it('should render toast with description', () => {
-      const { result } = renderHook(() => useToast(), {
-        wrapper: ToastProvider,
-      });
-
-      act(() => {
-        result.current.show({
-          title: 'Test',
-          description: 'Description',
-        });
+      expect(mockShow).toHaveBeenCalledWith({
+        placement: 'top',
+        duration: 3000,
+        render: expect.any(Function),
       });
 
       const renderFn = mockShow.mock.calls[0][0].render;
       const rendered = renderFn({ id: '1' });
-      expect(rendered).toBeDefined();
-    });
-
-    it('should render toast without description', () => {
-      const { result } = renderHook(() => useToast(), {
-        wrapper: ToastProvider,
-      });
-
-      act(() => {
-        result.current.show({ title: 'Test' });
-      });
-
-      const renderFn = mockShow.mock.calls[0][0].render;
-      const rendered = renderFn({ id: '1' });
-      expect(rendered).toBeDefined();
-    });
-
-    it('should support all toast types', () => {
-      const { result } = renderHook(() => useToast(), {
-        wrapper: ToastProvider,
-      });
-
-      const types = ['success', 'error', 'info', 'warning'] as const;
-
-      types.forEach((type) => {
-        act(() => {
-          result.current.show({
-            title: `${type} toast`,
-            type,
-          });
-        });
-      });
-
-      expect(mockShow).toHaveBeenCalledTimes(4);
-    });
-
-    it('should pass correct type to render function', () => {
-      const { result } = renderHook(() => useToast(), {
-        wrapper: ToastProvider,
-      });
-
-      act(() => {
-        result.current.show({
-          title: 'Test',
-          type: 'error',
-        });
-      });
-
-      const renderFn = mockShow.mock.calls[0][0].render;
-      // Should not throw when calling render function
-      expect(() => renderFn({ id: 'test-id' })).not.toThrow();
+      expect(rendered.props.action).toBe('warning');
     });
   });
 
-  describe('multiple toasts', () => {
-    it('should show multiple toasts of different types', () => {
-      const { result } = renderHook(() => useToast(), {
-        wrapper: ToastProvider,
-      });
-
-      act(() => {
-        result.current.success('Success message');
-        result.current.error('Error message');
-        result.current.info('Info message');
-        result.current.warning('Warning message');
-      });
-
-      expect(mockShow).toHaveBeenCalledTimes(4);
-    });
-
-    it('should show multiple toasts of same type', () => {
-      const { result } = renderHook(() => useToast(), {
-        wrapper: ToastProvider,
-      });
-
-      act(() => {
-        result.current.success('First success');
-        result.current.success('Second success');
-        result.current.success('Third success');
-      });
-
-      expect(mockShow).toHaveBeenCalledTimes(3);
-    });
-  });
-
-  describe('callback stability', () => {
-    it('should have useCallback-wrapped functions', () => {
-      const { result } = renderHook(() => useToast(), {
-        wrapper: ToastProvider,
-      });
-
-      expect(typeof result.current.show).toBe('function');
-      expect(typeof result.current.success).toBe('function');
-      expect(typeof result.current.error).toBe('function');
-      expect(typeof result.current.info).toBe('function');
-      expect(typeof result.current.warning).toBe('function');
-    });
-  });
-
-  describe('edge cases', () => {
-    it('should handle empty title', () => {
-      const { result } = renderHook(() => useToast(), {
-        wrapper: ToastProvider,
-      });
-
-      act(() => {
-        result.current.show({
-          title: '',
-          type: 'info',
-        });
-      });
-
-      expect(mockShow).toHaveBeenCalled();
-    });
-
-    it('should handle empty description', () => {
-      const { result } = renderHook(() => useToast(), {
-        wrapper: ToastProvider,
-      });
-
-      act(() => {
-        result.current.success('Title', '');
-      });
-
-      expect(mockShow).toHaveBeenCalled();
-    });
-
-    it('should handle very long title', () => {
-      const { result } = renderHook(() => useToast(), {
-        wrapper: ToastProvider,
-      });
-
-      const longTitle = 'a'.repeat(500);
-
-      act(() => {
-        result.current.success(longTitle);
-      });
-
-      expect(mockShow).toHaveBeenCalled();
-    });
-
-    it('should handle very long description', () => {
-      const { result } = renderHook(() => useToast(), {
-        wrapper: ToastProvider,
-      });
-
-      const longDesc = 'b'.repeat(1000);
-
-      act(() => {
-        result.current.success('Title', longDesc);
-      });
-
-      expect(mockShow).toHaveBeenCalled();
-    });
-
-    it('should handle special characters in title', () => {
-      const { result } = renderHook(() => useToast(), {
-        wrapper: ToastProvider,
-      });
-
-      act(() => {
-        result.current.success('Title with <>&"\'');
-      });
-
-      expect(mockShow).toHaveBeenCalled();
-    });
-
-    it('should handle special characters in description', () => {
-      const { result } = renderHook(() => useToast(), {
-        wrapper: ToastProvider,
-      });
-
-      act(() => {
-        result.current.success('Title', 'Desc with <>&"\'');
-      });
-
-      expect(mockShow).toHaveBeenCalled();
-    });
-
-    it('should handle unicode characters', () => {
-      const { result } = renderHook(() => useToast(), {
-        wrapper: ToastProvider,
-      });
-
-      act(() => {
-        result.current.success('título', 'descripción 中文 日本語');
-      });
-
-      expect(mockShow).toHaveBeenCalled();
-    });
-
-    it('should handle zero duration', () => {
-      const { result } = renderHook(() => useToast(), {
-        wrapper: ToastProvider,
-      });
-
-      act(() => {
-        result.current.show({
-          title: 'Test',
-          duration: 0,
-          type: 'info',
-        });
-      });
-
-      expect(mockShow).toHaveBeenCalledWith(
-        expect.objectContaining({
-          duration: 0,
-        })
+  describe('Provider behavior', () => {
+    it('should render children correctly', () => {
+      const { getByText } = render(
+        <ToastProvider>
+          <Text>Test Child</Text>
+        </ToastProvider>
       );
-    });
 
-    it('should handle very large duration', () => {
-      const { result } = renderHook(() => useToast(), {
-        wrapper: ToastProvider,
-      });
-
-      act(() => {
-        result.current.show({
-          title: 'Test',
-          duration: 999999999,
-          type: 'info',
-        });
-      });
-
-      expect(mockShow).toHaveBeenCalledWith(
-        expect.objectContaining({
-          duration: 999999999,
-        })
-      );
+      expect(getByText('Test Child')).toBeDefined();
     });
   });
 });

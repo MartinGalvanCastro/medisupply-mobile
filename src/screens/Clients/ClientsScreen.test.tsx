@@ -1,1004 +1,394 @@
 import React from 'react';
-import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ClientsScreen } from './ClientsScreen';
-import { useListClientsBffSellersAppClientsGet } from '@/api/generated/sellers-app/sellers-app';
 import { useTranslation } from '@/i18n/hooks';
+import { useNavigationStore } from '@/store/useNavigationStore';
+import { useInfinitePaginatedQuery } from '@/hooks';
 import { router } from 'expo-router';
+import { listClientsBffSellersAppClientsGet } from '@/api/generated/sellers-app/sellers-app';
 
-// Mock dependencies
-jest.mock('@/api/generated/sellers-app/sellers-app');
 jest.mock('@/i18n/hooks');
+jest.mock('@/store/useNavigationStore');
+jest.mock('@/hooks');
 jest.mock('expo-router', () => ({
   router: {
     push: jest.fn(),
-    replace: jest.fn(),
-    back: jest.fn(),
   },
-  useRouter: jest.fn(),
-  usePathname: jest.fn(),
-  useSegments: jest.fn(),
-  useLocalSearchParams: jest.fn(),
 }));
-jest.mock('react-native-safe-area-context', () => {
-  const { View } = require('react-native');
-  return {
-    SafeAreaView: ({ children, testID, style, edges }: any) => (
-      <View testID={testID} style={style}>
-        {children}
-      </View>
-    ),
-  };
-});
+jest.mock('@/api/generated/sellers-app/sellers-app', () => ({
+  listClientsBffSellersAppClientsGet: jest.fn(),
+}));
 
-// Mock FlashList to use a simple FlatList-like component
-jest.mock('@shopify/flash-list', () => {
-  const { View } = require('react-native');
-  return {
-    FlashList: ({ data, renderItem, ListEmptyComponent, testID, keyExtractor }: any) => {
-      if (data && data.length === 0 && ListEmptyComponent) {
-        return <View testID={testID}>{ListEmptyComponent()}</View>;
-      }
-      return (
-        <View testID={testID}>
-          {data && data.map((item: any) => (
-            <View key={keyExtractor(item)}>
-              {renderItem({ item })}
-            </View>
-          ))}
-        </View>
-      );
-    },
-  };
-});
+const mockListClients = listClientsBffSellersAppClientsGet as jest.MockedFunction<typeof listClientsBffSellersAppClientsGet>;
 
-// Mock lucide-react-native icons
-jest.mock('lucide-react-native', () => {
-  const { View } = require('react-native');
-  return {
-  ChevronRight: () => <View testID="chevron-right-icon" />,
-  Search: () => <View testID="search-icon" />,
-  X: () => <View testID="x-icon" />,
-};
-});
-
-const mockClients = [
-  {
-    cliente_id: '1',
-    cognito_user_id: 'user1',
-    email: 'client1@example.com',
-    telefono: '+57 1 234 5678',
-    nombre_institucion: 'Hospital General',
-    tipo_institucion: 'hospital',
-    nit: '123456789',
-    direccion: '123 Main St',
-    ciudad: 'Bogotá',
-    pais: 'Colombia',
-    representante: 'Dr. Carlos Hernández',
-    vendedor_asignado_id: { vendedor_id: 'seller1' },
-    created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-01T00:00:00Z',
-  },
-  {
-    cliente_id: '2',
-    cognito_user_id: 'user2',
-    email: 'client2@example.com',
-    telefono: '+57 2 987 6543',
-    nombre_institucion: 'Clínica del Occidente',
-    tipo_institucion: 'clinic',
-    nit: '987654321',
-    direccion: '456 Oak Ave',
-    ciudad: 'Medellín',
-    pais: 'Colombia',
-    representante: 'Dra. María Rodríguez',
-    vendedor_asignado_id: { vendedor_id: 'seller2' },
-    created_at: '2024-01-02T00:00:00Z',
-    updated_at: '2024-01-02T00:00:00Z',
-  },
-  {
-    cliente_id: '3',
-    cognito_user_id: 'user3',
-    email: 'client3@example.com',
-    telefono: '+57 3 555 1234',
-    nombre_institucion: 'Farmacia Central',
-    tipo_institucion: 'pharmacy',
-    nit: '111111111',
-    direccion: '789 Pine Rd',
-    ciudad: 'Cali',
-    pais: 'Colombia',
-    representante: 'Ing. Juan Pérez',
-    vendedor_asignado_id: { vendedor_id: 'seller3' },
-    created_at: '2024-01-03T00:00:00Z',
-    updated_at: '2024-01-03T00:00:00Z',
-  },
-];
+const mockUseTranslation = useTranslation as jest.MockedFunction<typeof useTranslation>;
+const mockUseNavigationStore = useNavigationStore as jest.MockedFunction<typeof useNavigationStore>;
+const mockUseInfinitePaginatedQuery = useInfinitePaginatedQuery as jest.MockedFunction<
+  typeof useInfinitePaginatedQuery
+>;
 
 describe('ClientsScreen', () => {
+  let mockQueryClient: QueryClient;
+  let mockSetCurrentClient: jest.Mock;
+  let mockFetchNextPage: jest.Mock;
+  let mockRefetch: jest.Mock;
+
+  const mockClient = {
+    cliente_id: 'client-123',
+    representante: 'John Doe',
+    nombre_institucion: 'Hospital ABC',
+    tipo_institucion: 'hospital',
+    ciudad: 'Bogota',
+    telefono: '3001234567',
+  };
+
+  const mockClient2 = {
+    cliente_id: 'client-456',
+    representante: 'Jane Smith',
+    nombre_institucion: 'Clinic XYZ',
+    tipo_institucion: 'clinic',
+    ciudad: 'Medellin',
+    telefono: '3109876543',
+  };
+
   beforeEach(() => {
-    jest.clearAllMocks();
     jest.useFakeTimers();
-
-    (useTranslation as jest.Mock).mockReturnValue({
-      t: (key: string) => key,
+    mockQueryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
     });
 
-    (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-      data: { clients: mockClients },
+    mockUseTranslation.mockReturnValue({
+      t: (key: string) => {
+        const translations: Record<string, string> = {
+          'clients.title': 'Clients',
+          'clients.searchPlaceholder': 'Search clients...',
+          'clients.emptyState': 'No clients found',
+          'clients.emptyStateDescription': 'Try adjusting your search',
+          'clients.loadingClients': 'Loading clients...',
+          'clients.loadingMore': 'Loading more...',
+          'common.error': 'Error',
+          'common.retry': 'Retry',
+        };
+        return translations[key] || key;
+      },
+      i18n: {} as any,
+      ready: true,
+    } as any);
+
+    mockSetCurrentClient = jest.fn();
+    mockUseNavigationStore.mockImplementation((selector) => {
+      const store = { setCurrentClient: mockSetCurrentClient };
+      return selector(store as any);
+    });
+
+    mockFetchNextPage = jest.fn();
+    mockRefetch = jest.fn();
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [],
+      total: 0,
       isLoading: false,
+      isError: false,
       error: null,
-    });
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
+
+    mockListClients.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: 20,
+    } as any);
   });
 
   afterEach(() => {
-    act(() => {
-      jest.runOnlyPendingTimers();
-    });
+    jest.clearAllMocks();
     jest.useRealTimers();
   });
 
-  describe('Component Rendering', () => {
-    it('should render the clients screen', () => {
-      const { getByTestId } = render(<ClientsScreen />);
-
-      expect(getByTestId('clients-screen')).toBeTruthy();
-    });
-
-    it('should render the heading with clients title', () => {
-      const { getByText } = render(<ClientsScreen />);
-
-      expect(getByText('clients.title')).toBeTruthy();
-    });
-
-    it('should render the search bar with correct placeholder', () => {
-      const { getByTestId } = render(<ClientsScreen />);
-
-      expect(getByTestId('clients-search-bar')).toBeTruthy();
-    });
-
-    it('should render the clients list', () => {
-      const { getByTestId } = render(<ClientsScreen />);
-
-      expect(getByTestId('clients-list')).toBeTruthy();
-    });
-
-    it('should render all clients when data is loaded', () => {
-      const { getByTestId } = render(<ClientsScreen />);
-
-      expect(getByTestId('client-card-1')).toBeTruthy();
-      expect(getByTestId('client-card-2')).toBeTruthy();
-      expect(getByTestId('client-card-3')).toBeTruthy();
-    });
-
-    it('should render SafeAreaView with correct testID', () => {
-      const { getByTestId } = render(<ClientsScreen />);
-
-      expect(getByTestId('clients-screen')).toBeTruthy();
-    });
+  afterAll(() => {
+    jest.useRealTimers();
   });
 
-  describe('Loading States', () => {
-    it('should render loading text when isLoading is true', () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: { clients: [] },
-        isLoading: true,
-        error: null,
-      });
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={mockQueryClient}>
+      {children}
+    </QueryClientProvider>
+  );
 
-      const { getByText } = render(<ClientsScreen />);
+  it('should render screen with all required elements', () => {
+    const { getByTestId } = render(<ClientsScreen />, { wrapper });
 
-      expect(getByText('clients.loadingClients')).toBeTruthy();
-    });
-
-    it('should not render client cards when loading', () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: { clients: [] },
-        isLoading: true,
-        error: null,
-      });
-
-      const { queryByTestId } = render(<ClientsScreen />);
-
-      expect(queryByTestId('client-card-1')).toBeNull();
-    });
-
-    it('should still render search bar while loading', () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: { clients: [] },
-        isLoading: true,
-        error: null,
-      });
-
-      const { getByTestId } = render(<ClientsScreen />);
-
-      expect(getByTestId('clients-search-bar')).toBeTruthy();
-    });
+    expect(getByTestId('clients-screen')).toBeTruthy();
+    expect(getByTestId('clients-list')).toBeTruthy();
+    expect(getByTestId('clients-search-bar')).toBeTruthy();
   });
 
-  describe('Error States', () => {
-    it('should render error text when error exists', () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: null,
-        isLoading: false,
-        error: new Error('Failed to fetch clients'),
-      });
+  it('should display loading state with LoadingCard', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [],
+      total: 0,
+      isLoading: true,
+      isError: false,
+      error: null,
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
 
-      const { getByText } = render(<ClientsScreen />);
+    const { getByTestId, getByText } = render(<ClientsScreen />, { wrapper });
 
-      expect(getByText('common.error')).toBeTruthy();
-    });
-
-    it('should not render client cards when error occurs', () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: null,
-        isLoading: false,
-        error: new Error('Failed to fetch clients'),
-      });
-
-      const { queryByTestId } = render(<ClientsScreen />);
-
-      expect(queryByTestId('client-card-1')).toBeNull();
-    });
-
-    it('should still render search bar when error occurs', () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: null,
-        isLoading: false,
-        error: new Error('Failed to fetch clients'),
-      });
-
-      const { getByTestId } = render(<ClientsScreen />);
-
-      expect(getByTestId('clients-search-bar')).toBeTruthy();
-    });
-
-    it('should prioritize loading state over error state', () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: null,
-        isLoading: true,
-        error: new Error('Some error'),
-      });
-
-      const { getByText, queryByText } = render(<ClientsScreen />);
-
-      expect(getByText('clients.loadingClients')).toBeTruthy();
-      expect(queryByText('common.error')).toBeNull();
-    });
+    expect(getByTestId('clients-loading')).toBeTruthy();
+    expect(getByText('Loading clients...')).toBeTruthy();
   });
 
-  describe('Empty States', () => {
-    it('should render empty state when no clients are available', () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: { clients: [] },
-        isLoading: false,
-        error: null,
-      });
+  it('should display error state with error message', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [],
+      total: 0,
+      isLoading: false,
+      isError: true,
+      error: new Error('Network error occurred'),
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
 
-      const { getByText } = render(<ClientsScreen />);
+    const { getByTestId, getByText } = render(<ClientsScreen />, { wrapper });
 
-      expect(getByText('clients.emptyState')).toBeTruthy();
-      expect(getByText('clients.emptyStateDescription')).toBeTruthy();
-    });
-
-    it('should not show loading or error messages in empty state', () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: { clients: [] },
-        isLoading: false,
-        error: null,
-      });
-
-      const { getByText, queryByText } = render(<ClientsScreen />);
-
-      expect(getByText('clients.emptyState')).toBeTruthy();
-      expect(queryByText('clients.loadingClients')).toBeNull();
-      expect(queryByText('common.error')).toBeNull();
-    });
-
-    it('should handle undefined clients array gracefully', () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: undefined,
-        isLoading: false,
-        error: null,
-      });
-
-      const { getByText } = render(<ClientsScreen />);
-
-      expect(getByText('clients.emptyState')).toBeTruthy();
-    });
-
-    it('should handle null data gracefully', () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: null,
-        isLoading: false,
-        error: null,
-      });
-
-      const { getByText } = render(<ClientsScreen />);
-
-      expect(getByText('clients.emptyState')).toBeTruthy();
-    });
+    expect(getByTestId('clients-error')).toBeTruthy();
+    expect(getByText('Network error occurred')).toBeTruthy();
+    expect(getByText('Retry')).toBeTruthy();
   });
 
-  describe('Client Navigation', () => {
-    it('should navigate to client details when client card is pressed', () => {
-      const { getByTestId } = render(<ClientsScreen />);
+  it('should display generic error message when error has no message', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [],
+      total: 0,
+      isLoading: false,
+      isError: true,
+      error: {} as any,
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
 
-      const clientCard = getByTestId('client-card-1');
-      fireEvent.press(clientCard);
+    const { getByText } = render(<ClientsScreen />, { wrapper });
 
-      expect(router.push).toHaveBeenCalledWith('/client/1');
-    });
-
-    it('should navigate with correct client id for different clients', () => {
-      const { getByTestId } = render(<ClientsScreen />);
-
-      fireEvent.press(getByTestId('client-card-2'));
-      expect(router.push).toHaveBeenCalledWith('/client/2');
-
-      jest.clearAllMocks();
-
-      fireEvent.press(getByTestId('client-card-3'));
-      expect(router.push).toHaveBeenCalledWith('/client/3');
-    });
-
-    it('should navigate to each client only once per press', () => {
-      const { getByTestId } = render(<ClientsScreen />);
-
-      const clientCard = getByTestId('client-card-1');
-      fireEvent.press(clientCard);
-
-      expect(router.push).toHaveBeenCalledTimes(1);
-    });
-
-    it('should handle multiple client presses sequentially', () => {
-      const { getByTestId } = render(<ClientsScreen />);
-
-      fireEvent.press(getByTestId('client-card-1'));
-      fireEvent.press(getByTestId('client-card-2'));
-      fireEvent.press(getByTestId('client-card-3'));
-
-      expect(router.push).toHaveBeenCalledTimes(3);
-      expect(router.push).toHaveBeenNthCalledWith(1, '/client/1');
-      expect(router.push).toHaveBeenNthCalledWith(2, '/client/2');
-      expect(router.push).toHaveBeenNthCalledWith(3, '/client/3');
-    });
+    expect(getByText('Failed to load clients')).toBeTruthy();
   });
 
-  describe('Search Functionality', () => {
-    it('should update search text when user types in search bar', () => {
-      const { getByTestId } = render(<ClientsScreen />);
+  it('should call refetch when retry button is pressed in error state', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [],
+      total: 0,
+      isLoading: false,
+      isError: true,
+      error: new Error('Test error'),
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
 
-      const searchInput = getByTestId('clients-search-bar-input');
-      fireEvent.changeText(searchInput, 'hospital');
+    const { getByText } = render(<ClientsScreen />, { wrapper });
 
-      expect(searchInput.props.value).toBe('hospital');
-    });
-
-    it('should filter clients by representative name', async () => {
-      const { getByTestId, queryByTestId } = render(<ClientsScreen />);
-
-      const searchInput = getByTestId('clients-search-bar-input');
-      fireEvent.changeText(searchInput, 'Carlos');
-
-      act(() => {
-        jest.advanceTimersByTime(300);
-      });
-
-      await waitFor(() => {
-        expect(getByTestId('client-card-1')).toBeTruthy();
-        expect(queryByTestId('client-card-2')).toBeNull();
-      });
-    });
-
-    it('should filter clients by institution name', async () => {
-      const { getByTestId, queryByTestId } = render(<ClientsScreen />);
-
-      const searchInput = getByTestId('clients-search-bar-input');
-      fireEvent.changeText(searchInput, 'Clínica');
-
-      act(() => {
-        jest.advanceTimersByTime(300);
-      });
-
-      await waitFor(() => {
-        expect(getByTestId('client-card-2')).toBeTruthy();
-        expect(queryByTestId('client-card-1')).toBeNull();
-      });
-    });
-
-    it('should filter clients by city name', async () => {
-      const { getByTestId, queryByTestId } = render(<ClientsScreen />);
-
-      const searchInput = getByTestId('clients-search-bar-input');
-      fireEvent.changeText(searchInput, 'Cali');
-
-      act(() => {
-        jest.advanceTimersByTime(300);
-      });
-
-      await waitFor(() => {
-        expect(getByTestId('client-card-3')).toBeTruthy();
-        expect(queryByTestId('client-card-1')).toBeNull();
-      });
-    });
-
-    it('should filter clients by phone number', async () => {
-      const { getByTestId, queryByTestId } = render(<ClientsScreen />);
-
-      const searchInput = getByTestId('clients-search-bar-input');
-      fireEvent.changeText(searchInput, '+57 2');
-
-      act(() => {
-        jest.advanceTimersByTime(300);
-      });
-
-      await waitFor(() => {
-        expect(getByTestId('client-card-2')).toBeTruthy();
-        expect(queryByTestId('client-card-1')).toBeNull();
-      });
-    });
-
-    it('should perform case-insensitive search', async () => {
-      const { getByTestId, queryByTestId } = render(<ClientsScreen />);
-
-      const searchInput = getByTestId('clients-search-bar-input');
-      fireEvent.changeText(searchInput, 'HOSPITAL');
-
-      act(() => {
-        jest.advanceTimersByTime(300);
-      });
-
-      await waitFor(() => {
-        expect(getByTestId('client-card-1')).toBeTruthy();
-      });
-    });
-
-    it('should show all clients when search text is cleared', async () => {
-      const { getByTestId } = render(<ClientsScreen />);
-
-      const searchInput = getByTestId('clients-search-bar-input');
-
-      fireEvent.changeText(searchInput, 'Carlos');
-      act(() => {
-        jest.advanceTimersByTime(300);
-      });
-
-      fireEvent.changeText(searchInput, '');
-      act(() => {
-        jest.advanceTimersByTime(300);
-      });
-
-      await waitFor(() => {
-        expect(getByTestId('client-card-1')).toBeTruthy();
-        expect(getByTestId('client-card-2')).toBeTruthy();
-        expect(getByTestId('client-card-3')).toBeTruthy();
-      });
-    });
-
-    it('should not show results for non-matching search', async () => {
-      const { queryByTestId } = render(<ClientsScreen />);
-
-      const searchInput = queryByTestId('clients-search-bar-input');
-      if (searchInput) {
-        fireEvent.changeText(searchInput, 'NonExistentClient');
-
-        act(() => {
-          jest.advanceTimersByTime(300);
-        });
-
-        await waitFor(() => {
-          expect(queryByTestId('client-card-1')).toBeNull();
-          expect(queryByTestId('client-card-2')).toBeNull();
-          expect(queryByTestId('client-card-3')).toBeNull();
-        });
-      }
-    });
-
-    it('should debounce search input', async () => {
-      const { getByTestId } = render(<ClientsScreen />);
-
-      const searchInput = getByTestId('clients-search-bar-input');
-
-      fireEvent.changeText(searchInput, 'C');
-      fireEvent.changeText(searchInput, 'Ca');
-      fireEvent.changeText(searchInput, 'Car');
-
-      // Before debounce completes
-      expect(getByTestId('client-card-1')).toBeTruthy();
-
-      act(() => {
-        jest.advanceTimersByTime(300);
-      });
-
-      // After debounce completes, should filter based on final value
-      await waitFor(() => {
-        expect(getByTestId('client-card-1')).toBeTruthy();
-      });
-    });
+    fireEvent.press(getByText('Retry'));
+    expect(mockRefetch).toHaveBeenCalled();
   });
 
-  describe('Search Results Display', () => {
-    it('should display empty state when search returns no results', async () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: { clients: mockClients },
-        isLoading: false,
-        error: null,
-      });
+  it('should display empty state when no clients', () => {
+    const { getByTestId, getByText } = render(<ClientsScreen />, { wrapper });
 
-      const { getByTestId, queryByTestId, getByText } = render(<ClientsScreen />);
-
-      const searchInput = getByTestId('clients-search-bar-input');
-      fireEvent.changeText(searchInput, 'NonExistentValue');
-
-      act(() => {
-        jest.advanceTimersByTime(300);
-      });
-
-      await waitFor(() => {
-        expect(queryByTestId('client-card-1')).toBeNull();
-        expect(queryByTestId('client-card-2')).toBeNull();
-        expect(queryByTestId('client-card-3')).toBeNull();
-        expect(getByText('clients.emptyState')).toBeTruthy();
-      });
-    });
-
-    it('should display correct empty state message when no results found', async () => {
-      const { getByTestId, getByText } = render(<ClientsScreen />);
-
-      const searchInput = getByTestId('clients-search-bar-input');
-      fireEvent.changeText(searchInput, 'NonExistent');
-
-      act(() => {
-        jest.advanceTimersByTime(300);
-      });
-
-      await waitFor(() => {
-        expect(getByText('clients.emptyState')).toBeTruthy();
-        expect(getByText('clients.emptyStateDescription')).toBeTruthy();
-      });
-    });
+    expect(getByTestId('clients-empty-state')).toBeTruthy();
+    expect(getByText('No clients found')).toBeTruthy();
+    expect(getByText('Try adjusting your search')).toBeTruthy();
   });
 
-  describe('Client Card Props Mapping', () => {
-    it('should map API data correctly to ClientCard props', () => {
-      const { getByTestId } = render(<ClientsScreen />);
+  it('should render client cards when data is available', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [mockClient, mockClient2],
+      total: 2,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
 
-      const clientCard = getByTestId('client-card-1');
-      expect(clientCard).toBeTruthy();
-    });
+    const { getByTestId, getByText } = render(<ClientsScreen />, { wrapper });
 
-    it('should pass correct client id for card navigation', () => {
-      const { getByTestId } = render(<ClientsScreen />);
-
-      fireEvent.press(getByTestId('client-card-1'));
-      expect(router.push).toHaveBeenCalledWith('/client/1');
-    });
-
-    it('should map Spanish field names to English component props', () => {
-      const { getByTestId } = render(<ClientsScreen />);
-
-      // This test verifies that the mapping happens internally
-      // The ClientCard should receive correctly mapped props
-      const clientCard = getByTestId('client-card-1');
-      expect(clientCard).toBeTruthy();
-    });
+    expect(getByTestId('client-card-client-123')).toBeTruthy();
+    expect(getByTestId('client-card-client-456')).toBeTruthy();
+    expect(getByText('John Doe')).toBeTruthy();
+    expect(getByText('Jane Smith')).toBeTruthy();
   });
 
-  describe('Search Bar Props', () => {
-    it('should pass correct placeholder to search bar', () => {
-      const { getByPlaceholderText } = render(<ClientsScreen />);
+  it('should call setCurrentClient and navigate when client is pressed', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [mockClient],
+      total: 1,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
 
-      expect(getByPlaceholderText('clients.searchPlaceholder')).toBeTruthy();
-    });
+    const { getByTestId } = render(<ClientsScreen />, { wrapper });
 
-    it('should pass correct value to search bar', () => {
-      const { getByTestId } = render(<ClientsScreen />);
+    fireEvent.press(getByTestId('client-card-client-123'));
 
-      const searchInput = getByTestId('clients-search-bar-input');
-      expect(searchInput.props.value).toBe('');
-    });
-
-    it('should update search bar value when typing', () => {
-      const { getByTestId } = render(<ClientsScreen />);
-
-      const searchInput = getByTestId('clients-search-bar-input');
-      fireEvent.changeText(searchInput, 'test');
-
-      expect(searchInput.props.value).toBe('test');
-    });
+    expect(mockSetCurrentClient).toHaveBeenCalledWith(mockClient);
+    expect(router.push).toHaveBeenCalledWith('/client/client-123');
   });
 
-  describe('API Integration', () => {
-    it('should call useListClientsBffSellersAppClientsGet hook on render', () => {
-      render(<ClientsScreen />);
+  it('should display footer spinner when fetching next page', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [mockClient],
+      total: 100,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isFetchingNextPage: true,
+      isRefetching: false,
+      hasNextPage: true,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
 
-      expect(useListClientsBffSellersAppClientsGet).toHaveBeenCalledWith(
-        undefined,
-        {
-          query: {
-            enabled: true,
-            staleTime: 5 * 60 * 1000,
-          },
-        }
-      );
-    });
+    const { getByTestId, getByText } = render(<ClientsScreen />, { wrapper });
 
-    it('should handle data with no clients key', () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: {},
-        isLoading: false,
-        error: null,
-      });
-
-      const { getByText } = render(<ClientsScreen />);
-
-      expect(getByText('clients.emptyState')).toBeTruthy();
-    });
-
-    it('should display data when API returns clients', () => {
-      const { getByTestId } = render(<ClientsScreen />);
-
-      expect(getByTestId('client-card-1')).toBeTruthy();
-      expect(getByTestId('client-card-2')).toBeTruthy();
-      expect(getByTestId('client-card-3')).toBeTruthy();
-    });
+    expect(getByTestId('clients-load-more-spinner')).toBeTruthy();
+    expect(getByText('Loading more...')).toBeTruthy();
   });
 
-  describe('FlashList Configuration', () => {
-    it('should render list with correct estimatedItemSize', () => {
-      const { getByTestId } = render(<ClientsScreen />);
+  it('should not display footer when not fetching next page', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [mockClient],
+      total: 1,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
 
-      expect(getByTestId('clients-list')).toBeTruthy();
-    });
+    const { queryByTestId } = render(<ClientsScreen />, { wrapper });
 
-    it('should use cliente_id as key extractor', () => {
-      const { getByTestId } = render(<ClientsScreen />);
-
-      expect(getByTestId('client-card-1')).toBeTruthy();
-      expect(getByTestId('client-card-2')).toBeTruthy();
-    });
-
-    it('should render ListEmptyComponent when no clients', () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: { clients: [] },
-        isLoading: false,
-        error: null,
-      });
-
-      const { getByText } = render(<ClientsScreen />);
-
-      expect(getByText('clients.emptyState')).toBeTruthy();
-    });
+    expect(queryByTestId('clients-load-more-spinner')).toBeNull();
   });
 
-  describe('Search Edge Cases', () => {
-    it('should handle search with special characters', async () => {
-      const specialCharClients = [
-        {
-          ...mockClients[0],
-          nombre_institucion: 'Hospital & Medical Center',
-        },
-      ];
+  it('should call useInfinitePaginatedQuery with correct configuration and queryFn', () => {
+    render(<ClientsScreen />, { wrapper });
 
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: { clients: specialCharClients },
-        isLoading: false,
-        error: null,
-      });
+    expect(mockUseInfinitePaginatedQuery).toHaveBeenCalled();
+    const callArgs = mockUseInfinitePaginatedQuery.mock.calls[0][0];
+    expect(callArgs.queryKey[0]).toBe('clients');
+    expect(callArgs.pageSize).toBe(20);
+    expect(callArgs.staleTime).toBe(5 * 60 * 1000);
 
-      const { getByTestId } = render(<ClientsScreen />);
-
-      const searchInput = getByTestId('clients-search-bar-input');
-      fireEvent.changeText(searchInput, '&');
-
-      act(() => {
-        jest.advanceTimersByTime(300);
-      });
-
-      await waitFor(() => {
-        expect(getByTestId('client-card-1')).toBeTruthy();
-      });
-    });
-
-    it('should handle search with partial name match', async () => {
-      const { getByTestId } = render(<ClientsScreen />);
-
-      const searchInput = getByTestId('clients-search-bar-input');
-      fireEvent.changeText(searchInput, 'María');
-
-      act(() => {
-        jest.advanceTimersByTime(300);
-      });
-
-      await waitFor(() => {
-        expect(getByTestId('client-card-2')).toBeTruthy();
-      });
-    });
-
-    it('should handle search with multiple spaces', async () => {
-      const { getByTestId, queryByTestId } = render(<ClientsScreen />);
-
-      const searchInput = getByTestId('clients-search-bar-input');
-      fireEvent.changeText(searchInput, 'Hospital');
-
-      act(() => {
-        jest.advanceTimersByTime(300);
-      });
-
-      await waitFor(() => {
-        // Should find clients with hospital in any field
-        expect(getByTestId('client-card-1')).toBeTruthy();
-      });
-    });
-
-    it('should handle numeric search (phone numbers)', async () => {
-      const { getByTestId } = render(<ClientsScreen />);
-
-      const searchInput = getByTestId('clients-search-bar-input');
-      fireEvent.changeText(searchInput, '234');
-
-      act(() => {
-        jest.advanceTimersByTime(300);
-      });
-
-      await waitFor(() => {
-        expect(getByTestId('client-card-1')).toBeTruthy();
-      });
-    });
-
-    it('should handle very long search term', async () => {
-      const { queryByTestId } = render(<ClientsScreen />);
-
-      const searchInput = queryByTestId('clients-search-bar-input');
-      if (searchInput) {
-        fireEvent.changeText(searchInput, 'a'.repeat(100));
-
-        act(() => {
-          jest.advanceTimersByTime(300);
-        });
-
-        await waitFor(() => {
-          expect(queryByTestId('client-card-1')).toBeNull();
-        });
-      }
-    });
+    // Call the queryFn to cover it
+    const queryFn = callArgs.queryFn;
+    expect(typeof queryFn).toBe('function');
+    queryFn({ offset: 0, limit: 20 } as any);
   });
 
-  describe('Filter Logic', () => {
-    it('should filter clients by all searchable fields', async () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: { clients: mockClients },
-        isLoading: false,
-        error: null,
-      });
+  it('should update search text when typing in search bar', () => {
+    const { getByTestId } = render(<ClientsScreen />, { wrapper });
 
-      const { getByTestId } = render(<ClientsScreen />);
+    const searchInput = getByTestId('clients-search-bar-input');
+    fireEvent.changeText(searchInput, 'Hospital');
 
-      // Search by representante
-      let searchInput = getByTestId('clients-search-bar-input');
-      fireEvent.changeText(searchInput, 'Carlos');
-      act(() => {
-        jest.advanceTimersByTime(300);
-      });
-
-      expect(getByTestId('client-card-1')).toBeTruthy();
-    });
-
-    it('should return all clients when search is empty', () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: { clients: mockClients },
-        isLoading: false,
-        error: null,
-      });
-
-      const { getByTestId } = render(<ClientsScreen />);
-
-      expect(getByTestId('client-card-1')).toBeTruthy();
-      expect(getByTestId('client-card-2')).toBeTruthy();
-      expect(getByTestId('client-card-3')).toBeTruthy();
-    });
-
-    it('should use debounced search value, not immediate value', async () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: { clients: mockClients },
-        isLoading: false,
-        error: null,
-      });
-
-      const { getByTestId } = render(<ClientsScreen />);
-
-      const searchInput = getByTestId('clients-search-bar-input');
-
-      // Type multiple characters quickly
-      fireEvent.changeText(searchInput, 'C');
-      fireEvent.changeText(searchInput, 'Ca');
-      fireEvent.changeText(searchInput, 'Car');
-
-      // Before debounce - shows all results
-      expect(getByTestId('client-card-1')).toBeTruthy();
-      expect(getByTestId('client-card-2')).toBeTruthy();
-
-      // After debounce - applies the final filter
-      act(() => {
-        jest.advanceTimersByTime(300);
-      });
-
-      // Should filter based on final "Car" search
-      expect(getByTestId('client-card-1')).toBeTruthy();
-    });
+    // The search text state updates - verify by re-checking the input
+    expect(searchInput.props.value).toBe('Hospital');
   });
 
-  describe('Component State Management', () => {
-    it('should maintain separate state for search text and debounced search', async () => {
-      const { getByTestId } = render(<ClientsScreen />);
+  it('should call refetch when pull-to-refresh is triggered', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [mockClient],
+      total: 1,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
 
-      const searchInput = getByTestId('clients-search-bar-input');
+    const { getByTestId } = render(<ClientsScreen />, { wrapper });
 
-      // User types but debounce hasn't completed
-      fireEvent.changeText(searchInput, 'NonExistent');
+    const list = getByTestId('clients-list');
+    fireEvent(list, 'refresh');
 
-      // Immediate state should update
-      expect(searchInput.props.value).toBe('NonExistent');
-
-      // But filtering should not apply yet
-      expect(getByTestId('client-card-1')).toBeTruthy();
-
-      // After debounce, filtering applies
-      act(() => {
-        jest.advanceTimersByTime(300);
-      });
-
-      await waitFor(() => {
-        // Now empty state should show
-        expect(getByTestId('clients-list')).toBeTruthy();
-      });
-    });
-
-    it('should handle rapid text changes efficiently', () => {
-      const { getByTestId } = render(<ClientsScreen />);
-
-      const searchInput = getByTestId('clients-search-bar-input');
-
-      for (let i = 0; i < 10; i++) {
-        fireEvent.changeText(searchInput, `char${i}`);
-      }
-
-      // Component should not crash
-      expect(getByTestId('clients-screen')).toBeTruthy();
-    });
+    expect(mockRefetch).toHaveBeenCalled();
   });
 
-  describe('Internationalization', () => {
-    it('should use translation hook', () => {
-      render(<ClientsScreen />);
+  it('should call fetchNextPage when load more is triggered with hasNextPage', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [mockClient],
+      total: 100,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: true,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
 
-      expect(useTranslation).toHaveBeenCalled();
-    });
+    const { getByTestId } = render(<ClientsScreen />, { wrapper });
 
-    it('should render translated strings for all UI text', () => {
-      const { getByText, getByPlaceholderText } = render(<ClientsScreen />);
+    const list = getByTestId('clients-list');
+    fireEvent(list, 'endReached');
 
-      expect(getByText('clients.title')).toBeTruthy();
-      expect(getByPlaceholderText('clients.searchPlaceholder')).toBeTruthy();
-    });
-
-    it('should display translated loading message', () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: { clients: [] },
-        isLoading: true,
-        error: null,
-      });
-
-      const { getByText } = render(<ClientsScreen />);
-
-      expect(getByText('clients.loadingClients')).toBeTruthy();
-    });
-
-    it('should display translated error message', () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: null,
-        isLoading: false,
-        error: new Error('API error'),
-      });
-
-      const { getByText } = render(<ClientsScreen />);
-
-      expect(getByText('common.error')).toBeTruthy();
-    });
-
-    it('should display translated empty state messages', () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: { clients: [] },
-        isLoading: false,
-        error: null,
-      });
-
-      const { getByText } = render(<ClientsScreen />);
-
-      expect(getByText('clients.emptyState')).toBeTruthy();
-      expect(getByText('clients.emptyStateDescription')).toBeTruthy();
-    });
+    expect(mockFetchNextPage).toHaveBeenCalled();
   });
 
-  describe('Multiple Clients Rendering', () => {
-    it('should render multiple clients without filtering', () => {
-      const { getByTestId } = render(<ClientsScreen />);
+  it('should not call fetchNextPage when no hasNextPage', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [mockClient],
+      total: 1,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
 
-      expect(getByTestId('client-card-1')).toBeTruthy();
-      expect(getByTestId('client-card-2')).toBeTruthy();
-      expect(getByTestId('client-card-3')).toBeTruthy();
-    });
+    const { getByTestId } = render(<ClientsScreen />, { wrapper });
 
-    it('should render clients in correct order', () => {
-      const { getByTestId } = render(<ClientsScreen />);
+    const list = getByTestId('clients-list');
+    fireEvent(list, 'endReached');
 
-      const list = getByTestId('clients-list');
-      expect(list).toBeTruthy();
-    });
-
-    it('should handle single client gracefully', () => {
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: { clients: [mockClients[0]] },
-        isLoading: false,
-        error: null,
-      });
-
-      const { getByTestId, queryByTestId } = render(<ClientsScreen />);
-
-      expect(getByTestId('client-card-1')).toBeTruthy();
-      expect(queryByTestId('client-card-2')).toBeNull();
-    });
-
-    it('should handle many clients efficiently', () => {
-      const manyClients = Array.from({ length: 100 }, (_, i) => ({
-        ...mockClients[0],
-        cliente_id: String(i + 1),
-      }));
-
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: { clients: manyClients },
-        isLoading: false,
-        error: null,
-      });
-
-      const { getByTestId } = render(<ClientsScreen />);
-
-      expect(getByTestId('clients-list')).toBeTruthy();
-    });
+    expect(mockFetchNextPage).not.toHaveBeenCalled();
   });
 
-  describe('Component Rerender', () => {
-    it('should handle rerender with updated clients data', () => {
-      const { rerender, getByTestId, queryByTestId } = render(<ClientsScreen />);
 
-      expect(getByTestId('client-card-1')).toBeTruthy();
-
-      // Rerender with different data
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: { clients: [mockClients[0]] },
-        isLoading: false,
-        error: null,
-      });
-
-      rerender(<ClientsScreen />);
-
-      expect(getByTestId('client-card-1')).toBeTruthy();
-      expect(queryByTestId('client-card-2')).toBeNull();
-    });
-
-    it('should handle rerender when loading state changes', () => {
-      const { rerender, getByText, queryByText } = render(<ClientsScreen />);
-
-      expect(getByText('clients.title')).toBeTruthy();
-
-      (useListClientsBffSellersAppClientsGet as jest.Mock).mockReturnValue({
-        data: { clients: [] },
-        isLoading: true,
-        error: null,
-      });
-
-      rerender(<ClientsScreen />);
-
-      expect(getByText('clients.loadingClients')).toBeTruthy();
-      expect(queryByText('clients.emptyState')).toBeNull();
-    });
-  });
 });

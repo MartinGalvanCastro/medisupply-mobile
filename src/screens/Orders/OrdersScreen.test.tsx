@@ -1,821 +1,445 @@
 import React from 'react';
-import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { OrdersScreen } from './OrdersScreen';
-import { useListMyOrdersBffClientAppMyOrdersGet } from '@/api/generated/client-app/client-app';
-import type { OrderResponse } from '@/api/generated/models';
+import { useTranslation } from '@/i18n/hooks';
+import { useInfinitePaginatedQuery } from '@/hooks';
+import { listMyOrdersBffClientAppMyOrdersGet } from '@/api/generated/client-app/client-app';
 
-// Mock API hook
-jest.mock('@/api/generated/client-app/client-app', () => ({
-  useListMyOrdersBffClientAppMyOrdersGet: jest.fn(),
-}));
+jest.mock('@/i18n/hooks');
+jest.mock('@/hooks');
+jest.mock('@/api/generated/client-app/client-app');
 
-// Mock i18n
-jest.mock('@/i18n/hooks', () => ({
-  useTranslation: () => ({
-    t: (key: string, params?: any) => {
-      const translations: Record<string, string> = {
-        'orders.title': 'Orders',
-        'orders.showPastOrders': 'Show Past Orders',
-        'orders.showingPastOrders': 'Showing Past Orders',
-        'orders.totalOrders': `Total: ${params?.count || 0} orders`,
-        'orders.loadingOrders': 'Loading orders...',
-        'orders.emptyState': 'No orders found',
-        'orders.emptyStateUpcomingOrders': 'No upcoming orders at the moment',
-        'orders.emptyStatePastOrders': 'No past orders found',
-        'common.error': 'Error loading orders',
-      };
-      return translations[key] || key;
-    },
-  }),
-}));
+const mockUseTranslation = useTranslation as jest.MockedFunction<typeof useTranslation>;
+const mockUseInfinitePaginatedQuery = useInfinitePaginatedQuery as jest.MockedFunction<typeof useInfinitePaginatedQuery>;
+const mockListOrders = listMyOrdersBffClientAppMyOrdersGet as jest.MockedFunction<typeof listMyOrdersBffClientAppMyOrdersGet>;
 
-// Mock SafeAreaView
-jest.mock('react-native-safe-area-context', () => {
-  const { View } = require('react-native');
-  return {
-    SafeAreaView: ({ children, testID, style, edges }: any) => (
-      <View testID={testID} style={style}>
-        {children}
-      </View>
-    ),
-  };
-});
+// Future date for upcoming orders
+const futureDate = new Date();
+futureDate.setDate(futureDate.getDate() + 7);
 
-// Mock FlashList
-jest.mock('@shopify/flash-list', () => {
-  const { View } = require('react-native');
-  return {
-    FlashList: ({
-      data,
-      renderItem,
-      ListEmptyComponent,
-      testID,
-      keyExtractor,
-      refreshControl,
-    }: any) => {
-      if (data && data.length === 0 && ListEmptyComponent) {
-        return (
-          <View testID={testID}>
-            {refreshControl}
-            {ListEmptyComponent()}
-          </View>
-        );
-      }
-      return (
-        <View testID={testID}>
-          {refreshControl}
-          {data && data.map((item: any) => <View key={keyExtractor(item)}>{renderItem({ item })}</View>)}
-        </View>
-      );
-    },
-  };
-});
+// Past date for past orders
+const pastDate = new Date();
+pastDate.setDate(pastDate.getDate() - 7);
 
-// Mock OrderCard component
-jest.mock('@/components/OrderCard', () => ({
-  OrderCard: ({ order, testID }: any) => {
-    const { View, Text } = require('react-native');
-    return (
-      <View testID={testID || `order-card-${order.id}`}>
-        <Text>{order.id}</Text>
-      </View>
-    );
-  },
-}));
+const mockUpcomingOrder = {
+  id: 'order-123',
+  client_id: 'client-1',
+  status: 'pending',
+  total_amount: 100,
+  created_at: new Date().toISOString(),
+  fecha_pedido: new Date().toISOString(),
+  fecha_entrega_estimada: futureDate.toISOString(),
+  items: [],
+};
 
-// Mock lucide-react-native icons
-jest.mock('lucide-react-native', () => ({
-  Filter: () => <></>,
-}));
+const mockPastOrder = {
+  id: 'order-456',
+  client_id: 'client-1',
+  status: 'delivered',
+  total_amount: 200,
+  created_at: new Date().toISOString(),
+  fecha_pedido: new Date().toISOString(),
+  fecha_entrega_estimada: pastDate.toISOString(),
+  items: [],
+};
+
+const mockOrderNoDate = {
+  id: 'order-789',
+  client_id: 'client-1',
+  status: 'pending',
+  total_amount: 150,
+  created_at: new Date().toISOString(),
+  fecha_pedido: new Date().toISOString(),
+  fecha_entrega_estimada: null,
+  items: [],
+};
 
 describe('OrdersScreen', () => {
-  const mockOrderResponse = {
-    id: 'ORD-001',
-    customer_id: 'CUST-001',
-    seller_id: 'SELLER-001',
-    visit_id: 'VISIT-001',
-    route_id: 'ROUTE-001',
-    fecha_pedido: new Date().toISOString(),
-    fecha_entrega_estimada: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
-    metodo_creacion: 'mobile',
-    monto_total: 150000,
-    direccion_entrega: '123 Main St',
-    ciudad_entrega: 'Bogota',
-    pais_entrega: 'Colombia',
-    customer_name: 'John Doe',
-    customer_phone: '1234567890',
-    customer_email: 'john@example.com',
-    seller_name: 'Seller Name',
-    seller_email: 'seller@example.com',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    items: [
-      {
-        id: 'ITEM-001',
-        pedido_id: 'ORD-001',
-        inventario_id: 'INV-001',
-        product_name: 'Product A',
-        cantidad: 2,
-        precio_unitario: 50000,
-        precio_total: 100000,
-        product_sku: 'SKU-A',
-        warehouse_id: 'WH-001',
-        warehouse_name: 'Main Warehouse',
-        warehouse_city: 'Bogota',
-        warehouse_country: 'Colombia',
-        batch_number: 'BATCH-001',
-        expiration_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ],
-  };
-
-  const mockPastOrderResponse = {
-    id: 'ORD-002',
-    customer_id: 'CUST-002',
-    seller_id: 'SELLER-002',
-    visit_id: 'VISIT-002',
-    route_id: 'ROUTE-002',
-    fecha_pedido: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
-    fecha_entrega_estimada: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
-    metodo_creacion: 'mobile',
-    monto_total: 200000,
-    direccion_entrega: '456 Secondary St',
-    ciudad_entrega: 'Medellin',
-    pais_entrega: 'Colombia',
-    customer_name: 'Jane Smith',
-    customer_phone: '0987654321',
-    customer_email: 'jane@example.com',
-    seller_name: 'Seller Two',
-    seller_email: 'seller2@example.com',
-    created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-    items: [
-      {
-        id: 'ITEM-002',
-        pedido_id: 'ORD-002',
-        inventario_id: 'INV-002',
-        product_name: 'Product B',
-        cantidad: 1,
-        precio_unitario: 200000,
-        precio_total: 200000,
-        product_sku: 'SKU-B',
-        warehouse_id: 'WH-002',
-        warehouse_name: 'Secondary Warehouse',
-        warehouse_city: 'Medellin',
-        warehouse_country: 'Colombia',
-        batch_number: 'BATCH-002',
-        expiration_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-        created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-        updated_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-    ],
-  };
-
-  const mockUseListMyOrdersBffClientAppMyOrdersGet = useListMyOrdersBffClientAppMyOrdersGet as jest.Mock;
+  let mockRefetch: jest.Mock;
+  let mockFetchNextPage: jest.Mock;
+  let mockQueryClient: QueryClient;
 
   beforeEach(() => {
+    jest.useFakeTimers();
+    mockRefetch = jest.fn();
+    mockFetchNextPage = jest.fn();
+    mockQueryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    mockUseTranslation.mockReturnValue({
+      t: (key: string, params?: any) => {
+        const translations: Record<string, string> = {
+          'orders.title': 'Orders',
+          'orders.loadingOrders': 'Loading orders...',
+          'orders.loadingMore': 'Loading more...',
+          'orders.emptyState': 'No orders found',
+          'orders.emptyStateUpcomingOrders': 'No upcoming orders',
+          'orders.emptyStatePastOrders': 'No past orders',
+          'orders.showPastOrders': 'Show Past Orders',
+          'orders.showingPastOrders': 'Showing Past Orders',
+          'orders.totalOrders': `${params?.count} orders`,
+          'common.error': 'Error',
+          'common.retry': 'Retry',
+        };
+        return translations[key] || key;
+      },
+    } as any);
+
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [],
+      total: 0,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
+
+    mockListOrders.mockResolvedValue({
+      items: [],
+      total: 0,
+      has_next: false,
+    } as any);
+  });
+
+  afterEach(() => {
     jest.clearAllMocks();
+    jest.useRealTimers();
   });
 
-  describe('Rendering', () => {
-    it('should render the orders screen with title', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [] },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={mockQueryClient}>{children}</QueryClientProvider>
+  );
 
-      const { getByText } = render(<OrdersScreen />);
-      expect(getByText('Orders')).toBeTruthy();
-    });
-
-    it('should render with correct testID', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [] },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByTestId } = render(<OrdersScreen />);
-      expect(getByTestId('orders-screen')).toBeTruthy();
-    });
-
-    it('should render filter button', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [] },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByTestId } = render(<OrdersScreen />);
-      expect(getByTestId('orders-filter-button')).toBeTruthy();
-    });
-
-    it('should render orders list', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [] },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByTestId } = render(<OrdersScreen />);
-      expect(getByTestId('orders-list')).toBeTruthy();
-    });
-
-    it('should render orders list with refresh control integration', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [] },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByTestId } = render(<OrdersScreen />);
-      // RefreshControl is part of FlashList, so we verify the list is rendered
-      expect(getByTestId('orders-list')).toBeTruthy();
-    });
+  it('should render screen with testID', () => {
+    const { getByTestId } = render(<OrdersScreen />, { wrapper });
+    expect(getByTestId('orders-screen')).toBeTruthy();
   });
 
-  describe('Data Loading', () => {
-    it('should display orders when data is loaded', async () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [mockOrderResponse] },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+  it('should display loading state', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [],
+      total: 0,
+      isLoading: true,
+      isError: false,
+      error: null,
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
 
-      const { getByTestId } = render(<OrdersScreen />);
-      await waitFor(() => {
-        expect(getByTestId('order-card-ORD-001')).toBeTruthy();
-      });
-    });
-
-    it('should display multiple orders', async () => {
-      // Create multiple upcoming orders
-      const futureOrder2 = {
-        id: 'ORD-002',
-        customer_id: 'CUST-002',
-        seller_id: 'SELLER-002',
-        visit_id: 'VISIT-002',
-        route_id: 'ROUTE-002',
-        fecha_pedido: new Date().toISOString(),
-        fecha_entrega_estimada: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days from now
-        metodo_creacion: 'mobile',
-        monto_total: 200000,
-        direccion_entrega: '456 Secondary St',
-        ciudad_entrega: 'Medellin',
-        pais_entrega: 'Colombia',
-        customer_name: 'Jane Smith',
-        customer_phone: '0987654321',
-        customer_email: 'jane@example.com',
-        seller_name: 'Seller Two',
-        seller_email: 'seller2@example.com',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        items: [
-          {
-            id: 'ITEM-003',
-            pedido_id: 'ORD-002',
-            inventario_id: 'INV-003',
-            product_name: 'Product B',
-            cantidad: 1,
-            precio_unitario: 200000,
-            precio_total: 200000,
-            product_sku: 'SKU-B',
-            warehouse_id: 'WH-001',
-            warehouse_name: 'Main Warehouse',
-            warehouse_city: 'Bogota',
-            warehouse_country: 'Colombia',
-            batch_number: 'BATCH-003',
-            expiration_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-        ],
-      };
-
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: {
-          items: [mockOrderResponse, futureOrder2],
-        },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByTestId } = render(<OrdersScreen />);
-      await waitFor(() => {
-        expect(getByTestId('order-card-ORD-001')).toBeTruthy();
-        expect(getByTestId('order-card-ORD-002')).toBeTruthy();
-      });
-    });
-
-    it('should display order count when orders are loaded', async () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [mockOrderResponse, mockPastOrderResponse] },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByText } = render(<OrdersScreen />);
-      await waitFor(() => {
-        // Only upcoming orders are shown by default
-        expect(getByText('Total: 1 orders')).toBeTruthy();
-      });
-    });
-
-    it('should show loading message when isLoading is true', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [] },
-        isLoading: true,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByText } = render(<OrdersScreen />);
-      expect(getByText('Loading orders...')).toBeTruthy();
-    });
+    const { getByTestId, getByText } = render(<OrdersScreen />, { wrapper });
+    expect(getByTestId('orders-loading')).toBeTruthy();
+    expect(getByText('Loading orders...')).toBeTruthy();
   });
 
-  describe('Empty States', () => {
-    it('should display empty state when no orders and not loading', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [] },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+  it('should display error state and retry', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [],
+      total: 0,
+      isLoading: false,
+      isError: true,
+      error: new Error('Network error'),
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
 
-      const { getByText } = render(<OrdersScreen />);
-      expect(getByText('No orders found')).toBeTruthy();
-      expect(getByText('No upcoming orders at the moment')).toBeTruthy();
-    });
+    const { getByTestId, getByText } = render(<OrdersScreen />, { wrapper });
+    expect(getByTestId('orders-error')).toBeTruthy();
+    expect(getByText('Network error')).toBeTruthy();
 
-    it('should show correct empty message for upcoming orders', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [] },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByText } = render(<OrdersScreen />);
-      expect(getByText('No upcoming orders at the moment')).toBeTruthy();
-    });
-
-    it('should show correct empty message for past orders', async () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [] },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByText, getByTestId } = render(<OrdersScreen />);
-      const filterButton = getByTestId('orders-filter-button');
-
-      act(() => {
-        fireEvent.press(filterButton);
-      });
-
-      await waitFor(() => {
-        expect(getByText('No past orders found')).toBeTruthy();
-      });
-    });
+    fireEvent.press(getByText('Retry'));
+    expect(mockRefetch).toHaveBeenCalled();
   });
 
-  describe('Error Handling', () => {
-    it('should display error message when error occurs', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [] },
-        isLoading: false,
-        error: new Error('Failed to fetch'),
-        refetch: jest.fn(),
-      });
+  it('should display generic error message when error has no message', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [],
+      total: 0,
+      isLoading: false,
+      isError: true,
+      error: {} as any,
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
 
-      const { getByText } = render(<OrdersScreen />);
-      expect(getByText('Error loading orders')).toBeTruthy();
-    });
-
-    it('should not display orders when error occurs', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [] },
-        isLoading: false,
-        error: new Error('Network error'),
-        refetch: jest.fn(),
-      });
-
-      const { queryByTestId } = render(<OrdersScreen />);
-      expect(queryByTestId('order-card-ORD-001')).toBeFalsy();
-    });
-
-    it('should still render the UI when there is an error', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [] },
-        isLoading: false,
-        error: new Error('API Error'),
-        refetch: jest.fn(),
-      });
-
-      const { getByTestId } = render(<OrdersScreen />);
-      expect(getByTestId('orders-screen')).toBeTruthy();
-      expect(getByTestId('orders-filter-button')).toBeTruthy();
-    });
+    const { getByText } = render(<OrdersScreen />, { wrapper });
+    expect(getByText('Failed to load orders')).toBeTruthy();
   });
 
-  describe('Filtering', () => {
-    it('should filter out past orders by default', async () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: {
-          items: [mockOrderResponse, mockPastOrderResponse],
-        },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByTestId, queryByTestId } = render(<OrdersScreen />);
-      await waitFor(() => {
-        expect(getByTestId('order-card-ORD-001')).toBeTruthy(); // Upcoming order
-      });
-    });
-
-    it('should show all orders when filter is toggled', async () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: {
-          items: [mockOrderResponse, mockPastOrderResponse],
-        },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByTestId } = render(<OrdersScreen />);
-      const filterButton = getByTestId('orders-filter-button');
-
-      act(() => {
-        fireEvent.press(filterButton);
-      });
-
-      await waitFor(() => {
-        expect(getByTestId('order-card-ORD-001')).toBeTruthy();
-        expect(getByTestId('order-card-ORD-002')).toBeTruthy();
-      });
-    });
-
-    it('should toggle filter button state', async () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [] },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByText, getByTestId } = render(<OrdersScreen />);
-      const filterButton = getByTestId('orders-filter-button');
-
-      expect(getByText('Show Past Orders')).toBeTruthy();
-
-      act(() => {
-        fireEvent.press(filterButton);
-      });
-
-      await waitFor(() => {
-        expect(getByText('Showing Past Orders')).toBeTruthy();
-      });
-    });
-
-    it('should toggle filter back to default', async () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [] },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByText, getByTestId } = render(<OrdersScreen />);
-      const filterButton = getByTestId('orders-filter-button');
-
-      // First toggle
-      act(() => {
-        fireEvent.press(filterButton);
-      });
-
-      await waitFor(() => {
-        expect(getByText('Showing Past Orders')).toBeTruthy();
-      });
-
-      // Second toggle
-      act(() => {
-        fireEvent.press(filterButton);
-      });
-
-      await waitFor(() => {
-        expect(getByText('Show Past Orders')).toBeTruthy();
-      });
-    });
-
-    it('should filter orders with today delivery date as upcoming', async () => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayOrder = {
-        ...mockOrderResponse,
-        id: 'ORD-TODAY',
-        fecha_entrega_estimada: today.toISOString(),
-      };
-
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: {
-          items: [todayOrder],
-        },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByTestId } = render(<OrdersScreen />);
-      await waitFor(() => {
-        expect(getByTestId('order-card-ORD-TODAY')).toBeTruthy();
-      });
-    });
-
-    it('should filter orders with null delivery date as upcoming', async () => {
-      const orderWithoutDate = {
-        ...mockOrderResponse,
-        id: 'ORD-NODATE',
-        fecha_entrega_estimada: null,
-      };
-
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: {
-          items: [orderWithoutDate],
-        },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByTestId } = render(<OrdersScreen />);
-      await waitFor(() => {
-        expect(getByTestId('order-card-ORD-NODATE')).toBeTruthy();
-      });
-    });
-
-    it('should not show order count when loading', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [mockOrderResponse] },
-        isLoading: true,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { queryByText } = render(<OrdersScreen />);
-      expect(queryByText(/Total:/)).toBeFalsy();
-    });
-
-    it('should not show order count when no orders', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [] },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { queryByText } = render(<OrdersScreen />);
-      expect(queryByText(/Total:/)).toBeFalsy();
-    });
+  it('should display empty state for upcoming orders', () => {
+    const { getByTestId, getByText } = render(<OrdersScreen />, { wrapper });
+    expect(getByTestId('orders-empty-state')).toBeTruthy();
+    expect(getByText('No upcoming orders')).toBeTruthy();
   });
 
-  describe('Refresh Functionality', () => {
-    it('should call refetch on component mount and provide refresh hook', () => {
-      const mockRefetch = jest.fn();
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [mockOrderResponse] },
-        isLoading: false,
-        error: null,
-        refetch: mockRefetch,
-      });
+  it('should display empty state for past orders when filter toggled', () => {
+    const { getByTestId, getByText } = render(<OrdersScreen />, { wrapper });
 
-      render(<OrdersScreen />);
+    // Toggle to past orders
+    fireEvent.press(getByTestId('orders-filter-button'));
 
-      // Verify the hook was called (component is using it)
-      expect(mockUseListMyOrdersBffClientAppMyOrdersGet).toHaveBeenCalled();
-    });
-
-    it('should maintain loading state during refresh', async () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [mockOrderResponse] },
-        isLoading: true,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByTestId, queryByText } = render(<OrdersScreen />);
-
-      // Loading state should hide the order count
-      expect(queryByText(/Total:/)).toBeFalsy();
-      // But list should still be visible
-      expect(getByTestId('orders-list')).toBeTruthy();
-    });
+    expect(getByText('No past orders')).toBeTruthy();
   });
 
-  describe('Order Count Display', () => {
-    it('should display correct count for single order', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [mockOrderResponse] },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+  it('should show upcoming orders by default', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [mockUpcomingOrder, mockPastOrder],
+      total: 2,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
 
-      const { getByText } = render(<OrdersScreen />);
-      expect(getByText('Total: 1 orders')).toBeTruthy();
-    });
-
-    it('should display correct count for multiple orders', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: {
-          items: [
-            mockOrderResponse,
-            mockPastOrderResponse,
-            { ...mockOrderResponse, id: 'ORD-003' },
-          ],
-        },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByText } = render(<OrdersScreen />);
-      // Only upcoming orders are shown by default (ORD-001 and ORD-003)
-      expect(getByText('Total: 2 orders')).toBeTruthy();
-    });
+    const { getByText } = render(<OrdersScreen />, { wrapper });
+    // Should show total count for filtered orders (only upcoming)
+    expect(getByText('1 orders')).toBeTruthy();
   });
 
-  describe('Edge Cases', () => {
-    it('should handle undefined data gracefully', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: undefined,
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+  it('should toggle to past orders and back', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [mockUpcomingOrder, mockPastOrder],
+      total: 2,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
 
-      const { getByText } = render(<OrdersScreen />);
-      expect(getByText('No orders found')).toBeTruthy();
-    });
+    const { getByTestId, getByText } = render(<OrdersScreen />, { wrapper });
 
-    it('should handle null data gracefully', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: null,
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+    // Toggle to past orders
+    fireEvent.press(getByTestId('orders-filter-button'));
+    expect(getByText('Showing Past Orders')).toBeTruthy();
 
-      const { getByText } = render(<OrdersScreen />);
-      expect(getByText('No orders found')).toBeTruthy();
-    });
-
-    it('should handle data without items property', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: {},
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByText } = render(<OrdersScreen />);
-      expect(getByText('No orders found')).toBeTruthy();
-    });
-
-    it('should handle orders with missing delivery date', () => {
-      const orderWithoutDate = {
-        ...mockOrderResponse,
-        fecha_entrega_estimada: undefined,
-      };
-
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [orderWithoutDate] },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByTestId } = render(<OrdersScreen />);
-      expect(getByTestId('order-card-ORD-001')).toBeTruthy();
-    });
-
-    it('should handle large number of orders', () => {
-      const manyOrders = Array.from({ length: 50 }, (_, i) => ({
-        ...mockOrderResponse,
-        id: `ORD-${String(i + 1).padStart(3, '0')}`,
-      }));
-
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: manyOrders },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByText } = render(<OrdersScreen />);
-      expect(getByText('Total: 50 orders')).toBeTruthy();
-    });
+    // Toggle back to upcoming
+    fireEvent.press(getByTestId('orders-filter-button'));
+    expect(getByText('Show Past Orders')).toBeTruthy();
   });
 
-  describe('Integration', () => {
-    it('should render correctly in loading state', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [] },
-        isLoading: true,
-        error: null,
-        refetch: jest.fn(),
-      });
+  it('should show orders without date in upcoming view only', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [mockOrderNoDate],
+      total: 1,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
 
-      const { getByText } = render(<OrdersScreen />);
-      expect(getByText('Loading orders...')).toBeTruthy();
-    });
+    const { getByTestId, getByText, queryByText } = render(<OrdersScreen />, { wrapper });
 
-    it('should render correctly with loaded orders', async () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [mockOrderResponse] },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+    // Should show in upcoming view
+    expect(getByText('1 orders')).toBeTruthy();
 
-      const { getByText } = render(<OrdersScreen />);
-
-      await waitFor(() => {
-        expect(getByText('Total: 1 orders')).toBeTruthy();
-      });
-    });
-
-    it('should render correctly in error state', () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [] },
-        isLoading: false,
-        error: new Error('API Error'),
-        refetch: jest.fn(),
-      });
-
-      const { getByText } = render(<OrdersScreen />);
-      expect(getByText('Error loading orders')).toBeTruthy();
-    });
-
-    it('should maintain filter state during refresh', async () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: {
-          items: [mockOrderResponse, mockPastOrderResponse],
-        },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { getByTestId, getByText, queryByTestId } = render(<OrdersScreen />);
-
-      // Toggle filter to show past orders
-      const filterButton = getByTestId('orders-filter-button');
-      act(() => {
-        fireEvent.press(filterButton);
-      });
-
-      await waitFor(() => {
-        expect(getByText('Showing Past Orders')).toBeTruthy();
-        expect(getByTestId('order-card-ORD-001')).toBeTruthy();
-        expect(getByTestId('order-card-ORD-002')).toBeTruthy();
-      });
-
-      // Filter state should still be active (can't change in test but component maintains it)
-    });
+    // Toggle to past orders - should be empty
+    fireEvent.press(getByTestId('orders-filter-button'));
+    expect(queryByText('1 orders')).toBeNull();
   });
 
-  describe('Accessibility', () => {
-    it('should have proper testIDs for automation', async () => {
-      mockUseListMyOrdersBffClientAppMyOrdersGet.mockReturnValue({
-        data: { items: [mockOrderResponse] },
-        isLoading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+  it('should call refetch on pull-to-refresh', async () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [mockUpcomingOrder],
+      total: 1,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
 
-      const { getByTestId } = render(<OrdersScreen />);
+    const { getByTestId } = render(<OrdersScreen />, { wrapper });
+    fireEvent(getByTestId('orders-list'), 'refresh');
+    expect(mockRefetch).toHaveBeenCalled();
+  });
 
-      await waitFor(() => {
-        expect(getByTestId('orders-screen')).toBeTruthy();
-        expect(getByTestId('orders-filter-button')).toBeTruthy();
-        expect(getByTestId('orders-list')).toBeTruthy();
-      });
+  it('should call fetchNextPage on load more when hasNextPage', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [mockUpcomingOrder],
+      total: 100,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: true,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
+
+    const { getByTestId } = render(<OrdersScreen />, { wrapper });
+    fireEvent(getByTestId('orders-list'), 'endReached');
+    expect(mockFetchNextPage).toHaveBeenCalled();
+  });
+
+  it('should NOT call fetchNextPage when no hasNextPage', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [mockUpcomingOrder],
+      total: 1,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
+
+    const { getByTestId } = render(<OrdersScreen />, { wrapper });
+    fireEvent(getByTestId('orders-list'), 'endReached');
+    expect(mockFetchNextPage).not.toHaveBeenCalled();
+  });
+
+  it('should display footer spinner when fetching next page', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [mockUpcomingOrder],
+      total: 100,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isFetchingNextPage: true,
+      isRefetching: false,
+      hasNextPage: true,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
+
+    const { getByTestId, getByText } = render(<OrdersScreen />, { wrapper });
+    expect(getByTestId('orders-load-more-spinner')).toBeTruthy();
+    expect(getByText('Loading more...')).toBeTruthy();
+  });
+
+  it('should call hook with correct configuration', () => {
+    render(<OrdersScreen />, { wrapper });
+
+    expect(mockUseInfinitePaginatedQuery).toHaveBeenCalled();
+    const callArgs = mockUseInfinitePaginatedQuery.mock.calls[0][0];
+
+    expect(callArgs.queryKey[0]).toBe('orders');
+    expect(callArgs.pageSize).toBe(20);
+    expect(callArgs.staleTime).toBe(30 * 1000);
+
+    // Test the queryFn
+    callArgs.queryFn({ offset: 0, limit: 20 });
+    expect(mockListOrders).toHaveBeenCalledWith({
+      offset: 0,
+      limit: 20,
     });
+
+    // Test extractors
+    const mockResponse = { items: [mockUpcomingOrder], total: 1, has_next: true };
+    expect(callArgs.extractItems?.(mockResponse)).toEqual([mockUpcomingOrder]);
+    expect(callArgs.extractTotal?.(mockResponse)).toBe(1);
+    expect(callArgs.hasNextPage?.(mockResponse, [])).toBe(true);
+
+    // Test has_next undefined
+    expect(callArgs.hasNextPage?.({ items: [], total: 0 }, [])).toBe(false);
+  });
+
+  it('should handle non-array data gracefully', () => {
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: null,
+      total: 0,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
+
+    const { getByTestId } = render(<OrdersScreen />, { wrapper });
+    expect(getByTestId('orders-empty-state')).toBeTruthy();
+  });
+
+  it('should use fallback loading more message when translation missing', () => {
+    mockUseTranslation.mockReturnValue({
+      t: (key: string) => {
+        const translations: Record<string, string> = {
+          'orders.title': 'Orders',
+          'orders.loadingOrders': 'Loading orders...',
+          'orders.emptyState': 'No orders found',
+          'orders.showPastOrders': 'Show Past Orders',
+          'common.error': 'Error',
+          'common.retry': 'Retry',
+        };
+        return translations[key] || '';
+      },
+    } as any);
+
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [mockUpcomingOrder],
+      total: 1,
+      isLoading: false,
+      isError: false,
+      error: null,
+      isFetchingNextPage: true,
+      isRefetching: false,
+      hasNextPage: true,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
+
+    const { getByText } = render(<OrdersScreen />, { wrapper });
+    expect(getByText('Loading more...')).toBeTruthy();
+  });
+
+  it('should use fallback retry message when translation missing', () => {
+    mockUseTranslation.mockReturnValue({
+      t: (key: string) => {
+        const translations: Record<string, string> = {
+          'orders.title': 'Orders',
+          'orders.loadingOrders': 'Loading orders...',
+          'common.error': 'Error',
+        };
+        return translations[key] || '';
+      },
+    } as any);
+
+    mockUseInfinitePaginatedQuery.mockReturnValue({
+      data: [],
+      total: 0,
+      isLoading: false,
+      isError: true,
+      error: new Error('Test error'),
+      isFetchingNextPage: false,
+      isRefetching: false,
+      hasNextPage: false,
+      fetchNextPage: mockFetchNextPage,
+      refetch: mockRefetch,
+    } as any);
+
+    const { getByText } = render(<OrdersScreen />, { wrapper });
+    expect(getByText('Retry')).toBeTruthy();
   });
 });

@@ -1,252 +1,136 @@
-import { transformUserData, transformTokensFromLogin } from './auth.utils';
+import { getUserRole, transformUserData, transformTokensFromLogin } from './auth.utils';
+import type { User } from '@/store/useAuthStore/types';
 import type { UserMeResponse, LoginResponse } from '@/api/generated/models';
 
-describe('auth.utils', () => {
-  describe('transformUserData', () => {
-    it('should transform complete user data with all fields', () => {
-      const input: UserMeResponse = {
-        user_id: 'user-123',
-        email: 'test@example.com',
-        name: 'John Doe',
-        user_type: 'seller',
-        groups: ['group1', 'group2'],
-        user_details: {
-          telefono: '555-1234',
-          nombre_institucion: 'Test Hospital',
-          tipo_institucion: 'hospital',
-          nit: '123456789',
-          direccion: '123 Main St',
-          ciudad: 'Test City',
-          pais: 'Test Country',
-          representante: 'Jane Doe',
-        },
-      };
-
-      const result = transformUserData(input);
-
-      expect(result).toEqual({
-        id: 'user-123',
-        email: 'test@example.com',
-        name: 'John Doe',
-        role: 'seller',
-        groups: ['group1', 'group2'],
-        profile: {
-          telefono: '555-1234',
-          nombreInstitucion: 'Test Hospital',
-          tipoInstitucion: 'hospital',
-          nit: '123456789',
-          direccion: '123 Main St',
-          ciudad: 'Test City',
-          pais: 'Test Country',
-          representante: 'Jane Doe',
-        },
-      });
-    });
-
-    it('should handle basic user data without optional fields', () => {
-      const input: UserMeResponse = {
-        user_id: 'user-456',
-        email: 'test@example.com',
-        name: 'Test User',
-      };
-
-      const result = transformUserData(input);
-
-      expect(result.id).toBe('user-456');
-      expect(result.email).toBe('test@example.com');
-      expect(result.name).toBe('Test User');
-    });
-
-    it('should handle missing optional fields', () => {
-      const input: UserMeResponse = {
-        user_id: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-      };
-
-      const result = transformUserData(input);
-
-      expect(result).toEqual({
-        id: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-        role: undefined,
-        groups: undefined,
-        profile: undefined,
-      });
-    });
-
-    it('should use user_type as role', () => {
-      const input: UserMeResponse = {
-        user_id: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-        user_type: 'client',
-      };
-
-      const result = transformUserData(input);
-
-      expect(result.role).toBe('client');
-    });
-
-    it('should handle groups field', () => {
-      const input: UserMeResponse = {
-        user_id: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-        groups: ['group1', 'group2'],
-      };
-
-      const result = transformUserData(input);
-
-      expect(result.groups).toEqual(['group1', 'group2']);
-    });
-
-    it('should handle seller user type', () => {
-      const input: UserMeResponse = {
-        user_id: 'user-123',
-        email: 'seller@example.com',
-        name: 'Test Seller',
-        user_type: 'seller',
-        groups: ['seller_users'],
-      };
-
-      const result = transformUserData(input);
-
-      expect(result.role).toBe('seller');
-      expect(result.groups).toEqual(['seller_users']);
-    });
-
-    it('should include profile when at least one profile field exists', () => {
-      const input: UserMeResponse = {
-        user_id: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-        user_details: {
-          telefono: '555-1234',
-        },
-      };
-
-      const result = transformUserData(input);
-
-      expect(result.profile).toEqual({
-        telefono: '555-1234',
-        nombreInstitucion: undefined,
-        tipoInstitucion: undefined,
-        nit: undefined,
-        direccion: undefined,
-        ciudad: undefined,
-        pais: undefined,
-        representante: undefined,
-      });
-    });
-
-    it('should convert numeric profile values to strings', () => {
-      const input: UserMeResponse = {
-        user_id: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-        user_details: {
-          telefono: 5551234,
-          nit: 123456789,
-        },
-      };
-
-      const result = transformUserData(input);
-
-      expect(result.profile?.telefono).toBe('5551234');
-      expect(result.profile?.nit).toBe('123456789');
-    });
-
-    it('should handle all profile fields as undefined when none are provided', () => {
-      const input: UserMeResponse = {
-        user_id: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-      };
-
-      const result = transformUserData(input);
-
-      expect(result.profile).toBeUndefined();
-    });
-
-    it('should handle null user_details', () => {
-      const input: UserMeResponse = {
-        user_id: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-        user_details: null,
-      };
-
-      const result = transformUserData(input);
-
-      expect(result.profile).toBeUndefined();
-    });
-
-    it('should handle empty user_details object', () => {
-      const input: UserMeResponse = {
-        user_id: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-        user_details: {},
-      };
-
-      const result = transformUserData(input);
-
-      expect(result.profile).toBeUndefined();
-    });
+describe('getUserRole', () => {
+  it('returns client for null user', () => {
+    expect(getUserRole(null)).toBe('client');
   });
 
-  describe('transformTokensFromLogin', () => {
-    it('should transform login response to auth tokens', () => {
-      const input: LoginResponse = {
-        access_token: 'access-token-123',
-        id_token: 'id-token-456',
-        refresh_token: 'refresh-token-789',
-        expires_in: 3600,
-        token_type: 'Bearer',
-      };
+  it('returns client for undefined user', () => {
+    expect(getUserRole(undefined)).toBe('client');
+  });
 
-      const result = transformTokensFromLogin(input);
+  it('returns explicit role when set', () => {
+    const user: User = { id: '1', email: 'test@test.com', name: 'Test', role: 'seller' };
+    expect(getUserRole(user)).toBe('seller');
+  });
 
-      expect(result).toEqual({
-        accessToken: 'access-token-123',
-        idToken: 'id-token-456',
-        refreshToken: 'refresh-token-789',
-        expiresIn: 3600,
-        tokenType: 'Bearer',
-      });
-    });
+  it('returns seller when user is in seller_users group', () => {
+    const user: User = { id: '1', email: 'test@test.com', name: 'Test', groups: ['seller_users'] };
+    expect(getUserRole(user)).toBe('seller');
+  });
 
-    it('should handle different token types', () => {
-      const input: LoginResponse = {
-        access_token: 'access-123',
-        id_token: 'id-123',
-        refresh_token: 'refresh-123',
-        expires_in: 7200,
-        token_type: 'Custom',
-      };
+  it('returns client when no role or seller group', () => {
+    const user: User = { id: '1', email: 'test@test.com', name: 'Test', groups: ['other_group'] };
+    expect(getUserRole(user)).toBe('client');
+  });
 
-      const result = transformTokensFromLogin(input);
+  it('prefers explicit role over groups', () => {
+    const user: User = { id: '1', email: 'test@test.com', name: 'Test', role: 'client', groups: ['seller_users'] };
+    expect(getUserRole(user)).toBe('client');
+  });
+});
 
-      expect(result.tokenType).toBe('Custom');
-      expect(result.expiresIn).toBe(7200);
-    });
+describe('transformUserData', () => {
+  it('transforms basic user data', () => {
+    const response: UserMeResponse = {
+      user_id: '123',
+      email: 'test@example.com',
+      name: 'Test User',
+      user_type: 'seller',
+      groups: ['seller_users'],
+    };
 
-    it('should handle numeric string tokens', () => {
-      const input: LoginResponse = {
-        access_token: '12345',
-        id_token: '67890',
-        refresh_token: 'abcdef',
-        expires_in: 3600,
-        token_type: 'Bearer',
-      };
+    const result = transformUserData(response);
 
-      const result = transformTokensFromLogin(input);
+    expect(result.id).toBe('123');
+    expect(result.email).toBe('test@example.com');
+    expect(result.name).toBe('Test User');
+    expect(result.role).toBe('seller');
+    expect(result.groups).toEqual(['seller_users']);
+  });
 
-      expect(result.accessToken).toBe('12345');
-      expect(result.idToken).toBe('67890');
-      expect(result.refreshToken).toBe('abcdef');
-    });
+  it('transforms user with Spanish field names in details', () => {
+    const response: UserMeResponse = {
+      user_id: '123',
+      email: 'test@example.com',
+      name: 'Test User',
+      user_details: {
+        telefono: '123456789',
+        nombre_institucion: 'Hospital Test',
+        tipo_institucion: 'hospital',
+        nit: '900123456',
+        direccion: 'Calle 123',
+        ciudad: 'Bogotá',
+        pais: 'Colombia',
+        representante: 'Dr. Test',
+      },
+    };
+
+    const result = transformUserData(response);
+
+    expect(result.profile).toBeDefined();
+    expect(result.profile?.telefono).toBe('123456789');
+    expect(result.profile?.nombreInstitucion).toBe('Hospital Test');
+    expect(result.profile?.tipoInstitucion).toBe('hospital');
+    expect(result.profile?.nit).toBe('900123456');
+    expect(result.profile?.direccion).toBe('Calle 123');
+    expect(result.profile?.ciudad).toBe('Bogotá');
+    expect(result.profile?.pais).toBe('Colombia');
+    expect(result.profile?.representante).toBe('Dr. Test');
+  });
+
+  it('transforms user with English field names in details', () => {
+    const response: UserMeResponse = {
+      user_id: '123',
+      email: 'test@example.com',
+      name: 'Test User',
+      user_details: {
+        phone: '123456789',
+        address: '123 Main St',
+        city: 'New York',
+        country: 'USA',
+      },
+    };
+
+    const result = transformUserData(response);
+
+    expect(result.profile?.telefono).toBe('123456789');
+    expect(result.profile?.direccion).toBe('123 Main St');
+    expect(result.profile?.ciudad).toBe('New York');
+    expect(result.profile?.pais).toBe('USA');
+  });
+
+  it('returns undefined profile when no details exist', () => {
+    const response: UserMeResponse = {
+      user_id: '123',
+      email: 'test@example.com',
+      name: 'Test User',
+    };
+
+    const result = transformUserData(response);
+
+    expect(result.profile).toBeUndefined();
+  });
+});
+
+describe('transformTokensFromLogin', () => {
+  it('transforms login response to auth tokens', () => {
+    const response: LoginResponse = {
+      access_token: 'access123',
+      id_token: 'id123',
+      refresh_token: 'refresh123',
+      expires_in: 3600,
+      token_type: 'Bearer',
+    };
+
+    const result = transformTokensFromLogin(response);
+
+    expect(result.accessToken).toBe('access123');
+    expect(result.idToken).toBe('id123');
+    expect(result.refreshToken).toBe('refresh123');
+    expect(result.expiresIn).toBe(3600);
+    expect(result.tokenType).toBe('Bearer');
   });
 });

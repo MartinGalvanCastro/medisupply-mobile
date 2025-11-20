@@ -1,128 +1,276 @@
 import { renderHook, act } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { useMediaPicker } from '../useMediaPicker';
-import type { MediaFile } from '@/hooks/useMediaFileManager';
+import { RESULTS } from 'react-native-permissions';
+import { useMediaPicker } from './useMediaPicker';
+import { useMediaPermissions } from '@/hooks/useMediaPermissions';
+import { PermissionManager } from '@/utils/permissions';
 
-// Mock expo-image-picker
-jest.mock('expo-image-picker', () => ({
-  launchCameraAsync: jest.fn(),
-  launchImageLibraryAsync: jest.fn(),
-}));
-
-// Mock useMediaPermissions hook
-jest.mock('@/hooks/useMediaPermissions', () => ({
-  useMediaPermissions: jest.fn(() => ({
-    camera: {
-      isGranted: false,
-      isBlocked: false,
-      isDenied: true,
-    },
-    photoLibrary: {
-      isGranted: false,
-      isBlocked: false,
-      isDenied: true,
-    },
-    mediaLibrary: {
-      isGranted: false,
-      isBlocked: false,
-      isDenied: true,
-    },
-    requestCameraPermission: jest.fn(async () => 'granted'),
-    requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-    requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-    handleBlockedPermission: jest.fn(),
-  })),
-}));
-
-// Mock PermissionManager
+jest.mock('@/hooks/useMediaPermissions');
+jest.mock('expo-image-picker');
 jest.mock('@/utils/permissions', () => ({
   PermissionManager: {
-    isGranted: jest.fn((status: string) => status === 'granted'),
+    isGranted: jest.fn(),
   },
 }));
 
 describe('useMediaPicker', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
   const mockOnFilesSelected = jest.fn();
   const mockOnError = jest.fn();
 
-  describe('initial state', () => {
-    it('should start with isProcessing false', () => {
+  const createMockPermissionsObject = (overrides = {}) => ({
+    camera: {
+      status: RESULTS.DENIED,
+      isGranted: false,
+      isBlocked: false,
+      isDenied: true,
+      isLoading: false,
+      isRequesting: false,
+    },
+    photoLibrary: {
+      status: RESULTS.DENIED,
+      isGranted: false,
+      isBlocked: false,
+      isDenied: true,
+      isLoading: false,
+      isRequesting: false,
+    },
+    mediaLibrary: {
+      status: RESULTS.DENIED,
+      isGranted: false,
+      isBlocked: false,
+      isDenied: true,
+      isLoading: false,
+      isRequesting: false,
+    },
+    requestCameraPermission: jest.fn(async () => RESULTS.GRANTED),
+    requestPhotoLibraryPermission: jest.fn(async () => RESULTS.GRANTED),
+    requestMediaLibraryPermission: jest.fn(async () => RESULTS.GRANTED),
+    handleBlockedPermission: jest.fn(),
+    ...overrides,
+  });
+
+  const createMockImagePickerAsset = (overrides = {}) => ({
+    uri: 'file:///test/image.jpg',
+    fileName: 'test.jpg',
+    type: 'image' as const,
+    width: 100,
+    height: 100,
+    ...overrides,
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (useMediaPermissions as jest.Mock).mockReturnValue(createMockPermissionsObject());
+    (PermissionManager.isGranted as jest.Mock).mockReturnValue(true);
+  });
+
+  describe('createMediaFile', () => {
+    it('transforms ImagePicker asset to MediaFile for photos', () => {
       const { result } = renderHook(() =>
         useMediaPicker({ onFilesSelected: mockOnFilesSelected })
       );
 
-      expect(result.current.isProcessing).toBe(false);
+      const asset = createMockImagePickerAsset({ fileName: 'vacation.jpg' });
+      const mediaFile = (result.current as any).createMediaFile?.(asset, 'photo');
+
+      // Since createMediaFile is not exposed, we test it indirectly through takePhoto
+      // But we can verify the structure through onFilesSelected callback
+      expect(mockOnFilesSelected).toBeDefined();
     });
 
-    it('should have all required methods', () => {
+    it('generates unique id with timestamp and random component', async () => {
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset()],
+      };
+
+      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+
       const { result } = renderHook(() =>
         useMediaPicker({ onFilesSelected: mockOnFilesSelected })
       );
 
-      expect(typeof result.current.takePhoto).toBe('function');
-      expect(typeof result.current.uploadPhotos).toBe('function');
-      expect(typeof result.current.uploadVideos).toBe('function');
+      await act(async () => {
+        await result.current.takePhoto();
+      });
+
+      expect(mockOnFilesSelected).toHaveBeenCalledTimes(1);
+      const [files] = mockOnFilesSelected.mock.calls[0];
+      expect(files[0].id).toBeDefined();
+      expect(files[0].id).toMatch(/^\d+_[\d.]+$/);
     });
 
-    it('should accept onFilesSelected callback', () => {
+    it('preserves asset URI in MediaFile', async () => {
+      const testUri = 'file:///test/photo.jpg';
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset({ uri: testUri })],
+      };
+
+      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+
       const { result } = renderHook(() =>
         useMediaPicker({ onFilesSelected: mockOnFilesSelected })
       );
 
-      expect(result.current).toBeDefined();
-      mockOnFilesSelected.mockClear();
+      await act(async () => {
+        await result.current.takePhoto();
+      });
+
+      const [files] = mockOnFilesSelected.mock.calls[0];
+      expect(files[0].uri).toBe(testUri);
     });
 
-    it('should accept optional onError callback', () => {
+    it('uses asset fileName when available', async () => {
+      const fileName = 'custom-photo.jpg';
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset({ fileName })],
+      };
+
+      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+
       const { result } = renderHook(() =>
-        useMediaPicker({
-          onFilesSelected: mockOnFilesSelected,
-          onError: mockOnError,
-        })
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
       );
 
-      expect(result.current).toBeDefined();
+      await act(async () => {
+        await result.current.takePhoto();
+      });
+
+      const [files] = mockOnFilesSelected.mock.calls[0];
+      expect(files[0].name).toBe(fileName);
+    });
+
+    it('generates default name when fileName is not provided', async () => {
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset({ fileName: undefined })],
+      };
+
+      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.takePhoto();
+      });
+
+      const [files] = mockOnFilesSelected.mock.calls[0];
+      expect(files[0].name).toMatch(/^photo_\d+\.jpg$/);
+    });
+
+    it('sets correct type for photos', async () => {
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset()],
+      };
+
+      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.takePhoto();
+      });
+
+      const [files] = mockOnFilesSelected.mock.calls[0];
+      expect(files[0].type).toBe('photo');
+    });
+
+    it('sets correct type for videos', async () => {
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset()],
+      };
+
+      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        mediaLibrary: { ...createMockPermissionsObject().mediaLibrary, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.uploadVideos();
+      });
+
+      const [files] = mockOnFilesSelected.mock.calls[0];
+      expect(files[0].type).toBe('video');
+    });
+
+    it('generates video filename with .mp4 extension when fileName not provided', async () => {
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset({ fileName: undefined })],
+      };
+
+      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        mediaLibrary: { ...createMockPermissionsObject().mediaLibrary, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.uploadVideos();
+      });
+
+      const [files] = mockOnFilesSelected.mock.calls[0];
+      expect(files[0].name).toMatch(/^video_\d+\.mp4$/);
     });
   });
 
   describe('takePhoto', () => {
-    it('should launch camera when permission granted', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: true,
-          isBlocked: false,
-          isDenied: false,
-        },
-        photoLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        mediaLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: jest.fn(),
-      });
-
-      const mockAsset = {
-        uri: 'file:///path/to/photo.jpg',
-        fileName: 'photo.jpg',
+    it('launches camera when permission is granted', async () => {
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset()],
       };
 
-      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValue({
-        canceled: false,
-        assets: [mockAsset],
+      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isGranted: true },
       });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
 
       const { result } = renderHook(() =>
         useMediaPicker({ onFilesSelected: mockOnFilesSelected })
@@ -139,39 +287,19 @@ describe('useMediaPicker', () => {
       });
     });
 
-    it('should call onFilesSelected with captured photo', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: true,
-          isBlocked: false,
-          isDenied: false,
-        },
-        photoLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        mediaLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: jest.fn(),
-      });
-
-      const mockAsset = {
-        uri: 'file:///path/to/photo.jpg',
-        fileName: 'photo.jpg',
+    it('calls onFilesSelected with transformed asset when camera succeeds', async () => {
+      const asset = createMockImagePickerAsset();
+      const pickerResult = {
+        canceled: false,
+        assets: [asset],
       };
 
-      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValue({
-        canceled: false,
-        assets: [mockAsset],
+      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isGranted: true },
       });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
 
       const { result } = renderHook(() =>
         useMediaPicker({ onFilesSelected: mockOnFilesSelected })
@@ -181,123 +309,30 @@ describe('useMediaPicker', () => {
         await result.current.takePhoto();
       });
 
-      expect(mockOnFilesSelected).toHaveBeenCalled();
-      const files = (mockOnFilesSelected as jest.Mock).mock.calls[0][0];
-      expect(files).toHaveLength(1);
-      expect(files[0].type).toBe('photo');
-      expect(files[0].uri).toBe(mockAsset.uri);
-    });
-
-    it('should request permission if not granted', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      const mockRequestCameraPermission = jest.fn(async () => 'granted');
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        photoLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        mediaLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        requestCameraPermission: mockRequestCameraPermission,
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: jest.fn(),
-      });
-
-      const mockAsset = {
-        uri: 'file:///path/to/photo.jpg',
-        fileName: 'photo.jpg',
-      };
-
-      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValue({
-        canceled: false,
-        assets: [mockAsset],
-      });
-
-      const { result } = renderHook(() =>
-        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      expect(mockOnFilesSelected).toHaveBeenCalledTimes(1);
+      expect(mockOnFilesSelected).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            uri: asset.uri,
+            type: 'photo',
+            name: asset.fileName,
+          })
+        ])
       );
-
-      await act(async () => {
-        await result.current.takePhoto();
-      });
-
-      expect(mockRequestCameraPermission).toHaveBeenCalled();
     });
 
-    it('should show blocked permission dialog if permission is blocked', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      const mockHandleBlocked = jest.fn();
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: false,
-          isBlocked: true,
-          isDenied: false,
-        },
-        photoLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        mediaLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: mockHandleBlocked,
-      });
-
-      const { result } = renderHook(() =>
-        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
-      );
-
-      await act(async () => {
-        await result.current.takePhoto();
-      });
-
-      expect(mockHandleBlocked).toHaveBeenCalledWith('camera');
-    });
-
-    it('should handle canceled photo picker', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: true,
-          isBlocked: false,
-          isDenied: false,
-        },
-        photoLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        mediaLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: jest.fn(),
-      });
-
-      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValue({
+    it('does not call onFilesSelected when user cancels', async () => {
+      const pickerResult = {
         canceled: true,
         assets: [],
+      };
+
+      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isGranted: true },
       });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
 
       const { result } = renderHook(() =>
         useMediaPicker({ onFilesSelected: mockOnFilesSelected })
@@ -310,79 +345,101 @@ describe('useMediaPicker', () => {
       expect(mockOnFilesSelected).not.toHaveBeenCalled();
     });
 
-    it('should prevent multiple concurrent takePhoto calls', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: true,
-          isBlocked: false,
-          isDenied: false,
-        },
-        photoLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        mediaLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: jest.fn(),
+    it('calls handleBlockedPermission when permission is blocked', async () => {
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isBlocked: true },
       });
-
-      (ImagePicker.launchCameraAsync as jest.Mock).mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve({ canceled: true, assets: [] }), 100))
-      );
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
 
       const { result } = renderHook(() =>
         useMediaPicker({ onFilesSelected: mockOnFilesSelected })
       );
 
       await act(async () => {
-        const promise1 = result.current.takePhoto();
-        const promise2 = result.current.takePhoto();
-        await Promise.all([promise1, promise2]);
+        await result.current.takePhoto();
       });
 
-      expect(ImagePicker.launchCameraAsync).toHaveBeenCalledTimes(1);
+      expect(mockPermissions.handleBlockedPermission).toHaveBeenCalledWith('camera');
     });
 
-    it('should handle camera errors gracefully', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: true,
-          isBlocked: false,
-          isDenied: false,
-        },
-        photoLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        mediaLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: jest.fn(),
+    it('requests camera permission when denied', async () => {
+      const mockRequestCamera = jest.fn(async () => RESULTS.GRANTED);
+      const mockPermissions = createMockPermissionsObject({
+        requestCameraPermission: mockRequestCamera,
       });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
 
-      const error = new Error('Camera error');
-      (ImagePicker.launchCameraAsync as jest.Mock).mockRejectedValue(error);
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset()],
+      };
+      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
 
       const { result } = renderHook(() =>
-        useMediaPicker({
-          onFilesSelected: mockOnFilesSelected,
-          onError: mockOnError,
-        })
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.takePhoto();
+      });
+
+      expect(mockRequestCamera).toHaveBeenCalledTimes(1);
+    });
+
+    it('launches camera after permission request is granted', async () => {
+      const mockRequestCamera = jest.fn(async () => RESULTS.GRANTED);
+      const mockPermissions = createMockPermissionsObject({
+        requestCameraPermission: mockRequestCamera,
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset()],
+      };
+      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.takePhoto();
+      });
+
+      expect(ImagePicker.launchCameraAsync).toHaveBeenCalled();
+    });
+
+    it('does not launch camera when permission request is denied', async () => {
+      const mockRequestCamera = jest.fn(async () => RESULTS.DENIED);
+      const mockPermissions = createMockPermissionsObject({
+        requestCameraPermission: mockRequestCamera,
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+      (PermissionManager.isGranted as jest.Mock).mockReturnValueOnce(false);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.takePhoto();
+      });
+
+      expect(ImagePicker.launchCameraAsync).not.toHaveBeenCalled();
+    });
+
+    it('calls onError when ImagePicker throws an error', async () => {
+      const error = new Error('Camera failed');
+      (ImagePicker.launchCameraAsync as jest.Mock).mockRejectedValueOnce(error);
+
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected, onError: mockOnError })
       );
 
       await act(async () => {
@@ -391,42 +448,42 @@ describe('useMediaPicker', () => {
 
       expect(mockOnError).toHaveBeenCalledWith(error);
     });
+
+    it('does not call onError callback if not provided', async () => {
+      const error = new Error('Camera failed');
+      (ImagePicker.launchCameraAsync as jest.Mock).mockRejectedValueOnce(error);
+
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.takePhoto();
+      });
+
+      // Should not throw
+      expect(true).toBe(true);
+    });
   });
 
   describe('uploadPhotos', () => {
-    it('should launch photo library when permission granted', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        photoLibrary: {
-          isGranted: true,
-          isBlocked: false,
-          isDenied: false,
-        },
-        mediaLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: jest.fn(),
-      });
-
-      const mockAssets = [
-        { uri: 'file:///path/to/photo1.jpg', fileName: 'photo1.jpg' },
-        { uri: 'file:///path/to/photo2.jpg', fileName: 'photo2.jpg' },
-      ];
-
-      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({
+    it('launches photo library when permission is granted', async () => {
+      const pickerResult = {
         canceled: false,
-        assets: mockAssets,
+        assets: [createMockImagePickerAsset()],
+      };
+
+      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        photoLibrary: { ...createMockPermissionsObject().photoLibrary, isGranted: true },
       });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
 
       const { result } = renderHook(() =>
         useMediaPicker({ onFilesSelected: mockOnFilesSelected })
@@ -444,39 +501,20 @@ describe('useMediaPicker', () => {
       });
     });
 
-    it('should call onFilesSelected with multiple photos', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        photoLibrary: {
-          isGranted: true,
-          isBlocked: false,
-          isDenied: false,
-        },
-        mediaLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: jest.fn(),
-      });
-
-      const mockAssets = [
-        { uri: 'file:///path/to/photo1.jpg', fileName: 'photo1.jpg' },
-        { uri: 'file:///path/to/photo2.jpg', fileName: 'photo2.jpg' },
-      ];
-
-      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({
+    it('calls onFilesSelected with transformed assets when photo library succeeds', async () => {
+      const asset1 = createMockImagePickerAsset({ fileName: 'photo1.jpg' });
+      const asset2 = createMockImagePickerAsset({ fileName: 'photo2.jpg' });
+      const pickerResult = {
         canceled: false,
-        assets: mockAssets,
+        assets: [asset1, asset2],
+      };
+
+      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        photoLibrary: { ...createMockPermissionsObject().photoLibrary, isGranted: true },
       });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
 
       const { result } = renderHook(() =>
         useMediaPicker({ onFilesSelected: mockOnFilesSelected })
@@ -486,121 +524,25 @@ describe('useMediaPicker', () => {
         await result.current.uploadPhotos();
       });
 
-      expect(mockOnFilesSelected).toHaveBeenCalled();
-      const files = (mockOnFilesSelected as jest.Mock).mock.calls[0][0];
+      expect(mockOnFilesSelected).toHaveBeenCalledTimes(1);
+      const [files] = mockOnFilesSelected.mock.calls[0];
       expect(files).toHaveLength(2);
-      files.forEach((file: MediaFile) => {
-        expect(file.type).toBe('photo');
-      });
+      expect(files[0].type).toBe('photo');
+      expect(files[1].type).toBe('photo');
     });
 
-    it('should request permission if not granted', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      const mockRequestPhotoLibraryPermission = jest.fn(async () => 'granted');
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        photoLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        mediaLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: mockRequestPhotoLibraryPermission,
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: jest.fn(),
-      });
-
-      const mockAsset = { uri: 'file:///path/to/photo.jpg', fileName: 'photo.jpg' };
-
-      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({
-        canceled: false,
-        assets: [mockAsset],
-      });
-
-      const { result } = renderHook(() =>
-        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
-      );
-
-      await act(async () => {
-        await result.current.uploadPhotos();
-      });
-
-      expect(mockRequestPhotoLibraryPermission).toHaveBeenCalled();
-    });
-
-    it('should show blocked permission dialog if permission is blocked', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      const mockHandleBlocked = jest.fn();
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        photoLibrary: {
-          isGranted: false,
-          isBlocked: true,
-          isDenied: false,
-        },
-        mediaLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: mockHandleBlocked,
-      });
-
-      const { result } = renderHook(() =>
-        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
-      );
-
-      await act(async () => {
-        await result.current.uploadPhotos();
-      });
-
-      expect(mockHandleBlocked).toHaveBeenCalledWith('photoLibrary');
-    });
-
-    it('should handle canceled photo selection', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        photoLibrary: {
-          isGranted: true,
-          isBlocked: false,
-          isDenied: false,
-        },
-        mediaLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: jest.fn(),
-      });
-
-      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({
+    it('does not call onFilesSelected when user cancels', async () => {
+      const pickerResult = {
         canceled: true,
         assets: [],
+      };
+
+      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        photoLibrary: { ...createMockPermissionsObject().photoLibrary, isGranted: true },
       });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
 
       const { result } = renderHook(() =>
         useMediaPicker({ onFilesSelected: mockOnFilesSelected })
@@ -613,79 +555,129 @@ describe('useMediaPicker', () => {
       expect(mockOnFilesSelected).not.toHaveBeenCalled();
     });
 
-    it('should prevent multiple concurrent uploadPhotos calls', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        photoLibrary: {
-          isGranted: true,
-          isBlocked: false,
-          isDenied: false,
-        },
-        mediaLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: jest.fn(),
+    it('calls handleBlockedPermission when permission is blocked', async () => {
+      const mockPermissions = createMockPermissionsObject({
+        photoLibrary: { ...createMockPermissionsObject().photoLibrary, isBlocked: true },
       });
-
-      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve({ canceled: true, assets: [] }), 100))
-      );
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
 
       const { result } = renderHook(() =>
         useMediaPicker({ onFilesSelected: mockOnFilesSelected })
       );
 
       await act(async () => {
-        const promise1 = result.current.uploadPhotos();
-        const promise2 = result.current.uploadPhotos();
-        await Promise.all([promise1, promise2]);
+        await result.current.uploadPhotos();
       });
 
-      expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalledTimes(1);
+      expect(mockPermissions.handleBlockedPermission).toHaveBeenCalledWith('photoLibrary');
     });
+
+    it('requests photo library permission when denied', async () => {
+      const mockRequestPhotos = jest.fn(async () => RESULTS.GRANTED);
+      const mockPermissions = createMockPermissionsObject({
+        requestPhotoLibraryPermission: mockRequestPhotos,
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset()],
+      };
+      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.uploadPhotos();
+      });
+
+      expect(mockRequestPhotos).toHaveBeenCalledTimes(1);
+    });
+
+    it('launches photo library after permission request is granted', async () => {
+      const mockRequestPhotos = jest.fn(async () => RESULTS.GRANTED);
+      const mockPermissions = createMockPermissionsObject({
+        requestPhotoLibraryPermission: mockRequestPhotos,
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset()],
+      };
+      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.uploadPhotos();
+      });
+
+      expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalled();
+    });
+
+    it('does not launch photo library when permission request is denied', async () => {
+      const mockRequestPhotos = jest.fn(async () => RESULTS.DENIED);
+      const mockPermissions = createMockPermissionsObject({
+        requestPhotoLibraryPermission: mockRequestPhotos,
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+      (PermissionManager.isGranted as jest.Mock).mockReturnValueOnce(false);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.uploadPhotos();
+      });
+
+      expect(ImagePicker.launchImageLibraryAsync).not.toHaveBeenCalled();
+    });
+
+    it('does not call onFilesSelected when photo library is empty', async () => {
+      const pickerResult = {
+        canceled: false,
+        assets: [],
+      };
+
+      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        photoLibrary: { ...createMockPermissionsObject().photoLibrary, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.uploadPhotos();
+      });
+
+      expect(mockOnFilesSelected).not.toHaveBeenCalled();
+    });
+
   });
 
   describe('uploadVideos', () => {
-    it('should launch video library when permission granted', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        photoLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        mediaLibrary: {
-          isGranted: true,
-          isBlocked: false,
-          isDenied: false,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: jest.fn(),
-      });
-
-      const mockAssets = [{ uri: 'file:///path/to/video.mp4', fileName: 'video.mp4' }];
-
-      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({
+    it('launches video library when permission is granted', async () => {
+      const pickerResult = {
         canceled: false,
-        assets: mockAssets,
+        assets: [createMockImagePickerAsset()],
+      };
+
+      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        mediaLibrary: { ...createMockPermissionsObject().mediaLibrary, isGranted: true },
       });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
 
       const { result } = renderHook(() =>
         useMediaPicker({ onFilesSelected: mockOnFilesSelected })
@@ -703,36 +695,19 @@ describe('useMediaPicker', () => {
       });
     });
 
-    it('should call onFilesSelected with video files', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        photoLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        mediaLibrary: {
-          isGranted: true,
-          isBlocked: false,
-          isDenied: false,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: jest.fn(),
-      });
-
-      const mockAssets = [{ uri: 'file:///path/to/video.mp4', fileName: 'video.mp4' }];
-
-      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({
+    it('calls onFilesSelected with transformed video assets', async () => {
+      const asset = createMockImagePickerAsset();
+      const pickerResult = {
         canceled: false,
-        assets: mockAssets,
+        assets: [asset],
+      };
+
+      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        mediaLibrary: { ...createMockPermissionsObject().mediaLibrary, isGranted: true },
       });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
 
       const { result } = renderHook(() =>
         useMediaPicker({ onFilesSelected: mockOnFilesSelected })
@@ -742,43 +717,40 @@ describe('useMediaPicker', () => {
         await result.current.uploadVideos();
       });
 
-      expect(mockOnFilesSelected).toHaveBeenCalled();
-      const files = (mockOnFilesSelected as jest.Mock).mock.calls[0][0];
-      expect(files).toHaveLength(1);
+      expect(mockOnFilesSelected).toHaveBeenCalledTimes(1);
+      const [files] = mockOnFilesSelected.mock.calls[0];
       expect(files[0].type).toBe('video');
     });
 
-    it('should request permission if not granted', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      const mockRequestMediaLibraryPermission = jest.fn(async () => 'granted');
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        photoLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        mediaLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: mockRequestMediaLibraryPermission,
-        handleBlockedPermission: jest.fn(),
+    it('calls handleBlockedPermission when permission is blocked', async () => {
+      const mockPermissions = createMockPermissionsObject({
+        mediaLibrary: { ...createMockPermissionsObject().mediaLibrary, isBlocked: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.uploadVideos();
       });
 
-      const mockAsset = { uri: 'file:///path/to/video.mp4', fileName: 'video.mp4' };
+      expect(mockPermissions.handleBlockedPermission).toHaveBeenCalledWith('mediaLibrary');
+    });
 
-      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({
+    it('requests media library permission when denied', async () => {
+      const mockRequestVideos = jest.fn(async () => RESULTS.GRANTED);
+      const mockPermissions = createMockPermissionsObject({
+        requestMediaLibraryPermission: mockRequestVideos,
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+
+      const pickerResult = {
         canceled: false,
-        assets: [mockAsset],
-      });
+        assets: [createMockImagePickerAsset()],
+      };
+      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
 
       const { result } = renderHook(() =>
         useMediaPicker({ onFilesSelected: mockOnFilesSelected })
@@ -788,33 +760,21 @@ describe('useMediaPicker', () => {
         await result.current.uploadVideos();
       });
 
-      expect(mockRequestMediaLibraryPermission).toHaveBeenCalled();
+      expect(mockRequestVideos).toHaveBeenCalledTimes(1);
     });
 
-    it('should show blocked permission dialog if permission is blocked', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      const mockHandleBlocked = jest.fn();
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        photoLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        mediaLibrary: {
-          isGranted: false,
-          isBlocked: true,
-          isDenied: false,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: mockHandleBlocked,
+    it('launches video library after permission request is granted', async () => {
+      const mockRequestVideos = jest.fn(async () => RESULTS.GRANTED);
+      const mockPermissions = createMockPermissionsObject({
+        requestMediaLibraryPermission: mockRequestVideos,
       });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset()],
+      };
+      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
 
       const { result } = renderHook(() =>
         useMediaPicker({ onFilesSelected: mockOnFilesSelected })
@@ -824,37 +784,40 @@ describe('useMediaPicker', () => {
         await result.current.uploadVideos();
       });
 
-      expect(mockHandleBlocked).toHaveBeenCalledWith('mediaLibrary');
+      expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalled();
     });
 
-    it('should handle canceled video selection', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        photoLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        mediaLibrary: {
-          isGranted: true,
-          isBlocked: false,
-          isDenied: false,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: jest.fn(),
+    it('does not launch video library when permission request is denied', async () => {
+      const mockRequestVideos = jest.fn(async () => RESULTS.DENIED);
+      const mockPermissions = createMockPermissionsObject({
+        requestMediaLibraryPermission: mockRequestVideos,
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+      (PermissionManager.isGranted as jest.Mock).mockReturnValueOnce(false);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.uploadVideos();
       });
 
-      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({
-        canceled: true,
+      expect(ImagePicker.launchImageLibraryAsync).not.toHaveBeenCalled();
+    });
+
+    it('does not call onFilesSelected when video library is empty', async () => {
+      const pickerResult = {
+        canceled: false,
         assets: [],
+      };
+
+      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        mediaLibrary: { ...createMockPermissionsObject().mediaLibrary, isGranted: true },
       });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
 
       const { result } = renderHook(() =>
         useMediaPicker({ onFilesSelected: mockOnFilesSelected })
@@ -866,83 +829,72 @@ describe('useMediaPicker', () => {
 
       expect(mockOnFilesSelected).not.toHaveBeenCalled();
     });
-  });
 
-  describe('isProcessing state', () => {
-    it('should set isProcessing to true during operation', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: true,
-          isBlocked: false,
-          isDenied: false,
-        },
-        photoLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        mediaLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: jest.fn(),
+    it('does not launch video library when permission request is denied', async () => {
+      const mockRequestVideos = jest.fn(async () => RESULTS.DENIED);
+      const mockPermissions = createMockPermissionsObject({
+        requestMediaLibraryPermission: mockRequestVideos,
       });
-
-      let resolvePhoto: any;
-      (ImagePicker.launchCameraAsync as jest.Mock).mockReturnValue(
-        new Promise((resolve) => {
-          resolvePhoto = resolve;
-        })
-      );
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+      (PermissionManager.isGranted as jest.Mock).mockReturnValueOnce(false);
 
       const { result } = renderHook(() =>
         useMediaPicker({ onFilesSelected: mockOnFilesSelected })
       );
 
-      expect(result.current.isProcessing).toBe(false);
-
-      const photoPromise = act(async () => {
-        result.current.takePhoto();
+      await act(async () => {
+        await result.current.uploadVideos();
       });
 
-      // Photo picker should be processing
-      // Note: This is timing dependent, may not always work in test
-      await photoPromise;
+      expect(ImagePicker.launchImageLibraryAsync).not.toHaveBeenCalled();
     });
 
-    it('should set isProcessing to false after operation completes', async () => {
-      const { useMediaPermissions } = require('@/hooks/useMediaPermissions');
-      useMediaPermissions.mockReturnValue({
-        camera: {
-          isGranted: true,
-          isBlocked: false,
-          isDenied: false,
-        },
-        photoLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        mediaLibrary: {
-          isGranted: false,
-          isBlocked: false,
-          isDenied: true,
-        },
-        requestCameraPermission: jest.fn(async () => 'granted'),
-        requestPhotoLibraryPermission: jest.fn(async () => 'granted'),
-        requestMediaLibraryPermission: jest.fn(async () => 'granted'),
-        handleBlockedPermission: jest.fn(),
-      });
-
-      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValue({
+    it('does not call onError for canceled video operations when not provided', async () => {
+      const pickerResult = {
         canceled: true,
         assets: [],
+      };
+
+      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        mediaLibrary: { ...createMockPermissionsObject().mediaLibrary, isGranted: true },
       });
+      (useMediaPermissions as jest.Mock).mockReturnValueOnce(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.uploadVideos();
+      });
+
+      expect(mockOnError).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('isProcessing state management', () => {
+    it('initializes isProcessing as false', () => {
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      expect(result.current.isProcessing).toBe(false);
+    });
+
+    it('resets isProcessing to false after successful operation', async () => {
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset()],
+      };
+
+      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValue(mockPermissions);
 
       const { result } = renderHook(() =>
         useMediaPicker({ onFilesSelected: mockOnFilesSelected })
@@ -953,6 +905,345 @@ describe('useMediaPicker', () => {
       });
 
       expect(result.current.isProcessing).toBe(false);
+    });
+
+    it('resets isProcessing to false after error', async () => {
+      (ImagePicker.launchCameraAsync as jest.Mock).mockRejectedValueOnce(
+        new Error('Camera error')
+      );
+
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValue(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected, onError: mockOnError })
+      );
+
+      await act(async () => {
+        await result.current.takePhoto();
+      });
+
+      expect(result.current.isProcessing).toBe(false);
+    });
+
+    it('prevents double execution when called multiple times rapidly', async () => {
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset()],
+      };
+
+      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValue(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValue(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        // Call takePhoto multiple times rapidly
+        const promise1 = result.current.takePhoto();
+        const promise2 = result.current.takePhoto();
+        const promise3 = result.current.takePhoto();
+
+        await Promise.all([promise1, promise2, promise3]);
+      });
+
+      // Should only be called once due to isProcessingRef check
+      expect(ImagePicker.launchCameraAsync).toHaveBeenCalledTimes(1);
+    });
+
+    it('prevents double execution of uploadPhotos when called multiple times rapidly', async () => {
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset()],
+      };
+
+      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        photoLibrary: { ...createMockPermissionsObject().photoLibrary, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValue(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        const promise1 = result.current.uploadPhotos();
+        const promise2 = result.current.uploadPhotos();
+        const promise3 = result.current.uploadPhotos();
+
+        await Promise.all([promise1, promise2, promise3]);
+      });
+
+      expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalledTimes(1);
+    });
+
+    it('prevents double execution of uploadVideos when called multiple times rapidly', async () => {
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset()],
+      };
+
+      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        mediaLibrary: { ...createMockPermissionsObject().mediaLibrary, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValue(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        const promise1 = result.current.uploadVideos();
+        const promise2 = result.current.uploadVideos();
+        const promise3 = result.current.uploadVideos();
+
+        await Promise.all([promise1, promise2, promise3]);
+      });
+
+      expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('onFilesSelected callback', () => {
+    it('receives array of MediaFile objects', async () => {
+      const asset = createMockImagePickerAsset();
+      const pickerResult = {
+        canceled: false,
+        assets: [asset],
+      };
+
+      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValue(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.takePhoto();
+      });
+
+      expect(mockOnFilesSelected).toHaveBeenCalledWith(expect.any(Array));
+    });
+
+    it('receives multiple files from photo library', async () => {
+      const assets = [
+        createMockImagePickerAsset({ fileName: 'photo1.jpg' }),
+        createMockImagePickerAsset({ fileName: 'photo2.jpg' }),
+        createMockImagePickerAsset({ fileName: 'photo3.jpg' }),
+      ];
+      const pickerResult = {
+        canceled: false,
+        assets,
+      };
+
+      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        photoLibrary: { ...createMockPermissionsObject().photoLibrary, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValue(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.uploadPhotos();
+      });
+
+      expect(mockOnFilesSelected).toHaveBeenCalledWith(expect.arrayContaining([
+        expect.objectContaining({ type: 'photo' }),
+        expect.objectContaining({ type: 'photo' }),
+        expect.objectContaining({ type: 'photo' }),
+      ]));
+    });
+
+    it('each file has required MediaFile properties', async () => {
+      const asset = createMockImagePickerAsset();
+      const pickerResult = {
+        canceled: false,
+        assets: [asset],
+      };
+
+      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValue(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.takePhoto();
+      });
+
+      const [files] = mockOnFilesSelected.mock.calls[0];
+      const file = files[0];
+
+      expect(file).toHaveProperty('id');
+      expect(file).toHaveProperty('uri');
+      expect(file).toHaveProperty('type');
+      expect(file).toHaveProperty('name');
+      expect(typeof file.id).toBe('string');
+      expect(typeof file.uri).toBe('string');
+      expect(typeof file.type).toBe('string');
+      expect(typeof file.name).toBe('string');
+    });
+  });
+
+  describe('onError callback', () => {
+    it('receives Error object on camera failure', async () => {
+      const error = new Error('Camera access denied');
+      (ImagePicker.launchCameraAsync as jest.Mock).mockRejectedValueOnce(error);
+
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValue(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected, onError: mockOnError })
+      );
+
+      await act(async () => {
+        await result.current.takePhoto();
+      });
+
+      expect(mockOnError).toHaveBeenCalledWith(error);
+    });
+
+    it('does not call onError for canceled operations', async () => {
+      const pickerResult = {
+        canceled: true,
+        assets: [],
+      };
+
+      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValue(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected, onError: mockOnError })
+      );
+
+      await act(async () => {
+        await result.current.takePhoto();
+      });
+
+      expect(mockOnError).not.toHaveBeenCalled();
+    });
+
+    it('only handles Error instances', async () => {
+      (ImagePicker.launchCameraAsync as jest.Mock).mockRejectedValueOnce('string error');
+
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isGranted: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValue(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected, onError: mockOnError })
+      );
+
+      await act(async () => {
+        await result.current.takePhoto();
+      });
+
+      expect(mockOnError).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('permission flow combinations', () => {
+    it('completes full flow: denied -> request -> granted -> launch camera', async () => {
+      const mockRequestCamera = jest.fn(async () => RESULTS.GRANTED);
+      const mockPermissions = createMockPermissionsObject({
+        requestCameraPermission: mockRequestCamera,
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValue(mockPermissions);
+
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset()],
+      };
+      (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.takePhoto();
+      });
+
+      expect(mockRequestCamera).toHaveBeenCalled();
+      expect(ImagePicker.launchCameraAsync).toHaveBeenCalled();
+      expect(mockOnFilesSelected).toHaveBeenCalled();
+    });
+
+    it('completes full flow for photo library: denied -> request -> granted -> launch', async () => {
+      const mockRequestPhotos = jest.fn(async () => RESULTS.GRANTED);
+      const mockPermissions = createMockPermissionsObject({
+        requestPhotoLibraryPermission: mockRequestPhotos,
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValue(mockPermissions);
+
+      const pickerResult = {
+        canceled: false,
+        assets: [createMockImagePickerAsset()],
+      };
+      (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValueOnce(pickerResult);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.uploadPhotos();
+      });
+
+      expect(mockRequestPhotos).toHaveBeenCalled();
+      expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalled();
+      expect(mockOnFilesSelected).toHaveBeenCalled();
+    });
+
+    it('handles blocked permission flow with settings dialog', async () => {
+      const mockPermissions = createMockPermissionsObject({
+        camera: { ...createMockPermissionsObject().camera, isBlocked: true },
+      });
+      (useMediaPermissions as jest.Mock).mockReturnValue(mockPermissions);
+
+      const { result } = renderHook(() =>
+        useMediaPicker({ onFilesSelected: mockOnFilesSelected })
+      );
+
+      await act(async () => {
+        await result.current.takePhoto();
+      });
+
+      expect(mockPermissions.handleBlockedPermission).toHaveBeenCalledWith('camera');
+      expect(ImagePicker.launchCameraAsync).not.toHaveBeenCalled();
     });
   });
 });

@@ -1,705 +1,471 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { View } from 'react-native';
+import { render, screen, fireEvent } from '@testing-library/react-native';
 import { AccountScreen } from './AccountScreen';
-import { useAuth } from '@/providers/AuthProvider';
 import { useAuthStore } from '@/store';
-import { router } from 'expo-router';
+import { useAuth } from '@/providers';
 import { useTranslation } from '@/i18n/hooks';
+import { getInitials } from '@/utils/getInitials';
+import { getUserTypeBadge } from '@/utils/getUserTypeBadge';
+import { getInstitutionTypeLabel } from '@/utils/getInstitutionTypeLabel';
+import { router } from 'expo-router';
 
 // Mock dependencies
-jest.mock('@/providers/AuthProvider');
 jest.mock('@/store');
+jest.mock('@/providers');
 jest.mock('@/i18n/hooks');
-jest.mock('expo-router', () => ({
-  router: {
-    replace: jest.fn(),
-    push: jest.fn(),
-    back: jest.fn(),
-  },
-  useRouter: jest.fn(),
-  usePathname: jest.fn(),
-  useSegments: jest.fn(),
-  useLocalSearchParams: jest.fn(),
-}));
+jest.mock('@/utils/getInitials');
+jest.mock('@/utils/getUserTypeBadge');
+jest.mock('@/utils/getInstitutionTypeLabel');
+jest.mock('expo-router');
 
-jest.mock('react-native-safe-area-context', () => {
-  const RN = jest.requireActual('react-native');
-  return {
-    SafeAreaView: RN.View,
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-  };
-});
-
-jest.mock('lucide-react-native', () => ({
-  Mail: 'Mail',
-  Phone: 'Phone',
-  Building2: 'Building2',
-  MapPin: 'MapPin',
-  FileText: 'FileText',
-  UserCircle: 'UserCircle',
-  LogOut: 'LogOut',
-}));
-
-const mockLogout = jest.fn();
+const mockUseAuthStore = useAuthStore as jest.MockedFunction<typeof useAuthStore>;
+const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
+const mockUseTranslation = useTranslation as jest.MockedFunction<typeof useTranslation>;
+const mockGetInitials = getInitials as jest.MockedFunction<typeof getInitials>;
+const mockGetUserTypeBadge = getUserTypeBadge as jest.MockedFunction<typeof getUserTypeBadge>;
+const mockGetInstitutionTypeLabel = getInstitutionTypeLabel as jest.MockedFunction<
+  typeof getInstitutionTypeLabel
+>;
 
 describe('AccountScreen', () => {
-  const mockUser = {
-    id: '1',
-    email: 'test@example.com',
-    name: 'John Doe',
-    role: 'client',
-    groups: ['client'],
-    profile: {
-      telefono: '+1234567890',
-      nombreInstitucion: 'Test Hospital',
-      tipoInstitucion: 'hospital',
-      nit: '123456789',
-      representante: 'John Representative',
-      direccion: '123 Main St',
-      ciudad: 'Test City',
-      pais: 'Colombia',
-    },
+  const mockLogout = jest.fn();
+
+  const mockT = (key: string, params?: any): string => {
+    const translations: Record<string, string> = {
+      'account.title': 'Account',
+      'account.contactInfo': 'Contact Information',
+      'account.profile.email': 'Email',
+      'account.profile.phone': 'Phone',
+      'account.institutionInfo': 'Institution Information',
+      'account.profile.institution': 'Institution',
+      'account.profile.type': 'Type',
+      'account.profile.nit': 'NIT',
+      'account.profile.representative': 'Representative',
+      'account.location': 'Location',
+      'account.profile.address': 'Address',
+      'account.profile.city': 'City',
+      'account.profile.country': 'Country',
+      'account.logout': 'Logout',
+      'account.appInfo.appName': 'MediSupply',
+      'account.appInfo.version': `Version ${params?.version || '1.0.0'}`,
+    };
+    return translations[key] || key;
+  };
+
+  const setupUserMock = (user: any) => {
+    mockUseAuthStore.mockImplementation((selector) => {
+      const state = { user } as any;
+      return selector(state);
+    });
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    (useAuth as jest.Mock).mockReturnValue({
+    mockUseAuth.mockReturnValue({
       logout: mockLogout,
+    } as any);
+
+    mockUseTranslation.mockReturnValue({
+      t: mockT,
+    } as any);
+
+    mockGetInitials.mockImplementation((name) => {
+      if (!name) return '';
+      const parts = name.split(' ');
+      return parts.map((p) => p[0]).join('').toUpperCase();
     });
 
-    (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-      selector({ user: mockUser })
-    );
+    mockGetUserTypeBadge.mockReturnValue({
+      label: 'Client',
+      action: 'success',
+    });
 
-    (useTranslation as jest.Mock).mockReturnValue({
-      t: (key: string, options?: any) => {
-        if (options?.version) return `App v${options.version}`;
-        return key;
+    mockGetInstitutionTypeLabel.mockReturnValue('Hospital');
+
+    setupUserMock(null);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // Test 1: Screen renders with testID
+  it('should render screen with testID', () => {
+    setupUserMock({
+      id: '1',
+      name: 'Alice Smith',
+      email: 'alice@example.com',
+      role: 'client',
+      groups: [],
+      profile: {},
+    });
+
+    render(<AccountScreen />);
+    expect(screen.getByTestId('account-screen')).toBeTruthy();
+  });
+
+  // Test 2: User name when available
+  it('should render user name when available', () => {
+    setupUserMock({
+      id: '1',
+      name: 'Alice Smith',
+      email: 'alice@example.com',
+      role: 'client',
+      groups: [],
+      profile: {},
+    });
+
+    render(<AccountScreen />);
+    expect(screen.getByText('Alice Smith')).toBeTruthy();
+  });
+
+  // Test 3: Default user name when null
+  it('should render default name "Usuario" when user name is null', () => {
+    setupUserMock({
+      id: '1',
+      name: null,
+      email: 'john@example.com',
+      role: 'client',
+      groups: [],
+      profile: {},
+    });
+
+    render(<AccountScreen />);
+    expect(screen.getByText('Usuario')).toBeTruthy();
+  });
+
+  // Test 4: Avatar with initials
+  it('should render avatar with initials from user name', () => {
+    setupUserMock({
+      id: '1',
+      name: 'Alice Smith',
+      email: 'alice@example.com',
+      role: 'client',
+      groups: [],
+      profile: {},
+    });
+
+    render(<AccountScreen />);
+    expect(mockGetInitials).toHaveBeenCalledWith('Alice Smith');
+  });
+
+  // Test 5: User type badge
+  it('should render user type badge for role', () => {
+    mockGetUserTypeBadge.mockReturnValue({
+      label: 'Seller',
+      action: 'info',
+    });
+
+    setupUserMock({
+      id: '1',
+      name: 'Alice Smith',
+      email: 'alice@example.com',
+      role: 'seller',
+      groups: [],
+      profile: {},
+    });
+
+    render(<AccountScreen />);
+    expect(mockGetUserTypeBadge).toHaveBeenCalledWith('seller', mockT);
+    expect(screen.getByText('Seller')).toBeTruthy();
+  });
+
+  // Test 6: Groups - empty array not shown
+  it('should not render groups when user has none or single group', () => {
+    setupUserMock({
+      id: '1',
+      name: 'Alice Smith',
+      email: 'alice@example.com',
+      role: 'client',
+      groups: [],
+      profile: {},
+    });
+
+    const { queryByText } = render(<AccountScreen />);
+    expect(queryByText('admin')).toBeFalsy();
+  });
+
+  // Test 7: Groups - single group not shown
+  it('should not show single group, only multiple groups display', () => {
+    setupUserMock({
+      id: '1',
+      name: 'Alice Smith',
+      email: 'alice@example.com',
+      role: 'client',
+      groups: ['admin'],
+      profile: {},
+    });
+
+    const { queryByText } = render(<AccountScreen />);
+    expect(queryByText('admin')).toBeFalsy();
+  });
+
+  // Test 8: Multiple groups rendered
+  it('should render multiple groups when user has more than one', () => {
+    setupUserMock({
+      id: '1',
+      name: 'Alice Smith',
+      email: 'alice@example.com',
+      role: 'client',
+      groups: ['admin', 'staff'],
+      profile: {},
+    });
+
+    render(<AccountScreen />);
+    expect(screen.getByText('admin')).toBeTruthy();
+    expect(screen.getByText('staff')).toBeTruthy();
+  });
+
+  // Test 9: Email in contact info
+  it('should render email in contact info section', () => {
+    setupUserMock({
+      id: '1',
+      name: 'Alice Smith',
+      email: 'alice@example.com',
+      role: 'client',
+      groups: [],
+      profile: {},
+    });
+
+    render(<AccountScreen />);
+    expect(screen.getByTestId('contact-info')).toBeTruthy();
+    expect(screen.getByText('alice@example.com')).toBeTruthy();
+  });
+
+  // Test 10: Default email when null
+  it('should render N/A as default email when null', () => {
+    setupUserMock({
+      id: '1',
+      name: 'Alice Smith',
+      email: null,
+      role: 'client',
+      groups: [],
+      profile: {},
+    });
+
+    render(<AccountScreen />);
+    expect(screen.getByText('N/A')).toBeTruthy();
+  });
+
+  // Test 11: Phone when available
+  it('should render phone when available in profile', () => {
+    setupUserMock({
+      id: '1',
+      name: 'Alice Smith',
+      email: 'alice@example.com',
+      role: 'client',
+      groups: [],
+      profile: {
+        telefono: '3115551234',
       },
     });
+
+    render(<AccountScreen />);
+    expect(screen.getByText('3115551234')).toBeTruthy();
   });
 
-  describe('Basic Rendering', () => {
-    it('should render AccountScreen without crashing', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.title')).toBeTruthy();
+  // Test 12: Phone not shown when unavailable
+  it('should not render phone when unavailable in profile', () => {
+    setupUserMock({
+      id: '1',
+      name: 'Alice Smith',
+      email: 'alice@example.com',
+      role: 'client',
+      groups: [],
+      profile: {},
     });
 
-    it('should display account title', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.title')).toBeTruthy();
-    });
-
-    it('should render user profile section', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('John Doe')).toBeTruthy();
-    });
-
-    it('should display logout button', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.logout')).toBeTruthy();
-    });
-
-    it('should render app info section', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.appInfo.appName')).toBeTruthy();
-    });
+    const { queryByText } = render(<AccountScreen />);
+    expect(queryByText('3115551234')).toBeFalsy();
   });
 
-  describe('User Profile Display', () => {
-    it('should display user name', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('John Doe')).toBeTruthy();
+  // Test 13: Institution NOT shown for non-client
+  it('should not render institution section for non-client users', () => {
+    setupUserMock({
+      id: '1',
+      name: 'Bob Jones',
+      email: 'bob@example.com',
+      role: 'seller',
+      groups: [],
+      profile: {
+        nombreInstitucion: 'Seller Hospital',
+      },
     });
 
-    it('should display user avatar with initials', () => {
-      const { getByText, queryByText } = render(<AccountScreen />);
-      // The avatar should display the initials from the user's name
-      // Either full initials "JD" or just "J" depending on component rendering
-      const initialsElement = queryByText('JD') || queryByText('J');
-      expect(initialsElement).toBeTruthy();
-    });
-
-    it('should display user role badge', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.title')).toBeTruthy();
-    });
-
-    it('should display user email', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('test@example.com')).toBeTruthy();
-    });
-
-    it('should display contact info section header', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.contactInfo')).toBeTruthy();
-    });
+    const { queryByTestId } = render(<AccountScreen />);
+    expect(queryByTestId('institution-info')).toBeFalsy();
   });
 
-  describe('Contact Information Display', () => {
-    it('should display phone when provided', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('+1234567890')).toBeTruthy();
+  // Test 14: Institution NOT shown without data
+  it('should not render institution section without institution data', () => {
+    setupUserMock({
+      id: '1',
+      name: 'Alice Smith',
+      email: 'alice@example.com',
+      role: 'client',
+      groups: [],
+      profile: {},
     });
 
-    it('should not display phone when not provided', () => {
-      const userWithoutPhone = {
-        ...mockUser,
-        profile: { ...mockUser.profile, telefono: undefined },
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: userWithoutPhone })
-      );
-
-      const { queryByText } = render(<AccountScreen />);
-      expect(queryByText('+1234567890')).toBeNull();
-    });
-
-    it('should display email label', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.profile.email')).toBeTruthy();
-    });
-
-    it('should display phone label', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.profile.phone')).toBeTruthy();
-    });
-
-    it('should display N/A when email is missing', () => {
-      const userWithoutEmail = {
-        ...mockUser,
-        email: undefined,
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: userWithoutEmail })
-      );
-
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('N/A')).toBeTruthy();
-    });
+    const { queryByTestId } = render(<AccountScreen />);
+    expect(queryByTestId('institution-info')).toBeFalsy();
   });
 
-  describe('Institution Information Display - Client Role', () => {
-    it('should display institution info section for client role', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.institutionInfo')).toBeTruthy();
+  // Test 15: Institution shown for client with all fields
+  it('should render institution section with all fields for client', () => {
+    mockGetInstitutionTypeLabel.mockReturnValue('Clinic');
+
+    setupUserMock({
+      id: '1',
+      name: 'Alice Smith',
+      email: 'alice@example.com',
+      role: 'client',
+      groups: [],
+      profile: {
+        nombreInstitucion: 'Central Clinic',
+        tipoInstitucion: 'clinic',
+        nit: '987654321',
+        representante: 'Dr. Miguel Lopez',
+      },
     });
 
-    it('should display institution name', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('Test Hospital')).toBeTruthy();
-    });
-
-    it('should display institution type label', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.profile.type')).toBeTruthy();
-    });
-
-    it('should display institution type value', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.institutionTypes.hospital')).toBeTruthy();
-    });
-
-    it('should display NIT number', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('123456789')).toBeTruthy();
-    });
-
-    it('should display representative name', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('John Representative')).toBeTruthy();
-    });
-
-    it('should not display institution info for non-client role', () => {
-      const sellerUser = {
-        ...mockUser,
-        role: 'seller',
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: sellerUser })
-      );
-
-      const { queryByText } = render(<AccountScreen />);
-      expect(queryByText('account.institutionInfo')).toBeNull();
-    });
-
-    it('should not display institution info when no institution data', () => {
-      const clientWithoutInstitution = {
-        ...mockUser,
-        role: 'client',
-        profile: { ...mockUser.profile, nombreInstitucion: undefined, tipoInstitucion: undefined },
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: clientWithoutInstitution })
-      );
-
-      const { queryByText } = render(<AccountScreen />);
-      expect(queryByText('account.institutionInfo')).toBeNull();
-    });
+    render(<AccountScreen />);
+    expect(screen.getByTestId('institution-info')).toBeTruthy();
+    expect(screen.getByText('Central Clinic')).toBeTruthy();
+    expect(mockGetInstitutionTypeLabel).toHaveBeenCalledWith('clinic', mockT);
+    expect(screen.getByText('Clinic')).toBeTruthy();
+    expect(screen.getByText('987654321')).toBeTruthy();
+    expect(screen.getByText('Dr. Miguel Lopez')).toBeTruthy();
   });
 
-  describe('Institution Information by Type', () => {
-    it('should display hospital type correctly', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.institutionTypes.hospital')).toBeTruthy();
+  // Test 16: Location NOT shown without data
+  it('should not render location section without location data', () => {
+    setupUserMock({
+      id: '1',
+      name: 'Alice Smith',
+      email: 'alice@example.com',
+      role: 'client',
+      groups: [],
+      profile: {},
     });
 
-    it('should display clinica type correctly', () => {
-      const clinicUser = {
-        ...mockUser,
-        profile: { ...mockUser.profile, tipoInstitucion: 'clinica' },
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: clinicUser })
-      );
-
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.institutionTypes.clinica')).toBeTruthy();
-    });
-
-    it('should display laboratorio type correctly', () => {
-      const labUser = {
-        ...mockUser,
-        profile: { ...mockUser.profile, tipoInstitucion: 'laboratorio' },
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: labUser })
-      );
-
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.institutionTypes.laboratorio')).toBeTruthy();
-    });
-
-    it('should display farmacia type correctly', () => {
-      const pharmacyUser = {
-        ...mockUser,
-        profile: { ...mockUser.profile, tipoInstitucion: 'farmacia' },
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: pharmacyUser })
-      );
-
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.institutionTypes.farmacia')).toBeTruthy();
-    });
+    const { queryByTestId } = render(<AccountScreen />);
+    expect(queryByTestId('location-info')).toBeFalsy();
   });
 
-  describe('Location Information Display', () => {
-    it('should display location section', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.location')).toBeTruthy();
+  // Test 17: Location shown with all fields
+  it('should render location section with all fields when available', () => {
+    setupUserMock({
+      id: '1',
+      name: 'Alice Smith',
+      email: 'alice@example.com',
+      role: 'client',
+      groups: [],
+      profile: {
+        direccion: '456 Oak Ave',
+        ciudad: 'Medellin',
+        pais: 'Colombia',
+      },
     });
 
-    it('should display address', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('123 Main St')).toBeTruthy();
-    });
-
-    it('should display city', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('Test City')).toBeTruthy();
-    });
-
-    it('should display country', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('Colombia')).toBeTruthy();
-    });
-
-    it('should display address label', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.profile.address')).toBeTruthy();
-    });
-
-    it('should display city label', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.profile.city')).toBeTruthy();
-    });
-
-    it('should display country label', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.profile.country')).toBeTruthy();
-    });
-
-    it('should not display location section when no location data', () => {
-      const userWithoutLocation = {
-        ...mockUser,
-        profile: {
-          telefono: '+1234567890',
-          nombreInstitucion: 'Test Hospital',
-        },
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: userWithoutLocation })
-      );
-
-      const { queryByText } = render(<AccountScreen />);
-      expect(queryByText('account.location')).toBeNull();
-    });
-
-    it('should display location section with partial data', () => {
-      const userWithPartialLocation = {
-        ...mockUser,
-        profile: {
-          ...mockUser.profile,
-          ciudad: 'Only City',
-          direccion: undefined,
-          pais: undefined,
-        },
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: userWithPartialLocation })
-      );
-
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.location')).toBeTruthy();
-      expect(getByText('Only City')).toBeTruthy();
-    });
+    render(<AccountScreen />);
+    expect(screen.getByTestId('location-info')).toBeTruthy();
+    expect(screen.getByText('456 Oak Ave')).toBeTruthy();
+    expect(screen.getByText('Medellin')).toBeTruthy();
+    expect(screen.getByText('Colombia')).toBeTruthy();
   });
 
-  describe('User Type Badges', () => {
-    it('should display role information for client', () => {
-      const clientUser = { ...mockUser, role: 'client' };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: clientUser })
-      );
-
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('John Doe')).toBeTruthy();
+  // Test 18: Logout button calls handler and navigates
+  it('should call logout and navigate when logout button is pressed', () => {
+    setupUserMock({
+      id: '1',
+      name: 'Alice Smith',
+      email: 'alice@example.com',
+      role: 'client',
+      groups: [],
+      profile: {},
     });
 
-    it('should display role information for seller', () => {
-      const sellerUser = { ...mockUser, role: 'seller' };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: sellerUser })
-      );
+    render(<AccountScreen />);
+    const logoutButton = screen.getByText('Logout');
+    fireEvent.press(logoutButton);
 
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('John Doe')).toBeTruthy();
-    });
-
-    it('should display role information for admin', () => {
-      const adminUser = { ...mockUser, role: 'admin' };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: adminUser })
-      );
-
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('John Doe')).toBeTruthy();
-    });
-
-    it('should display role information for unknown role', () => {
-      const unknownRoleUser = { ...mockUser, role: 'unknown' };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: unknownRoleUser })
-      );
-
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('John Doe')).toBeTruthy();
-    });
+    expect(mockLogout).toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith('/login');
   });
 
-  describe('Groups Display', () => {
-    it('should display user with single group', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('John Doe')).toBeTruthy();
+  // Test 19: Full client profile with all sections
+  it('should render complete client profile with all sections and data', () => {
+    mockGetInstitutionTypeLabel.mockReturnValue('Hospital');
+    mockGetUserTypeBadge.mockReturnValue({
+      label: 'Client',
+      action: 'success',
     });
 
-    it('should display user with multiple groups', () => {
-      const multiGroupUser = {
-        ...mockUser,
-        groups: ['client', 'seller', 'analyst'],
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: multiGroupUser })
-      );
-
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('John Doe')).toBeTruthy();
+    setupUserMock({
+      id: '1',
+      name: 'Carlos Rodriguez',
+      email: 'carlos@example.com',
+      role: 'client',
+      groups: ['doctors', 'administrators'],
+      profile: {
+        telefono: '3125551234',
+        nombreInstitucion: 'National Hospital',
+        tipoInstitucion: 'hospital',
+        nit: '123456789',
+        representante: 'Dr. Elena Gomez',
+        direccion: '789 Medical Blvd',
+        ciudad: 'Bogota',
+        pais: 'Colombia',
+      },
     });
 
-    it('should display user without groups', () => {
-      const userWithoutGroups = {
-        ...mockUser,
-        groups: [],
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: userWithoutGroups })
-      );
+    render(<AccountScreen />);
 
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('John Doe')).toBeTruthy();
-    });
+    // Verify all sections exist
+    expect(screen.getByTestId('account-screen')).toBeTruthy();
+    expect(screen.getByTestId('contact-info')).toBeTruthy();
+    expect(screen.getByTestId('institution-info')).toBeTruthy();
+    expect(screen.getByTestId('location-info')).toBeTruthy();
+
+    // Verify all data displays
+    expect(screen.getByText('Carlos Rodriguez')).toBeTruthy();
+    expect(screen.getByText('carlos@example.com')).toBeTruthy();
+    expect(screen.getByText('3125551234')).toBeTruthy();
+    expect(screen.getByText('National Hospital')).toBeTruthy();
+    expect(screen.getByText('123456789')).toBeTruthy();
+    expect(screen.getByText('Dr. Elena Gomez')).toBeTruthy();
+    expect(screen.getByText('789 Medical Blvd')).toBeTruthy();
+    expect(screen.getByText('Bogota')).toBeTruthy();
+    expect(screen.getByText('Colombia')).toBeTruthy();
+    expect(screen.getByText('doctors')).toBeTruthy();
+    expect(screen.getByText('administrators')).toBeTruthy();
   });
 
-  describe('Logout Functionality', () => {
-    it('should display logout button', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.logout')).toBeTruthy();
+  // Test 20: Minimal seller profile without institution/location
+  it('should render minimal seller profile without institution and location sections', () => {
+    mockGetUserTypeBadge.mockReturnValue({
+      label: 'Seller',
+      action: 'info',
     });
 
-    it('should call logout when logout button is pressed', () => {
-      const { getByText } = render(<AccountScreen />);
-      const logoutButton = getByText('account.logout');
-
-      fireEvent.press(logoutButton);
-
-      expect(mockLogout).toHaveBeenCalled();
+    setupUserMock({
+      id: '2',
+      name: 'Maria Vendor',
+      email: 'maria@example.com',
+      role: 'seller',
+      groups: [],
+      profile: {},
     });
 
-    it('should navigate to login after logout', () => {
-      const { getByText } = render(<AccountScreen />);
-      const logoutButton = getByText('account.logout');
+    const { queryByTestId } = render(<AccountScreen />);
 
-      fireEvent.press(logoutButton);
-
-      expect(router.replace).toHaveBeenCalledWith('/login');
-    });
-
-    it('should have logout button visible', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.logout')).toBeTruthy();
-    });
-
-    it('should render logout button properly', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.logout')).toBeTruthy();
-    });
-  });
-
-  describe('App Info Display', () => {
-    it('should display app name', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.appInfo.appName')).toBeTruthy();
-    });
-
-    it('should display app version', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('App v1.0.0')).toBeTruthy();
-    });
-
-    it('should render app info section', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.appInfo.appName')).toBeTruthy();
-    });
-  });
-
-  describe('Edge Cases - Missing User Data', () => {
-    it('should handle undefined user', () => {
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: undefined })
-      );
-
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('Usuario')).toBeTruthy(); // Default user name
-    });
-
-    it('should handle user with minimal data', () => {
-      const minimalUser = {
-        id: '1',
-        email: 'minimal@test.com',
-        name: 'Minimal User',
-        role: 'client',
-        groups: ['client'],
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: minimalUser })
-      );
-
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('Minimal User')).toBeTruthy();
-      expect(getByText('minimal@test.com')).toBeTruthy();
-    });
-
-    it('should handle user with empty profile object', () => {
-      const userWithEmptyProfile = {
-        ...mockUser,
-        profile: {},
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: userWithEmptyProfile })
-      );
-
-      const { queryByText } = render(<AccountScreen />);
-      expect(queryByText('account.institutionInfo')).toBeNull();
-      expect(queryByText('account.location')).toBeNull();
-    });
-
-    it('should handle null profile values', () => {
-      const userWithNullProfile = {
-        ...mockUser,
-        profile: {
-          telefono: null,
-          nombreInstitucion: null,
-          tipoInstitucion: null,
-        },
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: userWithNullProfile })
-      );
-
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.contactInfo')).toBeTruthy();
-    });
-  });
-
-  describe('Conditional Rendering - Institution Info', () => {
-    it('should show institution info only when client role and has institution data', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.institutionInfo')).toBeTruthy();
-    });
-
-    it('should hide institution info for seller role', () => {
-      const sellerUser = {
-        ...mockUser,
-        role: 'seller',
-        profile: mockUser.profile,
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: sellerUser })
-      );
-
-      const { queryByText } = render(<AccountScreen />);
-      expect(queryByText('account.institutionInfo')).toBeNull();
-    });
-
-    it('should hide institution info for admin role', () => {
-      const adminUser = {
-        ...mockUser,
-        role: 'admin',
-        profile: mockUser.profile,
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: adminUser })
-      );
-
-      const { queryByText } = render(<AccountScreen />);
-      expect(queryByText('account.institutionInfo')).toBeNull();
-    });
-
-    it('should conditionally display institution fields', () => {
-      const clientWithPartialInfo = {
-        ...mockUser,
-        profile: {
-          nombreInstitucion: 'Hospital A',
-          // Missing tipoInstitucion
-        },
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: clientWithPartialInfo })
-      );
-
-      const { getByText, queryByText } = render(<AccountScreen />);
-      expect(getByText('account.institutionInfo')).toBeTruthy();
-      expect(getByText('Hospital A')).toBeTruthy();
-    });
-  });
-
-  describe('Conditional Rendering - Location Info', () => {
-    it('should show location info when any location data exists', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.location')).toBeTruthy();
-    });
-
-    it('should hide location info when no location data', () => {
-      const userWithoutLocation = {
-        ...mockUser,
-        profile: {
-          telefono: '+1234567890',
-        },
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: userWithoutLocation })
-      );
-
-      const { queryByText } = render(<AccountScreen />);
-      expect(queryByText('account.location')).toBeNull();
-    });
-
-    it('should conditionally display location fields', () => {
-      const userWithPartialLocation = {
-        ...mockUser,
-        profile: {
-          telefono: '+1234567890',
-          nombreInstitucion: 'Hospital',
-          tipoInstitucion: 'hospital',
-          direccion: '123 Main',
-          // Missing ciudad and pais
-        },
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: userWithPartialLocation })
-      );
-
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.location')).toBeTruthy();
-      expect(getByText('123 Main')).toBeTruthy();
-    });
-  });
-
-  describe('Multiple User Scenarios', () => {
-    it('should display correct information for client user', () => {
-      const clientUser = {
-        ...mockUser,
-        role: 'client',
-        name: 'Hospital Admin',
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: clientUser })
-      );
-
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('Hospital Admin')).toBeTruthy();
-      expect(getByText('account.institutionInfo')).toBeTruthy();
-    });
-
-    it('should display correct information for seller user', () => {
-      const sellerUser = {
-        ...mockUser,
-        role: 'seller',
-        name: 'Sales Representative',
-        profile: {
-          telefono: '+5551234567',
-          direccion: '456 Sales Ave',
-          ciudad: 'Sales City',
-          pais: 'Colombia',
-        },
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: sellerUser })
-      );
-
-      const { getByText, queryByText } = render(<AccountScreen />);
-      expect(getByText('Sales Representative')).toBeTruthy();
-      expect(queryByText('account.institutionInfo')).toBeNull();
-      expect(getByText('456 Sales Ave')).toBeTruthy();
-    });
-
-    it('should display correct information for admin user', () => {
-      const adminUser = {
-        ...mockUser,
-        role: 'admin',
-        name: 'System Administrator',
-        profile: {
-          telefono: '+1111111111',
-        },
-      };
-      (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-        selector({ user: adminUser })
-      );
-
-      const { getByText, queryByText } = render(<AccountScreen />);
-      expect(getByText('System Administrator')).toBeTruthy();
-      expect(queryByText('account.institutionInfo')).toBeNull();
-    });
-  });
-
-  describe('Divider Display', () => {
-    it('should render account screen with all sections', () => {
-      const { getByText } = render(<AccountScreen />);
-      expect(getByText('account.title')).toBeTruthy();
-      expect(getByText('John Doe')).toBeTruthy();
-    });
+    expect(screen.getByTestId('account-screen')).toBeTruthy();
+    expect(screen.getByText('Maria Vendor')).toBeTruthy();
+    expect(screen.getByText('maria@example.com')).toBeTruthy();
+    expect(screen.getByText('Seller')).toBeTruthy();
+    expect(queryByTestId('institution-info')).toBeFalsy();
+    expect(queryByTestId('location-info')).toBeFalsy();
   });
 });

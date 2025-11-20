@@ -1,41 +1,41 @@
-import { ScrollView, StyleSheet, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
-import { VStack } from '@/components/ui/vstack';
-import { HStack } from '@/components/ui/hstack';
-import { Text } from '@/components/ui/text';
+import { useUpdateVisitStatusBffSellersAppVisitsVisitIdStatusPatch } from '@/api/generated/sellers-app/sellers-app';
+import { InfoRow } from '@/components/InfoRow';
+import { Badge, BadgeText } from '@/components/ui/badge';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Badge, BadgeText } from '@/components/ui/badge';
 import { Divider } from '@/components/ui/divider';
 import { Heading } from '@/components/ui/heading';
-import { Textarea, TextareaInput } from '@/components/ui/textarea';
+import { HStack } from '@/components/ui/hstack';
 import {
   Modal,
   ModalBackdrop,
-  ModalContent,
-  ModalHeader,
   ModalBody,
+  ModalContent,
   ModalFooter,
+  ModalHeader,
 } from '@/components/ui/modal';
-import { InfoRow } from '@/components/InfoRow';
+import { Text } from '@/components/ui/text';
+import { Textarea, TextareaInput } from '@/components/ui/textarea';
+import { useToast } from '@/components/ui/toast';
+import { VStack } from '@/components/ui/vstack';
 import { useTranslation } from '@/i18n/hooks';
 import { useNavigationStore } from '@/store/useNavigationStore';
-import { useUpdateVisitStatusBffSellersAppVisitsVisitIdStatusPatch } from '@/api/generated/sellers-app/sellers-app';
+import { formatDate } from '@/utils/formatDate';
+import { getVisitStatusBadgeAction } from '@/utils/getVisitStatusBadgeAction';
 import { useQueryClient } from '@tanstack/react-query';
+import { router, useLocalSearchParams } from 'expo-router';
 import {
-  Building2,
-  MapPin,
-  Calendar,
   ArrowLeft,
-  FileText,
+  Building2,
+  Calendar,
   CheckCircle,
+  FileText,
+  MapPin,
   XCircle,
 } from 'lucide-react-native';
 import { useState } from 'react';
-import { formatDate } from '@/utils/formatDate';
-import { useToast } from '@/components/ui/toast';
-import { getVisitStatusBadgeAction } from '@/utils/getVisitStatusBadgeAction';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export const VisitDetailScreen = () => {
   const { t } = useTranslation();
@@ -90,7 +90,7 @@ export const VisitDetailScreen = () => {
         if (variables.data.status === 'completada') {
           toast.show({
             placement: 'top',
-            render: /* istanbul ignore next */ ({ id }) => {
+            render:  ({ id }) => {
               return (
                 <VStack className="bg-success-500 p-4 rounded-lg">
                   <Text className="text-white font-semibold">
@@ -106,7 +106,7 @@ export const VisitDetailScreen = () => {
         } else if (variables.data.status === 'cancelada') {
           toast.show({
             placement: 'top',
-            render: /* istanbul ignore next */ ({ id }) => {
+            render:  ({ id }) => {
               return (
                 <VStack className="bg-error-500 p-4 rounded-lg">
                   <Text className="text-white font-semibold">
@@ -121,7 +121,7 @@ export const VisitDetailScreen = () => {
       onError: () => {
         toast.show({
           placement: 'top',
-          render: /* istanbul ignore next */ ({ id }) => {
+          render:  ({ id }) => {
             return (
               <VStack className="bg-error-500 p-4 rounded-lg">
                 <Text className="text-white font-semibold">

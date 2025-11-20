@@ -49,6 +49,7 @@
     "nativewind": "^4.1.23",
     "prop-types": "^15.8.1",
     "rambda": "^10.3.2",
+    "ramda": "^0.32.0",
     "react": "19.1.0",
     "react-aria": "^3.33.0",
     "react-dom": "19.1.0",

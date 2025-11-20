@@ -188,10 +188,10 @@ export function useInfinitePaginatedQuery<T, TData = T>(
     isFetchingNextPage: infiniteQuery.isFetchingNextPage,
     isRefetching: infiniteQuery.isRefetching,
     hasNextPage: infiniteQuery.hasNextPage ?? false,
-    fetchNextPage: () => {
+    fetchNextPage: async () => {
       // Only fetch if there are more pages and not already fetching
       if (infiniteQuery.hasNextPage && !infiniteQuery.isFetchingNextPage) {
-        infiniteQuery.fetchNextPage();
+        await infiniteQuery.fetchNextPage();
       }
     },
     refetch: () => {

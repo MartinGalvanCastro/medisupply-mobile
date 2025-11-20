@@ -1,30 +1,30 @@
-import { ScrollView, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
-import { VStack } from '@/components/ui/vstack';
-import { HStack } from '@/components/ui/hstack';
-import { Button, ButtonText } from '@/components/ui/button';
-import { Heading } from '@/components/ui/heading';
-import { Card } from '@/components/ui/card';
-import { Badge, BadgeText } from '@/components/ui/badge';
-import { Avatar, AvatarFallbackText } from '@/components/ui/avatar';
-import { InfoRow } from '@/components/InfoRow';
 import { ErrorStateCard } from '@/components/ErrorStateCard';
-import { ScreenHeader } from '@/components/ScreenHeader';
+import { InfoRow } from '@/components/InfoRow';
 import { InfoSection } from '@/components/InfoSection';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { Avatar, AvatarFallbackText } from '@/components/ui/avatar';
+import { Badge, BadgeText } from '@/components/ui/badge';
+import { Button, ButtonText } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Heading } from '@/components/ui/heading';
+import { HStack } from '@/components/ui/hstack';
+import { VStack } from '@/components/ui/vstack';
 import { useTranslation } from '@/i18n/hooks';
 import { useNavigationStore } from '@/store/useNavigationStore';
 import { getInitials } from '@/utils/getInitials';
 import { getInstitutionTypeLabel } from '@/utils/getInstitutionTypeLabel';
+import { router, useLocalSearchParams } from 'expo-router';
 import {
-  Mail,
-  Phone,
   Building2,
-  MapPin,
-  FileText,
-  UserCircle,
   Calendar,
+  FileText,
+  Mail,
+  MapPin,
+  Phone,
+  UserCircle,
 } from 'lucide-react-native';
+import { ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const getInstitutionTypeBadgeAction = (institutionType: string) => {
   const typeMap: Record<string, 'info' | 'success' | 'warning' | 'error' | 'muted'> = {

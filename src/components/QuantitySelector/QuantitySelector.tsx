@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, TextInput } from 'react-native';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
-import { Button, ButtonText } from '@/components/ui/button';
 import { Minus, Plus } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, TextInput } from 'react-native';
 
 export interface QuantitySelectorProps {
   initialQuantity?: number;
@@ -53,11 +52,11 @@ export const QuantitySelector = ({
       if (numValue >= minQuantity && numValue <= maxQuantity) {
         setQuantity(numValue);
         onQuantityChange(numValue);
-      } else /* istanbul ignore next */ if (numValue > maxQuantity) {
+      } else if (numValue > maxQuantity) {
         setQuantity(maxQuantity);
         onQuantityChange(maxQuantity);
         setInputValue(String(maxQuantity));
-      } else /* istanbul ignore next */ if (numValue < minQuantity) {
+      } else {
         setQuantity(minQuantity);
         onQuantityChange(minQuantity);
         setInputValue(String(minQuantity));
@@ -69,7 +68,7 @@ export const QuantitySelector = ({
     // Reset to current quantity if input is invalid
     const numValue = parseInt(inputValue, 10);
     /* istanbul ignore else - Input is already valid, no action needed */
-    if (/* istanbul ignore next */ isNaN(numValue) || inputValue.trim() === '') {
+    if ( isNaN(numValue) || inputValue.trim() === '') {
       setInputValue(String(quantity));
     }
   };

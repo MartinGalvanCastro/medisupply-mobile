@@ -2,224 +2,104 @@ import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { ScreenHeader } from './ScreenHeader';
 
-// Mock lucide-react-native icons
-jest.mock('lucide-react-native', () => ({
-  ArrowLeft: () => <></>,
-}));
-
 describe('ScreenHeader', () => {
-  describe('Rendering', () => {
-    it('should render with title', () => {
-      const { getByText, getByTestId } = render(
-        <ScreenHeader title="Screen Title" />
-      );
+  it('should render with title', () => {
+    const { getByText, getByTestId } = render(
+      <ScreenHeader title="Test Title" />
+    );
 
-      expect(getByTestId('screen-header')).toBeTruthy();
-      expect(getByText('Screen Title')).toBeTruthy();
-    });
-
-    it('should render with custom testID', () => {
-      const { getByTestId } = render(
-        <ScreenHeader title="Title" testID="custom-header" />
-      );
-
-      expect(getByTestId('custom-header')).toBeTruthy();
-      expect(getByTestId('custom-header-title')).toBeTruthy();
-    });
-
-    it('should not render back button by default', () => {
-      const { queryByTestId } = render(<ScreenHeader title="Title" />);
-
-      expect(queryByTestId('screen-header-back-button')).toBeFalsy();
-    });
+    expect(getByText('Test Title')).toBeDefined();
+    expect(getByTestId('screen-header')).toBeDefined();
+    expect(getByTestId('screen-header-title')).toBeDefined();
   });
 
-  describe('Back Button', () => {
-    it('should not render back button when showBackButton is false', () => {
-      const mockBack = jest.fn();
-      const { queryByTestId } = render(
-        <ScreenHeader title="Title" showBackButton={false} onBack={mockBack} />
-      );
+  it('should render with custom testID', () => {
+    const { getByTestId } = render(
+      <ScreenHeader title="Test" testID="custom-header" />
+    );
 
-      expect(queryByTestId('screen-header-back-button')).toBeFalsy();
-    });
-
-    it('should not render back button when onBack is not provided', () => {
-      const { queryByTestId } = render(
-        <ScreenHeader title="Title" showBackButton={true} />
-      );
-
-      expect(queryByTestId('screen-header-back-button')).toBeFalsy();
-    });
-
-    it('should render back button when showBackButton and onBack are provided', () => {
-      const mockBack = jest.fn();
-      const { getByTestId } = render(
-        <ScreenHeader title="Title" showBackButton={true} onBack={mockBack} />
-      );
-
-      expect(getByTestId('screen-header-back-button')).toBeTruthy();
-    });
-
-    it('should render back button when back button is shown', () => {
-      const mockBack = jest.fn();
-      const { getByTestId } = render(
-        <ScreenHeader title="Title" showBackButton={true} onBack={mockBack} />
-      );
-
-      expect(getByTestId('screen-header-back-button')).toBeTruthy();
-    });
-
-    it('should call onBack when back button is pressed', () => {
-      const mockBack = jest.fn();
-      const { getByTestId } = render(
-        <ScreenHeader title="Title" showBackButton={true} onBack={mockBack} />
-      );
-
-      fireEvent.press(getByTestId('screen-header-back-button'));
-      expect(mockBack).toHaveBeenCalledTimes(1);
-    });
-
-    it('should call onBack multiple times', () => {
-      const mockBack = jest.fn();
-      const { getByTestId } = render(
-        <ScreenHeader title="Title" showBackButton={true} onBack={mockBack} />
-      );
-
-      const button = getByTestId('screen-header-back-button');
-      fireEvent.press(button);
-      fireEvent.press(button);
-      fireEvent.press(button);
-
-      expect(mockBack).toHaveBeenCalledTimes(3);
-    });
+    expect(getByTestId('custom-header')).toBeDefined();
+    expect(getByTestId('custom-header-title')).toBeDefined();
   });
 
-  describe('Complete Examples', () => {
-    it('should render header with all props', () => {
-      const mockBack = jest.fn();
-      const { getByText, getByTestId } = render(
-        <ScreenHeader
-          title="Product Details"
-          showBackButton={true}
-          onBack={mockBack}
-          testID="product-header"
-        />
-      );
+  it('should not show back button when showBackButton is false', () => {
+    const { queryByTestId } = render(
+      <ScreenHeader title="Test" showBackButton={false} />
+    );
 
-      expect(getByTestId('product-header')).toBeTruthy();
-      expect(getByText('Product Details')).toBeTruthy();
-      expect(getByTestId('product-header-back-button')).toBeTruthy();
-
-      fireEvent.press(getByTestId('product-header-back-button'));
-      expect(mockBack).toHaveBeenCalledTimes(1);
-    });
-
-    it('should render minimal header', () => {
-      const { getByText, getByTestId, queryByTestId } = render(
-        <ScreenHeader title="Simple Screen" />
-      );
-
-      expect(getByTestId('screen-header')).toBeTruthy();
-      expect(getByText('Simple Screen')).toBeTruthy();
-      expect(queryByTestId('screen-header-back-button')).toBeFalsy();
-    });
+    expect(queryByTestId('screen-header-back-button')).toBeNull();
   });
 
-  describe('Edge Cases', () => {
-    it('should handle empty title', () => {
-      const { getByTestId } = render(<ScreenHeader title="" />);
+  it('should show back button when showBackButton is true and onBack provided', () => {
+    const mockOnBack = jest.fn();
+    const { getByTestId } = render(
+      <ScreenHeader title="Test" showBackButton={true} onBack={mockOnBack} />
+    );
 
-      expect(getByTestId('screen-header')).toBeTruthy();
-      expect(getByTestId('screen-header-title')).toBeTruthy();
-    });
-
-    it('should handle very long titles', () => {
-      const longTitle = 'This is a very long screen title that might need to wrap or truncate';
-      const { getByText } = render(<ScreenHeader title={longTitle} />);
-
-      expect(getByText(longTitle)).toBeTruthy();
-    });
-
-    it('should handle special characters in title', () => {
-      const { getByText } = render(
-        <ScreenHeader title="Products @ 50% off!" />
-      );
-
-      expect(getByText('Products @ 50% off!')).toBeTruthy();
-    });
-
-    it('should handle unicode characters in title', () => {
-      const { getByText } = render(<ScreenHeader title="Configuración" />);
-
-      expect(getByText('Configuración')).toBeTruthy();
-    });
+    expect(getByTestId('screen-header-back-button')).toBeDefined();
   });
 
-  describe('Layout', () => {
-    it('should have proper structure without back button', () => {
-      const { getByTestId } = render(<ScreenHeader title="Title" />);
+  it('should not show back button when showBackButton is true but onBack is not provided', () => {
+    const { queryByTestId } = render(
+      <ScreenHeader title="Test" showBackButton={true} />
+    );
 
-      expect(getByTestId('screen-header')).toBeTruthy();
-      expect(getByTestId('screen-header-title')).toBeTruthy();
-    });
-
-    it('should have proper structure with back button', () => {
-      const mockBack = jest.fn();
-      const { getByTestId } = render(
-        <ScreenHeader title="Title" showBackButton={true} onBack={mockBack} />
-      );
-
-      expect(getByTestId('screen-header')).toBeTruthy();
-      expect(getByTestId('screen-header-back-button')).toBeTruthy();
-      expect(getByTestId('screen-header-title')).toBeTruthy();
-    });
+    expect(queryByTestId('screen-header-back-button')).toBeNull();
   });
 
-  describe('Accessibility', () => {
-    it('should be pressable when back button is shown', () => {
-      const mockBack = jest.fn();
-      const { getByTestId } = render(
-        <ScreenHeader title="Title" showBackButton={true} onBack={mockBack} />
-      );
+  it('should call onBack callback when back button is pressed', () => {
+    const mockOnBack = jest.fn();
+    const { getByTestId } = render(
+      <ScreenHeader title="Test" showBackButton={true} onBack={mockOnBack} />
+    );
 
-      const backButton = getByTestId('screen-header-back-button');
-      expect(backButton).toBeTruthy();
+    fireEvent.press(getByTestId('screen-header-back-button'));
 
-      fireEvent.press(backButton);
-      expect(mockBack).toHaveBeenCalled();
-    });
-
-    it('should not be pressable when back button is not shown', () => {
-      const { queryByTestId } = render(<ScreenHeader title="Title" />);
-
-      expect(queryByTestId('screen-header-back-button')).toBeFalsy();
-    });
+    expect(mockOnBack).toHaveBeenCalledTimes(1);
   });
 
-  describe('Title Variations', () => {
-    it('should render single word title', () => {
-      const { getByText } = render(<ScreenHeader title="Home" />);
+  it('should call onBack multiple times when back button is pressed multiple times', () => {
+    const mockOnBack = jest.fn();
+    const { getByTestId } = render(
+      <ScreenHeader title="Test" showBackButton={true} onBack={mockOnBack} />
+    );
 
-      expect(getByText('Home')).toBeTruthy();
-    });
+    const backButton = getByTestId('screen-header-back-button');
+    fireEvent.press(backButton);
+    fireEvent.press(backButton);
 
-    it('should render multi-word title', () => {
-      const { getByText } = render(<ScreenHeader title="Product Details" />);
+    expect(mockOnBack).toHaveBeenCalledTimes(2);
+  });
 
-      expect(getByText('Product Details')).toBeTruthy();
-    });
+  it('should render both back button and title with custom testID', () => {
+    const mockOnBack = jest.fn();
+    const { getByTestId } = render(
+      <ScreenHeader
+        title="Custom Title"
+        showBackButton={true}
+        onBack={mockOnBack}
+        testID="custom-test"
+      />
+    );
 
-    it('should render title with numbers', () => {
-      const { getByText } = render(<ScreenHeader title="Order #12345" />);
+    expect(getByTestId('custom-test')).toBeDefined();
+    expect(getByTestId('custom-test-back-button')).toBeDefined();
+    expect(getByTestId('custom-test-title')).toBeDefined();
+  });
 
-      expect(getByText('Order #12345')).toBeTruthy();
-    });
+  it('should display correct title text', () => {
+    const { getByText } = render(
+      <ScreenHeader title="My Screen Title" />
+    );
 
-    it('should render title with symbols', () => {
-      const { getByText } = render(<ScreenHeader title="Settings & Preferences" />);
+    expect(getByText('My Screen Title')).toBeDefined();
+  });
 
-      expect(getByText('Settings & Preferences')).toBeTruthy();
-    });
+  it('should have default testID of screen-header', () => {
+    const { getByTestId } = render(
+      <ScreenHeader title="Test" />
+    );
+
+    expect(getByTestId('screen-header')).toBeDefined();
   });
 });

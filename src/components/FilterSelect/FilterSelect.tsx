@@ -17,9 +17,18 @@ export const FilterSelect = ({
 
   const selectedOption = options.find((opt) => opt.value === value);
 
+  const closeModal = () => {
+    setIsOpen(false);
+  };
+
   const handleSelect = (optionValue: string) => {
     onChange(optionValue);
-    setIsOpen(false);
+    closeModal();
+  };
+
+  const handleOptionsPress = () => {
+    // Prevent backdrop from closing when pressing options container
+    // (Pressable naturally contains the event, no stopPropagation needed in React Native)
   };
 
   return (
@@ -39,16 +48,16 @@ export const FilterSelect = ({
         visible={isOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setIsOpen(false)}
+        onRequestClose={closeModal}
         testID={`${testID}-modal`}
       >
         <Pressable
           style={styles.backdrop}
-          onPress={() => setIsOpen(false)}
+          onPress={closeModal}
           testID={`${testID}-backdrop`}
         >
           <Box className="flex-1 justify-start items-end pt-32 pr-4">
-            <Pressable onPress={(e) => e.stopPropagation()}>
+            <Pressable onPress={handleOptionsPress} testID={`${testID}-options-pressable`}>
               <VStack
                 space="xs"
                 className="bg-background-0 rounded-lg shadow-lg p-2 min-w-[150px]"
@@ -59,10 +68,7 @@ export const FilterSelect = ({
                     key={option.value}
                     onPress={() => handleSelect(option.value)}
                     testID={`${testID}-option-${option.value}`}
-                    style={({ pressed }) => [
-                      styles.option,
-                      pressed && styles.optionPressed,
-                    ]}
+                    style={styles.option}
                   >
                     <Text
                       className={`text-sm ${
@@ -93,8 +99,5 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 6,
-  },
-  optionPressed: {
-    backgroundColor: '#f3f4f6',
   },
 });

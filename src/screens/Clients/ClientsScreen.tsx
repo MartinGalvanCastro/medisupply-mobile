@@ -103,7 +103,7 @@ export const ClientsScreen = () => {
           <VStack space="sm" className="items-center">
             <Spinner size="small" testID="clients-load-more-spinner" />
             <Text className="text-typography-500 text-sm">
-              {t('clients.loadingMore') || 'Loading more...'}
+              {t('clients.loadingMore')}
             </Text>
           </VStack>
         </Box>
@@ -155,7 +155,7 @@ export const ClientsScreen = () => {
             title={t('common.error')}
             message={errorMessage}
             onRetry={() => refetch()}
-            retryLabel={t('common.retry') || 'Retry'}
+            retryLabel={t('common.retry')}
             testID="clients-error"
           />
         </VStack>

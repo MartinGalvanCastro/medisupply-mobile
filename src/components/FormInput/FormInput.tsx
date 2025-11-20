@@ -37,8 +37,10 @@ export const FormInput = ({
 }: FormInputProps) => {
   const [showPassword, setShowPassword] = useState(false);
 
+  const toggleShow = (prev: boolean) => !prev;
+
   const handleTogglePassword = () => {
-    setShowPassword((prev) => !prev);
+    setShowPassword(toggleShow);
   };
 
   return (
@@ -60,7 +62,7 @@ export const FormInput = ({
               autoCorrect={autoCorrect}
             />
             {showPasswordToggle && (
-              <InputSlot onPress={handleTogglePassword} className="pr-3">
+              <InputSlot onPress={handleTogglePassword} className="pr-3" testID={`${testID}-toggle`}>
                 <InputIcon as={showPassword ? EyeOff : Eye} className="text-gray-400" />
               </InputSlot>
             )}

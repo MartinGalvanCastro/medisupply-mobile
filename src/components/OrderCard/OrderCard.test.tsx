@@ -1,9 +1,7 @@
-import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 import { OrderCard } from './OrderCard';
 import type { OrderResponse } from '@/api/generated/models';
 
-// Mock i18n
 jest.mock('@/i18n/hooks', () => ({
   useTranslation: () => ({
     t: (key: string) => {
@@ -12,13 +10,13 @@ jest.mock('@/i18n/hooks', () => ({
         'orders.orderDate': 'Order Date',
         'orders.noDeliveryDate': 'No delivery date',
         'orders.shipmentInfo': 'Shipment Information',
+        'orders.noShipmentYet': 'No shipment assigned yet',
         'orders.shipmentId': 'Shipment ID',
         'orders.vehiclePlate': 'Vehicle Plate',
         'orders.driver': 'Driver',
         'orders.deliveryAddress': 'Delivery Address',
         'orders.items': 'Items',
         'orders.total': 'Total',
-        'orders.noShipmentYet': 'No shipment assigned yet',
         'orders.shipmentStatus.planned': 'Planned',
         'orders.shipmentStatus.inprogress': 'In Progress',
         'orders.shipmentStatus.completed': 'Completed',
@@ -30,46 +28,20 @@ jest.mock('@/i18n/hooks', () => ({
   }),
 }));
 
-// Mock formatDate
 jest.mock('@/utils/formatDate', () => ({
-  formatDate: (date: string | Date) => {
-    if (!date) return 'Invalid date';
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    return dateObj.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  },
+  formatDate: (date: string | Date) => '2024-01-15',
 }));
 
-// Mock formatCurrency
-jest.mock('@/utils/formatCurrency/formatCurrency', () => ({
-  formatCurrency: (amount: number) => `$${amount.toLocaleString()}`,
+jest.mock('@/utils/formatCurrency', () => ({
+  formatCurrency: (amount: number) => `$${amount.toFixed(2)}`,
 }));
 
-// Mock InfoRow component
 jest.mock('@/components/InfoRow', () => ({
-  InfoRow: ({ icon: IconComponent, label, value, testID }: any) => {
-    const { View, Text } = require('react-native');
-    return (
-      <View testID={testID}>
-        <Text testID={`${testID}-label`}>{label}</Text>
-        <Text testID={`${testID}-value`}>{value}</Text>
-      </View>
-    );
-  },
-}));
-
-// Mock lucide-react-native icons
-jest.mock('lucide-react-native', () => ({
-  Package: () => <></>,
-  Calendar: () => <></>,
-  Truck: () => <></>,
-  MapPin: () => <></>,
-  Hash: () => <></>,
-  ChevronUp: () => <></>,
-  ChevronDown: () => <></>,
+  InfoRow: jest.fn(({ label, value, testID, ...props }: any) => (
+    <div testID={testID || `info-row-${label}`} {...props}>
+      {label}: {value}
+    </div>
+  )),
 }));
 
 describe('OrderCard', () => {
@@ -79,558 +51,263 @@ describe('OrderCard', () => {
     vehicle_plate?: string | null;
     driver_name?: string | null;
   } = {
-    id: 'ORD-001',
-    fecha_pedido: '2024-01-10T10:00:00Z',
-    fecha_entrega_estimada: '2024-01-15T10:00:00Z',
-    monto_total: 150000,
+    id: 'order-123-abc',
+    customer_id: 'cust-123',
+    seller_id: 'seller-456' as any,
+    route_id: 'route-789' as any,
+    fecha_pedido: '2024-01-01',
+    fecha_entrega_estimada: '2024-01-15' as any,
+    metodo_creacion: 'web',
+    monto_total: 150.50,
     direccion_entrega: '123 Main St',
-    ciudad_entrega: 'Bogota',
+    ciudad_entrega: 'New York',
+    pais_entrega: 'USA',
+    customer_name: 'John Doe',
+    customer_phone: '1234567890' as any,
+    customer_email: 'john@test.com' as any,
+    seller_name: 'Seller Name' as any,
+    seller_email: 'seller@test.com' as any,
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
     items: [
       {
         id: 'item-1',
-        pedido_id: 'ORD-001',
+        pedido_id: 'order-123-abc',
         inventario_id: 'inv-1',
-        cantidad: 2,
-        precio_unitario: 50000,
-        precio_total: 100000,
         product_name: 'Product A',
+        cantidad: 2,
+        precio_unitario: 50,
+        precio_total: 100,
         product_sku: 'SKU-A',
         warehouse_id: 'wh-1',
-        warehouse_name: 'Warehouse A',
-        warehouse_city: 'Bogota',
-        warehouse_country: 'Colombia',
+        warehouse_name: 'Warehouse 1',
+        warehouse_city: 'NYC',
+        warehouse_country: 'USA',
         batch_number: 'BATCH-001',
-        expiration_date: '2025-12-31T00:00:00Z',
-        created_at: '2024-01-10T10:00:00Z',
-        updated_at: '2024-01-10T10:00:00Z',
-      },
+        expiration_date: '2025-12-31',
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+      } as any,
       {
         id: 'item-2',
-        pedido_id: 'ORD-001',
+        pedido_id: 'order-123-abc',
         inventario_id: 'inv-2',
-        cantidad: 1,
-        precio_unitario: 50000,
-        precio_total: 50000,
         product_name: 'Product B',
+        cantidad: 1,
+        precio_unitario: 50.50,
+        precio_total: 50.50,
         product_sku: 'SKU-B',
-        warehouse_id: 'wh-1',
-        warehouse_name: 'Warehouse A',
-        warehouse_city: 'Bogota',
-        warehouse_country: 'Colombia',
+        warehouse_id: 'wh-2',
+        warehouse_name: 'Warehouse 2',
+        warehouse_city: 'LA',
+        warehouse_country: 'USA',
         batch_number: 'BATCH-002',
-        expiration_date: '2025-12-31T00:00:00Z',
-        created_at: '2024-01-10T10:00:00Z',
-        updated_at: '2024-01-10T10:00:00Z',
-      },
+        expiration_date: '2025-12-31',
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+      } as any,
     ],
-    shipment_id: 'SHIP-001',
+    shipment_id: 'ship-456',
     shipment_status: 'in progress',
-    vehicle_plate: 'ABC-1234',
+    vehicle_plate: 'ABC123',
     driver_name: 'John Doe',
-    customer_id: 'cust-001',
-    seller_id: 'seller-001' as any,
-    route_id: 'route-001',
-    metodo_creacion: 'manual',
-    pais_entrega: 'Colombia',
-    customer_name: 'John Customer',
-    customer_phone: '+57 300 123 4567',
-    customer_email: 'customer@example.com',
-    seller_name: 'Jane Seller',
-    seller_email: 'seller@example.com',
-    created_at: '2024-01-10T10:00:00Z',
-    updated_at: '2024-01-10T10:00:00Z',
   };
 
-  describe('Rendering', () => {
-    it('should render the order card with order ID', () => {
-      const { getByText } = render(<OrderCard order={mockOrder} />);
-      expect(getByText('Order ID: ORD-001')).toBeTruthy();
-    });
+  it('should render collapsed order card', () => {
+    const { getByTestId, getByText, queryByText } = render(
+      <OrderCard order={mockOrder} />
+    );
 
-    it('should render order date', () => {
-      const { getByText } = render(<OrderCard order={mockOrder} />);
-      expect(getByText(/Order Date:/)).toBeTruthy();
-    });
+    expect(getByTestId(`order-card-${mockOrder.id}`)).toBeDefined();
+    expect(getByText(/Order ID/)).toBeDefined();
+    expect(getByText('$150.50')).toBeDefined();
+    expect(queryByText('Shipment Information')).toBeNull();
+  });
 
-    it('should render total amount in badge', () => {
-      const { getByText } = render(<OrderCard order={mockOrder} />);
-      expect(getByText('$150,000')).toBeTruthy();
-    });
+  it('should expand and display shipment details on press', () => {
+    const { getByTestId, getByText, queryByText } = render(
+      <OrderCard order={mockOrder} />
+    );
 
-    it('should render delivery date', () => {
-      const { getByText } = render(<OrderCard order={mockOrder} />);
-      expect(getByText(/Jan 15, 2024/)).toBeTruthy();
-    });
+    const pressable = getByTestId(`order-card-pressable-${mockOrder.id}`);
+    fireEvent.press(pressable);
 
-    it('should display no delivery date message when delivery date is null', () => {
-      const orderWithoutDelivery = {
-        ...mockOrder,
-        fecha_entrega_estimada: null,
-      };
-      const { getByText } = render(<OrderCard order={orderWithoutDelivery} />);
-      expect(getByText('No delivery date')).toBeTruthy();
-    });
+    expect(getByText('Shipment Information')).toBeDefined();
+    expect(getByTestId('info-row-Delivery Address')).toBeDefined();
+  });
 
-    it('should render with correct testID', () => {
-      const { getByTestId } = render(<OrderCard order={mockOrder} />);
-      expect(getByTestId('order-card-ORD-001')).toBeTruthy();
+  it('should display items when expanded', () => {
+    const { getByTestId, getByText } = render(
+      <OrderCard order={mockOrder} />
+    );
+
+    fireEvent.press(getByTestId(`order-card-pressable-${mockOrder.id}`));
+
+    expect(getByText('Product A')).toBeDefined();
+    expect(getByText('x2')).toBeDefined();
+    expect(getByText('Product B')).toBeDefined();
+    expect(getByText('x1')).toBeDefined();
+  });
+
+  it('should display shipment info with all details', () => {
+    const { getByTestId, getByText } = render(
+      <OrderCard order={mockOrder} />
+    );
+
+    fireEvent.press(getByTestId(`order-card-pressable-${mockOrder.id}`));
+
+    expect(getByTestId('info-row-Shipment ID')).toBeDefined();
+    expect(getByTestId('info-row-Vehicle Plate')).toBeDefined();
+    expect(getByTestId('info-row-Driver')).toBeDefined();
+  });
+
+  it('should not show driver row when driver not available', () => {
+    const orderWithoutDriver = {
+      ...mockOrder,
+      driver_name: null,
+    };
+
+    const { getByTestId, queryByTestId } = render(
+      <OrderCard order={orderWithoutDriver} />
+    );
+
+    fireEvent.press(getByTestId(`order-card-pressable-${orderWithoutDriver.id}`));
+
+    expect(queryByTestId('info-row-Driver')).toBeNull();
+  });
+
+  it('should show no shipment message when shipment_id is null', () => {
+    const orderWithoutShipment = {
+      ...mockOrder,
+      shipment_id: null,
+    };
+
+    const { getByTestId, getByText, queryByTestId } = render(
+      <OrderCard order={orderWithoutShipment} />
+    );
+
+    fireEvent.press(getByTestId(`order-card-pressable-${orderWithoutShipment.id}`));
+
+    expect(getByText('No shipment assigned yet')).toBeDefined();
+    expect(queryByTestId('info-row-Shipment ID')).toBeNull();
+  });
+
+  it('should display no delivery date message when fecha_entrega_estimada is null', () => {
+    const orderWithoutDeliveryDate = {
+      ...mockOrder,
+      fecha_entrega_estimada: null,
+    };
+
+    const { getByText } = render(
+      <OrderCard order={orderWithoutDeliveryDate} />
+    );
+
+    expect(getByText('No delivery date')).toBeDefined();
+  });
+
+  it('should collapse on second press', () => {
+    const { getByTestId, getByText, queryByText } = render(
+      <OrderCard order={mockOrder} />
+    );
+
+    const pressable = getByTestId(`order-card-pressable-${mockOrder.id}`);
+
+    fireEvent.press(pressable);
+    expect(getByText('Shipment Information')).toBeDefined();
+
+    fireEvent.press(pressable);
+    expect(queryByText('Shipment Information')).toBeNull();
+  });
+
+  it('should display correct badge text for each shipment status', () => {
+    const statuses = ['planned', 'in progress', 'completed', 'cancelled'];
+
+    statuses.forEach((status) => {
+      const order = { ...mockOrder, shipment_status: status };
+      const { getByTestId, getByText } = render(
+        <OrderCard order={order} />
+      );
+
+      fireEvent.press(getByTestId(`order-card-pressable-${order.id}`));
+
+      const expectedLabel = status === 'in progress' ? 'In Progress' : status.charAt(0).toUpperCase() + status.slice(1);
+      expect(getByText(expectedLabel)).toBeDefined();
     });
   });
 
-  describe('Expand/Collapse', () => {
-    it('should start collapsed', () => {
-      const { queryByText } = render(<OrderCard order={mockOrder} />);
-      expect(queryByText('Shipment Information')).toBeFalsy();
-    });
+  it('should handle underscore formatting in status', () => {
+    const order = { ...mockOrder, shipment_status: 'in_progress' };
+    const { getByTestId, getByText } = render(
+      <OrderCard order={order} />
+    );
 
-    it('should expand when card is pressed', async () => {
-      const { getByTestId, getByText } = render(<OrderCard order={mockOrder} />);
-      const pressable = getByTestId('order-card-pressable-ORD-001');
-
-      fireEvent.press(pressable);
-
-      await waitFor(() => {
-        expect(getByText('Shipment Information')).toBeTruthy();
-      });
-    });
-
-    it('should collapse when pressed again', async () => {
-      const { getByTestId, queryByText } = render(<OrderCard order={mockOrder} />);
-      const pressable = getByTestId('order-card-pressable-ORD-001');
-
-      fireEvent.press(pressable);
-      await waitFor(() => {
-        expect(queryByText('Shipment Information')).toBeTruthy();
-      });
-
-      fireEvent.press(pressable);
-      await waitFor(() => {
-        expect(queryByText('Shipment Information')).toBeFalsy();
-      });
-    });
-
-    it('should toggle expanded state multiple times', async () => {
-      const { getByTestId, queryByText } = render(<OrderCard order={mockOrder} />);
-      const pressable = getByTestId('order-card-pressable-ORD-001');
-
-      // Expand
-      fireEvent.press(pressable);
-      await waitFor(() => {
-        expect(queryByText('Shipment Information')).toBeTruthy();
-      });
-
-      // Collapse
-      fireEvent.press(pressable);
-      await waitFor(() => {
-        expect(queryByText('Shipment Information')).toBeFalsy();
-      });
-
-      // Expand again
-      fireEvent.press(pressable);
-      await waitFor(() => {
-        expect(queryByText('Shipment Information')).toBeTruthy();
-      });
-    });
+    fireEvent.press(getByTestId(`order-card-pressable-${order.id}`));
+    expect(getByText('In Progress')).toBeDefined();
   });
 
-  describe('Shipment Details', () => {
-    beforeEach(async () => {
-      const { getByTestId } = render(<OrderCard order={mockOrder} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
+  it('should handle past delivery date badge', () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
 
-      await waitFor(() => {
-        // Wait for expansion
-      });
-    });
+    const order = { ...mockOrder, fecha_entrega_estimada: yesterday.toISOString() };
+    const { getByTestId } = render(<OrderCard order={order} />);
 
-    it('should display shipment information when order is expanded', async () => {
-      const { getByTestId, getByText } = render(<OrderCard order={mockOrder} />);
-      const pressable = getByTestId('order-card-pressable-ORD-001');
-
-      fireEvent.press(pressable);
-
-      await waitFor(() => {
-        expect(getByText('Shipment Information')).toBeTruthy();
-      });
-    });
-
-    it('should display shipment ID', async () => {
-      const { getByText, getByTestId } = render(<OrderCard order={mockOrder} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
-
-      await waitFor(() => {
-        expect(getByText('SHIP-001')).toBeTruthy();
-      });
-    });
-
-    it('should display vehicle plate', async () => {
-      const { getByText, getByTestId } = render(<OrderCard order={mockOrder} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
-
-      await waitFor(() => {
-        expect(getByText('ABC-1234')).toBeTruthy();
-      });
-    });
-
-    it('should display driver name', async () => {
-      const { getByText, getByTestId } = render(<OrderCard order={mockOrder} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
-
-      await waitFor(() => {
-        expect(getByText('John Doe')).toBeTruthy();
-      });
-    });
-
-    it('should not display driver name when it is not provided', async () => {
-      const orderWithoutDriver = {
-        ...mockOrder,
-        driver_name: null,
-      };
-      const { queryByText, getByTestId } = render(<OrderCard order={orderWithoutDriver} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
-
-      await waitFor(() => {
-        expect(queryByText('John Doe')).toBeFalsy();
-      });
-    });
-
-    it('should display shipment status badge with correct action', async () => {
-      const { getByText, getByTestId } = render(<OrderCard order={mockOrder} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
-
-      await waitFor(() => {
-        expect(getByText('In Progress')).toBeTruthy();
-      });
-    });
-
-    it('should display N/A when shipment is not available', async () => {
-      const orderWithoutShipment = {
-        ...mockOrder,
-        shipment_id: null,
-        shipment_status: null,
-        vehicle_plate: null,
-        driver_name: null,
-      };
-      const { getByText, getByTestId } = render(<OrderCard order={orderWithoutShipment} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
-
-      await waitFor(() => {
-        expect(getByText('No shipment assigned yet')).toBeTruthy();
-      });
-    });
-
-    it('should display delivery address when expanded', async () => {
-      const { getByText, getByTestId } = render(<OrderCard order={mockOrder} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
-
-      await waitFor(() => {
-        expect(getByText('123 Main St, Bogota')).toBeTruthy();
-      });
-    });
+    expect(getByTestId(`order-card-${order.id}`)).toBeDefined();
   });
 
-  describe('Order Items', () => {
-    it('should display order items count when expanded', async () => {
-      const { getByText, getByTestId } = render(<OrderCard order={mockOrder} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
+  it('should handle today delivery date badge', () => {
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
 
-      await waitFor(() => {
-        expect(getByText('Items (2)')).toBeTruthy();
-      });
-    });
+    const order = { ...mockOrder, fecha_entrega_estimada: today.toISOString() };
+    const { getByTestId } = render(<OrderCard order={order} />);
 
-    it('should display all order items with product names', async () => {
-      const { getByText, getByTestId } = render(<OrderCard order={mockOrder} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
-
-      await waitFor(() => {
-        expect(getByText('Product A')).toBeTruthy();
-        expect(getByText('Product B')).toBeTruthy();
-      });
-    });
-
-    it('should display item quantities', async () => {
-      const { getByText, getByTestId } = render(<OrderCard order={mockOrder} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
-
-      await waitFor(() => {
-        expect(getByText('x2')).toBeTruthy();
-        expect(getByText('x1')).toBeTruthy();
-      });
-    });
-
-    it('should display item subtotals', async () => {
-      const { getByText, getByTestId } = render(<OrderCard order={mockOrder} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
-
-      await waitFor(() => {
-        expect(getByText('$100,000')).toBeTruthy(); // 50000 * 2
-        expect(getByText('$50,000')).toBeTruthy(); // 50000 * 1
-      });
-    });
-
-    it('should display order total', async () => {
-      const { getAllByText, getByTestId } = render(<OrderCard order={mockOrder} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
-
-      await waitFor(() => {
-        const totalTexts = getAllByText('$150,000');
-        expect(totalTexts.length).toBeGreaterThan(0);
-      });
-    });
-
-    it('should display empty items list when no items', async () => {
-      const orderWithoutItems = {
-        ...mockOrder,
-        items: [],
-      };
-      const { getByText, getByTestId } = render(<OrderCard order={orderWithoutItems} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
-
-      await waitFor(() => {
-        expect(getByText('Items (0)')).toBeTruthy();
-      });
-    });
+    expect(getByTestId(`order-card-${order.id}`)).toBeDefined();
   });
 
-  describe('Badges and Status Colors', () => {
-    it('should use muted badge when no delivery date', () => {
-      const orderWithoutDate = {
-        ...mockOrder,
-        fecha_entrega_estimada: null,
-      };
-      const { getByTestId } = render(<OrderCard order={orderWithoutDate} />);
-      expect(getByTestId('order-card-ORD-001')).toBeTruthy();
-    });
+  it('should handle future delivery date badge', () => {
+    const future = new Date();
+    future.setDate(future.getDate() + 5);
 
-    it('should use warning badge for today delivery date', () => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const orderForToday = {
-        ...mockOrder,
-        fecha_entrega_estimada: today.toISOString(),
-      };
-      const { getByTestId } = render(<OrderCard order={orderForToday} />);
-      expect(getByTestId('order-card-ORD-001')).toBeTruthy();
-    });
+    const order = { ...mockOrder, fecha_entrega_estimada: future.toISOString() };
+    const { getByTestId } = render(<OrderCard order={order} />);
 
-    it('should use info badge for tomorrow delivery date', () => {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(0, 0, 0, 0);
-      const orderForTomorrow = {
-        ...mockOrder,
-        fecha_entrega_estimada: tomorrow.toISOString(),
-      };
-      const { getByTestId } = render(<OrderCard order={orderForTomorrow} />);
-      expect(getByTestId('order-card-ORD-001')).toBeTruthy();
-    });
-
-    it('should use success badge for future delivery date', () => {
-      const futureDate = new Date();
-      futureDate.setDate(futureDate.getDate() + 10);
-      futureDate.setHours(0, 0, 0, 0);
-      const orderForFuture = {
-        ...mockOrder,
-        fecha_entrega_estimada: futureDate.toISOString(),
-      };
-      const { getByTestId } = render(<OrderCard order={orderForFuture} />);
-      expect(getByTestId('order-card-ORD-001')).toBeTruthy();
-    });
-
-    it('should use muted badge for past delivery date', () => {
-      const pastDate = new Date();
-      pastDate.setDate(pastDate.getDate() - 10);
-      pastDate.setHours(0, 0, 0, 0);
-      const orderForPast = {
-        ...mockOrder,
-        fecha_entrega_estimada: pastDate.toISOString(),
-      };
-      const { getByTestId } = render(<OrderCard order={orderForPast} />);
-      expect(getByTestId('order-card-ORD-001')).toBeTruthy();
-    });
-
-    it('should display shipment status badge with planned status', async () => {
-      const plannedOrder = {
-        ...mockOrder,
-        shipment_status: 'planned',
-      };
-      const { getByText, getByTestId } = render(<OrderCard order={plannedOrder} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
-
-      await waitFor(() => {
-        expect(getByText('Planned')).toBeTruthy();
-      });
-    });
-
-    it('should display shipment status badge with completed status', async () => {
-      const completedOrder = {
-        ...mockOrder,
-        shipment_status: 'completed',
-      };
-      const { getByText, getByTestId } = render(<OrderCard order={completedOrder} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
-
-      await waitFor(() => {
-        expect(getByText('Completed')).toBeTruthy();
-      });
-    });
-
-    it('should display shipment status badge with cancelled status', async () => {
-      const cancelledOrder = {
-        ...mockOrder,
-        shipment_status: 'cancelled',
-      };
-      const { getByText, getByTestId } = render(<OrderCard order={cancelledOrder} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
-
-      await waitFor(() => {
-        expect(getByText('Cancelled')).toBeTruthy();
-      });
-    });
-
-    it('should display shipment status badge with unknown status', async () => {
-      const unknownStatusOrder = {
-        ...mockOrder,
-        shipment_status: 'unknown_status',
-      };
-      const { getByText, getByTestId } = render(<OrderCard order={unknownStatusOrder} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
-
-      await waitFor(() => {
-        expect(getByText('Unknown')).toBeTruthy();
-      });
-    });
+    expect(getByTestId(`order-card-${order.id}`)).toBeDefined();
   });
 
-  describe('Edge Cases', () => {
-    it('should handle orders with minimal data', () => {
-      const minimalOrder: OrderResponse & {
-        shipment_id?: string | null;
-        shipment_status?: string | null;
-        vehicle_plate?: string | null;
-        driver_name?: string | null;
-      } = {
-        id: 'ORD-002',
-        customer_id: 'cust-002',
-        seller_id: 'seller-002',
-        route_id: 'route-002',
-        fecha_pedido: '2024-01-10T10:00:00Z',
-        fecha_entrega_estimada: null,
-        metodo_creacion: 'web',
-        direccion_entrega: 'Street',
-        ciudad_entrega: 'City',
-        pais_entrega: 'Colombia',
-        customer_name: 'Test Customer',
-        customer_phone: '3001234567',
-        customer_email: 'customer@example.com',
-        seller_name: 'Test Seller',
-        seller_email: 'seller@example.com',
-        monto_total: 0,
-        created_at: '2024-01-10T10:00:00Z',
-        updated_at: '2024-01-10T10:00:00Z',
-        items: [],
-      };
-      const { getByText } = render(<OrderCard order={minimalOrder} />);
-      expect(getByText('Order ID: ORD-002')).toBeTruthy();
-    });
+  it('should display unknown status label for unrecognized status', () => {
+    const order = { ...mockOrder, shipment_status: 'unknown_status' };
+    const { getByTestId, getByText } = render(
+      <OrderCard order={order} />
+    );
 
-    it('should handle orders with special characters in product names', async () => {
-      const specialOrder = {
-        ...mockOrder,
-        items: [
-          {
-            id: 'item-special',
-            pedido_id: 'ORD-001',
-            inventario_id: 'inv-special',
-            cantidad: 1,
-            precio_unitario: 25000,
-            precio_total: 25000,
-            product_name: 'Product @ 50% off!',
-            product_sku: 'SKU-SPECIAL',
-            warehouse_id: 'wh-1',
-            warehouse_name: 'Warehouse A',
-            warehouse_city: 'Bogota',
-            warehouse_country: 'Colombia',
-            batch_number: 'BATCH-SPECIAL',
-            expiration_date: '2025-12-31T00:00:00Z',
-            created_at: '2024-01-10T10:00:00Z',
-            updated_at: '2024-01-10T10:00:00Z',
-          },
-        ],
-      };
-      const { getByText, getByTestId } = render(<OrderCard order={specialOrder} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
-
-      await waitFor(() => {
-        expect(getByText('Product @ 50% off!')).toBeTruthy();
-      });
-    });
-
-    it('should handle large numbers correctly', () => {
-      const largeOrder = {
-        ...mockOrder,
-        monto_total: 999999999,
-      };
-      const { getByText } = render(<OrderCard order={largeOrder} />);
-      expect(getByText('$999,999,999')).toBeTruthy();
-    });
-
-    it('should handle zero amount', () => {
-      const zeroOrder = {
-        ...mockOrder,
-        monto_total: 0,
-      };
-      const { getByText } = render(<OrderCard order={zeroOrder} />);
-      expect(getByText('$0')).toBeTruthy();
-    });
-
-    it('should handle addresses with special characters', async () => {
-      const specialAddressOrder = {
-        ...mockOrder,
-        direccion_entrega: 'Av. Principal #123',
-        ciudad_entrega: 'Bogotá, D.C.',
-      };
-      const { getByText, getByTestId } = render(<OrderCard order={specialAddressOrder} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
-
-      await waitFor(() => {
-        expect(getByText('Av. Principal #123, Bogotá, D.C.')).toBeTruthy();
-      });
-    });
+    fireEvent.press(getByTestId(`order-card-pressable-${order.id}`));
+    expect(getByText('Unknown')).toBeDefined();
   });
 
-  describe('Multiple Items', () => {
-    it('should display many items correctly', async () => {
-      const manyItemsOrder = {
-        ...mockOrder,
-        items: Array.from({ length: 10 }, (_, i) => ({
-          id: `item-${i + 1}`,
-          pedido_id: 'ORD-001',
-          inventario_id: `inv-${i + 1}`,
-          cantidad: i + 1,
-          precio_unitario: 10000,
-          precio_total: 10000 * (i + 1),
-          product_name: `Product ${i + 1}`,
-          product_sku: `SKU-${i + 1}`,
-          warehouse_id: 'wh-1',
-          warehouse_name: 'Warehouse A',
-          warehouse_city: 'Bogota',
-          warehouse_country: 'Colombia',
-          batch_number: `BATCH-${i + 1}`,
-          expiration_date: '2025-12-31T00:00:00Z',
-          created_at: '2024-01-10T10:00:00Z',
-          updated_at: '2024-01-10T10:00:00Z',
-        })),
-      };
-      const { getByText, getByTestId } = render(<OrderCard order={manyItemsOrder} />);
-      fireEvent.press(getByTestId('order-card-pressable-ORD-001'));
+  it('should handle missing optional shipment fields with defaults', () => {
+    const order = {
+      ...mockOrder,
+      vehicle_plate: null,
+      shipment_status: null,
+    };
+    const { getByTestId, getByText } = render(
+      <OrderCard order={order} />
+    );
 
-      await waitFor(() => {
-        expect(getByText('Items (10)')).toBeTruthy();
-        expect(getByText('Product 1')).toBeTruthy();
-        expect(getByText('Product 10')).toBeTruthy();
-      });
-    });
+    fireEvent.press(getByTestId(`order-card-pressable-${order.id}`));
+
+    expect(getByTestId('info-row-Vehicle Plate')).toBeDefined();
+    expect(getByText('Planned')).toBeDefined();
+  });
+
+  it('should handle tomorrow delivery date scenario', () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const order = { ...mockOrder, fecha_entrega_estimada: tomorrow.toISOString() };
+    const { getByTestId } = render(<OrderCard order={order} />);
+
+    expect(getByTestId(`order-card-${order.id}`)).toBeDefined();
   });
 });

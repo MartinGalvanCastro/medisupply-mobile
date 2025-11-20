@@ -1,675 +1,531 @@
-import { renderHook, act, cleanup } from '@testing-library/react-native';
+import { renderHook, act } from '@testing-library/react-native';
 import { useAblyToken } from './useAblyToken';
 import { useGenerateTokenAuthAblyTokenPost } from '@/api/generated/realtime/realtime';
 import type { AblyTokenResponse } from '@/api/generated/models';
 
-// Mock the Orval-generated mutation hook
-jest.mock('@/api/generated/realtime/realtime', () => ({
-  useGenerateTokenAuthAblyTokenPost: jest.fn(),
-}));
+jest.mock('@/api/generated/realtime/realtime');
+
+const mockAblyTokenResponse: AblyTokenResponse = {
+  token_request: {
+    keyName: 'test-key-name',
+    clientId: 'test-client-id',
+    ttl: 3600000,
+    timestamp: 1700000000000,
+    capability: '{"test:channel":["subscribe"]}',
+    nonce: 'test-nonce-value-very-long-string',
+    mac: 'test-mac-signature',
+  },
+  expires_at: 1700003600000,
+  channels: ['test:channel'],
+};
 
 describe('useAblyToken', () => {
-  let fakeTimersActive = false;
-
-  // Mock token response with 1-hour expiry
-  const createMockTokenResponse = (expiresInMs = 3600000): AblyTokenResponse => {
-    const timestamp = fakeTimersActive ? 1731591000000 : Date.now();
-    return {
-      token_request: {
-        keyName: 'test-key',
-        ttl: 3600000,
-        timestamp,
-        capability: '{"mobile:products":["subscribe"]}',
-        nonce: 'test-nonce',
-        mac: 'test-mac',
-        clientId: 'test-client-id',
-      },
-      expires_at: timestamp + expiresInMs,
-      channels: ['mobile:products'],
-    };
-  };
+  let mockMutateAsync: jest.Mock;
+  let mockUseGenerateToken: jest.MockedFunction<typeof useGenerateTokenAuthAblyTokenPost>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.useFakeTimers();
+    jest.setSystemTime(1700000000000);
+    mockMutateAsync = jest.fn();
+    mockUseGenerateToken = useGenerateTokenAuthAblyTokenPost as jest.MockedFunction<
+      typeof useGenerateTokenAuthAblyTokenPost
+    >;
+
+    mockUseGenerateToken.mockReturnValue({
+      mutateAsync: mockMutateAsync,
+      isPending: false,
+      error: null,
+    } as any);
   });
 
   afterEach(() => {
-    try {
-      cleanup();
-    } catch (e) {
-      // Ignore errors from cleanup
-    }
-    if (fakeTimersActive) {
-      jest.useRealTimers();
-      fakeTimersActive = false;
-    }
+    jest.clearAllMocks();
+    jest.useRealTimers();
   });
 
-  const setupFakeTimers = () => {
-    if (!fakeTimersActive) {
-      jest.useFakeTimers();
-      jest.setSystemTime(1731591000000);
-      fakeTimersActive = true;
-    }
-  };
-
-  describe('Token Fetching', () => {
-    it('should fetch token on first call to getValidToken', async () => {
-      const mockMutateAsync = jest.fn();
-      const mockToken = createMockTokenResponse();
-      mockMutateAsync.mockResolvedValueOnce(mockToken);
-
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
-      });
+  describe('fetchToken', () => {
+    it('should fetch token successfully and return response', async () => {
+      mockMutateAsync.mockResolvedValueOnce(mockAblyTokenResponse);
 
       const { result } = renderHook(() => useAblyToken());
 
-      let token: AblyTokenResponse | undefined;
+      let response: AblyTokenResponse | null = null;
       await act(async () => {
-        token = await result.current.getValidToken();
+        response = await result.current.fetchToken();
       });
 
-      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
-      expect(token).toEqual(mockToken);
-    });
-
-    it('should cache token after successful fetch', async () => {
-      const mockMutateAsync = jest.fn();
-      const mockToken = createMockTokenResponse();
-      mockMutateAsync.mockResolvedValueOnce(mockToken);
-
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
-      });
-
-      const { result } = renderHook(() => useAblyToken());
-
-      await act(async () => {
-        await result.current.getValidToken();
-      });
-
-      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
-
-      // Second call should use cache
-      await act(async () => {
-        await result.current.getValidToken();
-      });
-
-      expect(mockMutateAsync).toHaveBeenCalledTimes(1); // Still only 1 call
-    });
-
-    it('should return cached token when valid', async () => {
-      setupFakeTimers();
-      const mockMutateAsync = jest.fn();
-      const mockToken = createMockTokenResponse();
-      mockMutateAsync.mockResolvedValueOnce(mockToken);
-
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
-      });
-
-      const { result } = renderHook(() => useAblyToken());
-
-      let firstToken: AblyTokenResponse | undefined;
-      let secondToken: AblyTokenResponse | undefined;
-
-      await act(async () => {
-        firstToken = await result.current.getValidToken();
-      });
-
-      // Advance time but not near expiry (5 min = 300000ms)
-      jest.advanceTimersByTime(1000000); // ~16 min
-
-      await act(async () => {
-        secondToken = await result.current.getValidToken();
-      });
-
-      expect(firstToken).toBe(secondToken);
-      expect(mockMutateAsync).toHaveBeenCalledTimes(1); // No re-fetch
-    });
-  });
-
-  describe('Token Expiry Detection', () => {
-    it('should refetch when token expires in less than 5 minutes', async () => {
-      setupFakeTimers();
-      const mockMutateAsync = jest.fn();
-      const mockTokenFresh = createMockTokenResponse(3600000);
-      const mockTokenFresh2 = createMockTokenResponse();
-
-      mockMutateAsync
-        .mockResolvedValueOnce(mockTokenFresh)
-        .mockResolvedValueOnce(mockTokenFresh2);
-
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
-      });
-
-      const { result } = renderHook(() => useAblyToken());
-
-      // Fetch first token
-      await act(async () => {
-        await result.current.getValidToken();
-      });
-
-      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
-
-      // Call again without advancing time - should still be valid
-      await act(async () => {
-        await result.current.getValidToken();
-      });
-
-      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
-
-      // Advance time by 50 minutes - now expires in 10 minutes (still > 5 min)
-      jest.advanceTimersByTime(3000000); // 50 minutes
-
-      // Should still use cache
-      await act(async () => {
-        await result.current.getValidToken();
-      });
-
-      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
-
-      // Advance time by another 6 minutes - now expires in 4 minutes (less than 5)
-      jest.advanceTimersByTime(360000); // 6 minutes
-
-      // Now should refetch
-      await act(async () => {
-        await result.current.getValidToken();
-      });
-
-      expect(mockMutateAsync).toHaveBeenCalledTimes(2);
-    });
-
-    it('should refetch when no cached token exists', async () => {
-      const mockMutateAsync = jest.fn();
-      const mockToken = createMockTokenResponse();
-      mockMutateAsync.mockResolvedValueOnce(mockToken);
-
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
-      });
-
-      const { result } = renderHook(() => useAblyToken());
-
-      await act(async () => {
-        await result.current.getValidToken();
-      });
-
+      expect(response).toEqual(mockAblyTokenResponse);
       expect(mockMutateAsync).toHaveBeenCalledTimes(1);
     });
 
-    it('should refetch at exactly 5 minute boundary', async () => {
-      setupFakeTimers();
-      const mockMutateAsync = jest.fn();
-      const mockTokenExpiring = createMockTokenResponse(300000); // Expires in exactly 5 min
-      const mockTokenFresh = createMockTokenResponse();
-
-      mockMutateAsync
-        .mockResolvedValueOnce(mockTokenExpiring)
-        .mockResolvedValueOnce(mockTokenFresh);
-
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
-      });
-
-      const { result } = renderHook(() => useAblyToken());
-
-      await act(async () => {
-        await result.current.getValidToken();
-      });
-
-      // Advance time by 1ms past the 5-minute threshold
-      jest.advanceTimersByTime(300001);
-
-      await act(async () => {
-        await result.current.getValidToken();
-      });
-
-      expect(mockMutateAsync).toHaveBeenCalledTimes(2);
-    });
-
-    it('should use cached token when expires in more than 5 minutes', async () => {
-      setupFakeTimers();
-      const mockMutateAsync = jest.fn();
-      const mockToken = createMockTokenResponse(600000); // Expires in 10 minutes
-      mockMutateAsync.mockResolvedValueOnce(mockToken);
-
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
-      });
-
-      const { result } = renderHook(() => useAblyToken());
-
-      await act(async () => {
-        await result.current.getValidToken();
-      });
-
-      // Advance time by 4 minutes
-      jest.advanceTimersByTime(240000);
-
-      // Should still use cache (expires in 6 minutes)
-      await act(async () => {
-        await result.current.getValidToken();
-      });
-
-      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('Error Handling', () => {
-    it('should handle fetch errors and throw', async () => {
-      const mockMutateAsync = jest.fn();
+    it('should throw error when mutation fails', async () => {
       const error = new Error('Token fetch failed');
       mockMutateAsync.mockRejectedValueOnce(error);
 
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
+      const { result } = renderHook(() => useAblyToken());
+
+      await act(async () => {
+        await expect(result.current.fetchToken()).rejects.toThrow('Token fetch failed');
       });
+    });
+
+    it('should handle network errors during fetch', async () => {
+      const networkError = new Error('Network request failed');
+      mockMutateAsync.mockRejectedValueOnce(networkError);
 
       const { result } = renderHook(() => useAblyToken());
 
-      let thrownError: Error | null = null;
-      try {
-        await act(async () => {
-          await result.current.getValidToken();
-        });
-      } catch (e) {
-        thrownError = e as Error;
-      }
-      expect(thrownError?.message).toBe('Token fetch failed');
+      await act(async () => {
+        await expect(result.current.fetchToken()).rejects.toThrow('Network request failed');
+      });
+    });
 
+    it('should return fresh token with different nonce on each call', async () => {
+      const response1 = mockAblyTokenResponse;
+      const response2: AblyTokenResponse = {
+        ...mockAblyTokenResponse,
+        token_request: {
+          ...mockAblyTokenResponse.token_request,
+          nonce: 'different-nonce-value',
+        },
+      };
+
+      mockMutateAsync.mockResolvedValueOnce(response1);
+      mockMutateAsync.mockResolvedValueOnce(response2);
+
+      const { result } = renderHook(() => useAblyToken());
+
+      let response: AblyTokenResponse | null = null;
+
+      await act(async () => {
+        response = await result.current.fetchToken();
+      });
+      expect((response as unknown as AblyTokenResponse).token_request.nonce).toBe('test-nonce-value-very-long-string');
+
+      await act(async () => {
+        response = await result.current.fetchToken();
+      });
+      expect((response as unknown as AblyTokenResponse).token_request.nonce).toBe('different-nonce-value');
+    });
+
+    it('should include all token response fields', async () => {
+      mockMutateAsync.mockResolvedValueOnce(mockAblyTokenResponse);
+
+      const { result } = renderHook(() => useAblyToken());
+
+      let response: AblyTokenResponse | null = null;
+      await act(async () => {
+        response = await result.current.fetchToken();
+      });
+
+      expect((response as unknown as AblyTokenResponse).token_request.keyName).toBe('test-key-name');
+      expect((response as unknown as AblyTokenResponse).token_request.clientId).toBe('test-client-id');
+      expect((response as unknown as AblyTokenResponse).token_request.ttl).toBe(3600000);
+      expect((response as unknown as AblyTokenResponse).token_request.capability).toBe('{"test:channel":["subscribe"]}');
+      expect((response as unknown as AblyTokenResponse).token_request.nonce).toBe('test-nonce-value-very-long-string');
+      expect((response as unknown as AblyTokenResponse).token_request.mac).toBe('test-mac-signature');
+      expect((response as unknown as AblyTokenResponse).expires_at).toBe(1700003600000);
+      expect((response as unknown as AblyTokenResponse).channels).toEqual(['test:channel']);
+    });
+  });
+
+  describe('getValidToken', () => {
+    it('should fetch token when called for the first time', async () => {
+      mockMutateAsync.mockResolvedValueOnce(mockAblyTokenResponse);
+
+      const { result } = renderHook(() => useAblyToken());
+
+      let response: AblyTokenResponse | null = null;
+      await act(async () => {
+        response = await result.current.getValidToken();
+      });
+
+      expect(response).toEqual(mockAblyTokenResponse);
       expect(mockMutateAsync).toHaveBeenCalledTimes(1);
     });
 
-    it('should expose error state from mutation', () => {
-      const mockMutateAsync = jest.fn();
-      const error = new Error('Mutation error');
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error,
-      });
+    it('should enforce rate limiting - wait before next fetch within 5 seconds', async () => {
+      mockMutateAsync.mockResolvedValue(mockAblyTokenResponse);
 
       const { result } = renderHook(() => useAblyToken());
 
-      expect(result.current.error).toBe(error);
+      await act(async () => {
+        await result.current.getValidToken();
+      });
+
+      let secondFetchComplete = false;
+      const secondFetchPromise = act(async () => {
+        await result.current.getValidToken();
+        secondFetchComplete = true;
+      });
+
+      expect(secondFetchComplete).toBe(false);
+
+      act(() => {
+        jest.runOnlyPendingTimers();
+      });
+
+      await secondFetchPromise;
+
+      expect(secondFetchComplete).toBe(true);
+      expect(mockMutateAsync).toHaveBeenCalledTimes(2);
     });
 
-    it('should expose isPending state from mutation', () => {
-      const mockMutateAsync = jest.fn();
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
+    it('should not rate limit after 5+ seconds have passed since last fetch', async () => {
+      mockMutateAsync.mockResolvedValue(mockAblyTokenResponse);
+
+      const { result } = renderHook(() => useAblyToken());
+
+      await act(async () => {
+        await result.current.getValidToken();
+      });
+
+      act(() => {
+        jest.setSystemTime(jest.now() + 6000);
+      });
+
+      await act(async () => {
+        await result.current.getValidToken();
+      });
+
+      expect(mockMutateAsync).toHaveBeenCalledTimes(2);
+    });
+
+    it('should always fetch fresh token with new nonce', async () => {
+      mockMutateAsync.mockResolvedValue(mockAblyTokenResponse);
+
+      const { result } = renderHook(() => useAblyToken());
+
+      await act(async () => {
+        await result.current.getValidToken();
+      });
+
+      act(() => {
+        jest.setSystemTime(jest.now() + 6000);
+      });
+
+      await act(async () => {
+        await result.current.getValidToken();
+      });
+
+      expect(mockMutateAsync).toHaveBeenCalledTimes(2);
+    });
+
+    it('should propagate token fetch errors after rate limiting', async () => {
+      mockMutateAsync.mockResolvedValueOnce(mockAblyTokenResponse);
+
+      const { result } = renderHook(() => useAblyToken());
+
+      await act(async () => {
+        await result.current.getValidToken();
+      });
+
+      const error = new Error('Token fetch failed');
+      mockMutateAsync.mockRejectedValueOnce(error);
+
+      act(() => {
+        jest.setSystemTime(jest.now() + 6000);
+      });
+
+      await act(async () => {
+        await expect(result.current.getValidToken()).rejects.toThrow('Token fetch failed');
+      });
+    });
+  });
+
+  describe('clearCache', () => {
+    it('should clear cache without throwing', () => {
+      mockMutateAsync.mockResolvedValue(mockAblyTokenResponse);
+
+      const { result } = renderHook(() => useAblyToken());
+
+      // clearCache should not throw
+      act(() => {
+        result.current.clearCache();
+      });
+
+      expect(mockMutateAsync).not.toHaveBeenCalled();
+    });
+
+    it('should allow fetch after clearCache', async () => {
+      mockMutateAsync.mockResolvedValue(mockAblyTokenResponse);
+
+      const { result } = renderHook(() => useAblyToken());
+
+      await act(async () => {
+        await result.current.getValidToken();
+      });
+
+      // Clear and try another fetch with time advanced
+      act(() => {
+        result.current.clearCache();
+        jest.setSystemTime(jest.now() + 100);
+      });
+
+      await act(async () => {
+        await result.current.getValidToken();
+      });
+
+      expect(mockMutateAsync).toHaveBeenCalledTimes(2);
+    });
+
+    it('should be safe to call multiple times', () => {
+      mockMutateAsync.mockResolvedValue(mockAblyTokenResponse);
+
+      const { result } = renderHook(() => useAblyToken());
+
+      // Multiple calls should not throw
+      act(() => {
+        result.current.clearCache();
+        result.current.clearCache();
+        result.current.clearCache();
+      });
+
+      expect(mockMutateAsync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('hook state and properties', () => {
+    it('should return isPending and error from mutation hook', () => {
+      mockUseGenerateToken.mockReturnValue({
         mutateAsync: mockMutateAsync,
         isPending: true,
-        error: null,
-      });
+        error: new Error('Test error'),
+      } as any);
 
       const { result } = renderHook(() => useAblyToken());
 
       expect(result.current.isPending).toBe(true);
+      expect(result.current.error).toEqual(new Error('Test error'));
     });
 
-    it('should retry fetch after error', async () => {
-      const mockMutateAsync = jest.fn();
-      const mockToken = createMockTokenResponse();
-      const error = new Error('Network error');
-
-      mockMutateAsync
-        .mockRejectedValueOnce(error)
-        .mockResolvedValueOnce(mockToken);
-
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
-      });
-
+    it('should return all required hook methods', () => {
       const { result } = renderHook(() => useAblyToken());
-
-      // First attempt fails
-      let firstError: Error | null = null;
-      try {
-        await act(async () => {
-          await result.current.getValidToken();
-        });
-      } catch (e) {
-        firstError = e as Error;
-      }
-      expect(firstError?.message).toBe('Network error');
-
-      // Second attempt succeeds
-      let token: AblyTokenResponse | undefined;
-      await act(async () => {
-        token = await result.current.getValidToken();
-      });
-
-      expect(token).toEqual(mockToken);
-      expect(mockMutateAsync).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  describe('Cache Management', () => {
-    it('should clear cache when clearCache is called', async () => {
-      const mockMutateAsync = jest.fn();
-      const mockToken = createMockTokenResponse();
-      mockMutateAsync.mockResolvedValue(mockToken);
-
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
-      });
-
-      const { result } = renderHook(() => useAblyToken());
-
-      // Fetch and cache token
-      await act(async () => {
-        await result.current.getValidToken();
-      });
-
-      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
-
-      // Clear cache
-      act(() => {
-        result.current.clearCache();
-      });
-
-      // Next call should refetch (cache is cleared)
-      await act(async () => {
-        await result.current.getValidToken();
-      });
-
-      expect(mockMutateAsync).toHaveBeenCalledTimes(2);
-    });
-
-    it('should clear cache without triggering fetches', async () => {
-      const mockMutateAsync = jest.fn();
-      const mockToken = createMockTokenResponse();
-      mockMutateAsync.mockResolvedValueOnce(mockToken);
-
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
-      });
-
-      const { result } = renderHook(() => useAblyToken());
-
-      // Fetch token
-      await act(async () => {
-        await result.current.getValidToken();
-      });
-
-      // Clear cache (should be synchronous, no fetch)
-      act(() => {
-        result.current.clearCache();
-      });
-
-      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('fetchToken Method', () => {
-    it('should fetch fresh token regardless of cache', async () => {
-      const mockMutateAsync = jest.fn();
-      const mockToken1 = createMockTokenResponse();
-      const mockToken2 = createMockTokenResponse(3600000);
-
-      mockMutateAsync
-        .mockResolvedValueOnce(mockToken1)
-        .mockResolvedValueOnce(mockToken2);
-
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
-      });
-
-      const { result } = renderHook(() => useAblyToken());
-
-      // Get and cache token
-      let token1: AblyTokenResponse | undefined;
-      await act(async () => {
-        token1 = await result.current.getValidToken();
-      });
-
-      // Use fetchToken to get fresh token
-      let token2: AblyTokenResponse | undefined;
-      await act(async () => {
-        token2 = await result.current.fetchToken();
-      });
-
-      expect(mockMutateAsync).toHaveBeenCalledTimes(2);
-      expect(token1).not.toBe(token2);
-    });
-
-    it('should update cache when fetchToken is called', async () => {
-      const mockMutateAsync = jest.fn();
-      const mockToken1 = createMockTokenResponse(3600000);
-      const mockToken2 = createMockTokenResponse(7200000);
-
-      mockMutateAsync
-        .mockResolvedValueOnce(mockToken1)
-        .mockResolvedValueOnce(mockToken2);
-
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
-      });
-
-      const { result } = renderHook(() => useAblyToken());
-
-      // Fetch first token
-      await act(async () => {
-        await result.current.fetchToken();
-      });
-
-      // Fetch new token
-      await act(async () => {
-        await result.current.fetchToken();
-      });
-
-      // Next getValidToken should return the latest cached token
-      let cachedToken: AblyTokenResponse | undefined;
-      await act(async () => {
-        cachedToken = await result.current.getValidToken();
-      });
-
-      expect(cachedToken?.expires_at).toBe(mockToken2.expires_at);
-      expect(mockMutateAsync).toHaveBeenCalledTimes(2); // No additional fetch
-    });
-  });
-
-  describe('Return Values', () => {
-    it('should return all expected methods and properties', () => {
-      const mockMutateAsync = jest.fn();
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
-      });
-
-      const { result } = renderHook(() => useAblyToken());
-
-      expect(result.current).toHaveProperty('getValidToken');
-      expect(result.current).toHaveProperty('fetchToken');
-      expect(result.current).toHaveProperty('clearCache');
-      expect(result.current).toHaveProperty('isPending');
-      expect(result.current).toHaveProperty('error');
 
       expect(typeof result.current.getValidToken).toBe('function');
       expect(typeof result.current.fetchToken).toBe('function');
       expect(typeof result.current.clearCache).toBe('function');
+      expect(typeof result.current.isPending).toBe('boolean');
+      expect(result.current.error).toBeNull();
     });
 
-    it('should maintain function references across renders', () => {
-      const mockMutateAsync = jest.fn();
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
-      });
+    it('should maintain stable function references', () => {
+      const { result } = renderHook(() => useAblyToken());
 
-      const { result, rerender } = renderHook(() => useAblyToken());
+      const fetchToken = result.current.fetchToken;
+      const getValidToken = result.current.getValidToken;
+      const clearCache = result.current.clearCache;
 
-      const getValidToken1 = result.current.getValidToken;
-      const fetchToken1 = result.current.fetchToken;
-      const clearCache1 = result.current.clearCache;
-
-      rerender(() => useAblyToken());
-
-      const getValidToken2 = result.current.getValidToken;
-      const fetchToken2 = result.current.fetchToken;
-      const clearCache2 = result.current.clearCache;
-
-      // useCallback should maintain references
-      expect(getValidToken1).toBe(getValidToken2);
-      expect(fetchToken1).toBe(fetchToken2);
-      expect(clearCache1).toBe(clearCache2);
+      expect(result.current.fetchToken).toBe(fetchToken);
+      expect(result.current.getValidToken).toBe(getValidToken);
+      expect(result.current.clearCache).toBe(clearCache);
     });
   });
 
-  describe('Integration Scenarios', () => {
-    it('should handle complete token lifecycle', async () => {
-      setupFakeTimers();
-      const mockMutateAsync = jest.fn();
-      const mockTokenExpiring = createMockTokenResponse(240000); // 4 min
-      const mockTokenFresh = createMockTokenResponse(3600000); // 1 hour
+  describe('complex token responses', () => {
+    it('should handle token response with non-string nonce', async () => {
+      const responseWithNonStringNonce: AblyTokenResponse = {
+        ...mockAblyTokenResponse,
+        token_request: {
+          ...mockAblyTokenResponse.token_request,
+          nonce: 12345 as any, // Non-string nonce
+        },
+      };
 
-      mockMutateAsync
-        .mockResolvedValueOnce(mockTokenExpiring)
-        .mockResolvedValueOnce(mockTokenFresh);
-
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
-      });
+      mockMutateAsync.mockResolvedValueOnce(responseWithNonStringNonce);
 
       const { result } = renderHook(() => useAblyToken());
 
-      // Initial fetch
-      let token1: AblyTokenResponse | undefined;
+      let response: AblyTokenResponse | null = null;
       await act(async () => {
-        token1 = await result.current.getValidToken();
+        response = await result.current.fetchToken();
       });
 
-      expect(token1?.expires_at).toBe(mockTokenExpiring.expires_at);
+      expect((response as unknown as AblyTokenResponse).token_request.nonce).toBe(12345);
+    });
 
-      // Move forward, trigger refresh
-      jest.advanceTimersByTime(60000); // 1 minute
+    it('should handle token response with multiple channels', async () => {
+      const multiChannelResponse: AblyTokenResponse = {
+        ...mockAblyTokenResponse,
+        channels: ['mobile:products', 'mobile:orders', 'users:user123'],
+      };
 
-      // Should refetch (expires in 3 minutes now)
-      let token2: AblyTokenResponse | undefined;
+      mockMutateAsync.mockResolvedValueOnce(multiChannelResponse);
+
+      const { result } = renderHook(() => useAblyToken());
+
+      let response: AblyTokenResponse | null = null;
       await act(async () => {
-        token2 = await result.current.getValidToken();
+        response = await result.current.fetchToken();
       });
 
-      expect(token2?.expires_at).toBe(mockTokenFresh.expires_at);
+      expect((response as unknown as AblyTokenResponse).channels).toHaveLength(3);
+      expect((response as unknown as AblyTokenResponse).channels).toContain('mobile:products');
+      expect((response as unknown as AblyTokenResponse).channels).toContain('mobile:orders');
+      expect((response as unknown as AblyTokenResponse).channels).toContain('users:user123');
+    });
 
-      // Clear cache for logout
+    it('should preserve complex capability JSON', async () => {
+      const complexCapability =
+        '{"dev:users:user123":["subscribe"],"dev:orders:*":["publish"]}';
+      const responseWithComplexCapability: AblyTokenResponse = {
+        ...mockAblyTokenResponse,
+        token_request: {
+          ...mockAblyTokenResponse.token_request,
+          capability: complexCapability,
+        },
+      };
+
+      mockMutateAsync.mockResolvedValueOnce(responseWithComplexCapability);
+
+      const { result } = renderHook(() => useAblyToken());
+
+      let response: AblyTokenResponse | null = null;
+      await act(async () => {
+        response = await result.current.fetchToken();
+      });
+
+      expect((response as unknown as AblyTokenResponse).token_request.capability).toBe(complexCapability);
+    });
+
+    it('should handle very long nonce strings', async () => {
+      const veryLongNonce = 'n'.repeat(1000);
+      const responseWithLongNonce: AblyTokenResponse = {
+        ...mockAblyTokenResponse,
+        token_request: {
+          ...mockAblyTokenResponse.token_request,
+          nonce: veryLongNonce,
+        },
+      };
+
+      mockMutateAsync.mockResolvedValueOnce(responseWithLongNonce);
+
+      const { result } = renderHook(() => useAblyToken());
+
+      let response: AblyTokenResponse | null = null;
+      await act(async () => {
+        response = await result.current.fetchToken();
+      });
+
+      expect((response as unknown as AblyTokenResponse).token_request.nonce).toBe(veryLongNonce);
+    });
+  });
+
+  describe('multiple sequential operations', () => {
+    it('should handle three sequential fetches with rate limiting', async () => {
+      mockMutateAsync.mockResolvedValue(mockAblyTokenResponse);
+
+      const { result } = renderHook(() => useAblyToken());
+
+      const responses: (AblyTokenResponse | null)[] = [];
+
+      await act(async () => {
+        responses.push(await result.current.getValidToken());
+      });
+
+      act(() => {
+        jest.setSystemTime(jest.now() + 6000);
+      });
+
+      await act(async () => {
+        responses.push(await result.current.getValidToken());
+      });
+
+      act(() => {
+        jest.setSystemTime(jest.now() + 6000);
+      });
+
+      await act(async () => {
+        responses.push(await result.current.getValidToken());
+      });
+
+      expect(responses).toHaveLength(3);
+      expect(mockMutateAsync).toHaveBeenCalledTimes(3);
+    });
+
+    it('should reset rate limiting after clearCache in sequence', async () => {
+      mockMutateAsync.mockResolvedValue(mockAblyTokenResponse);
+
+      const { result } = renderHook(() => useAblyToken());
+
+      await act(async () => {
+        await result.current.getValidToken();
+      });
+
       act(() => {
         result.current.clearCache();
       });
 
-      // Verify cache is clear by checking that next call would refetch
-      expect(mockMutateAsync).toHaveBeenCalledTimes(2);
-    });
-
-    it('should handle repeated token refresh cycles', async () => {
-      setupFakeTimers();
-      const mockMutateAsync = jest.fn();
-      const mockToken = createMockTokenResponse(3600000);
-      mockMutateAsync.mockResolvedValue(mockToken);
-
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
-      });
-
-      const { result } = renderHook(() => useAblyToken());
-
-      // Get initial token
       await act(async () => {
         await result.current.getValidToken();
       });
 
-      // Make multiple calls over time without crossing the 5-minute boundary
-      for (let i = 0; i < 5; i++) {
-        jest.advanceTimersByTime(50000); // 50 seconds each
+      expect(mockMutateAsync).toHaveBeenCalledTimes(2);
+    });
+  });
 
-        await act(async () => {
-          await result.current.getValidToken();
-        });
-      }
+  describe('error scenarios', () => {
+    it('should handle API error during fetch', async () => {
+      const error = new Error('API Server Error');
+      mockMutateAsync.mockRejectedValueOnce(error);
 
-      // Should still be on first token (total advanced: 250s, < 5min)
+      const { result } = renderHook(() => useAblyToken());
+
+      await act(async () => {
+        await expect(result.current.fetchToken()).rejects.toThrow('API Server Error');
+      });
+
+      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle timeout during token fetch', async () => {
+      const error = new Error('Request timeout');
+      mockMutateAsync.mockRejectedValueOnce(error);
+
+      const { result } = renderHook(() => useAblyToken());
+
+      await act(async () => {
+        await expect(result.current.fetchToken()).rejects.toThrow('Request timeout');
+      });
+
       expect(mockMutateAsync).toHaveBeenCalledTimes(1);
     });
   });
 
-  describe('Edge Cases', () => {
-    it('should handle token expiry exactly at current time', async () => {
-      setupFakeTimers();
-      const mockMutateAsync = jest.fn();
-      const mockToken = createMockTokenResponse(0); // Expires now
-      const mockTokenFresh = createMockTokenResponse();
-
-      mockMutateAsync
-        .mockResolvedValueOnce(mockToken)
-        .mockResolvedValueOnce(mockTokenFresh);
-
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
-      });
+  describe('rate limiting edge cases', () => {
+    it('should calculate correct wait time for partial rate limit period', async () => {
+      mockMutateAsync.mockResolvedValue(mockAblyTokenResponse);
 
       const { result } = renderHook(() => useAblyToken());
 
-      // First fetch
       await act(async () => {
         await result.current.getValidToken();
       });
 
-      // Should refetch because timeUntilExpiry < 300000
-      await act(async () => {
-        await result.current.getValidToken();
+      act(() => {
+        jest.setSystemTime(jest.now() + 2000);
       });
 
+      let fetchComplete = false;
+      const fetchPromise = act(async () => {
+        await result.current.getValidToken();
+        fetchComplete = true;
+      });
+
+      expect(fetchComplete).toBe(false);
+
+      act(() => {
+        jest.runOnlyPendingTimers();
+      });
+
+      await fetchPromise;
+
+      expect(fetchComplete).toBe(true);
       expect(mockMutateAsync).toHaveBeenCalledTimes(2);
     });
 
-    it('should handle very large expiry times', async () => {
-      setupFakeTimers();
-      const mockMutateAsync = jest.fn();
-      const mockToken = createMockTokenResponse(86400000); // 24 hours
-      mockMutateAsync.mockResolvedValueOnce(mockToken);
-
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
-      });
+    it('should handle token fetch error after rate limit wait', async () => {
+      mockMutateAsync.mockResolvedValueOnce(mockAblyTokenResponse);
 
       const { result } = renderHook(() => useAblyToken());
 
@@ -677,36 +533,78 @@ describe('useAblyToken', () => {
         await result.current.getValidToken();
       });
 
-      // Advance 12 hours
-      jest.advanceTimersByTime(43200000);
+      const error = new Error('Backend service unavailable');
+      mockMutateAsync.mockRejectedValueOnce(error);
 
-      // Should still use cache
-      await act(async () => {
-        await result.current.getValidToken();
+      act(() => {
+        jest.setSystemTime(jest.now() + 6000);
       });
 
-      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        await expect(result.current.getValidToken()).rejects.toThrow(
+          'Backend service unavailable'
+        );
+      });
+    });
+  });
+
+  describe('token data integrity', () => {
+    it('should preserve all token request fields unchanged', async () => {
+      const customResponse: AblyTokenResponse = {
+        token_request: {
+          keyName: 'custom-key',
+          clientId: 'custom-client',
+          ttl: 7200000,
+          timestamp: 1700100000000,
+          capability: '{"*":["*"]}',
+          nonce: 'custom-nonce',
+          mac: 'custom-mac',
+        },
+        expires_at: 1700107200000,
+        channels: ['channel1', 'channel2'],
+      };
+
+      mockMutateAsync.mockResolvedValueOnce(customResponse);
+
+      const { result } = renderHook(() => useAblyToken());
+
+      let response: AblyTokenResponse | null = null;
+      await act(async () => {
+        response = await result.current.fetchToken();
+      });
+
+      expect(response).toEqual(customResponse);
     });
 
-    it('should handle mutation with retry configuration', () => {
-      const mockMutateAsync = jest.fn();
-      (useGenerateTokenAuthAblyTokenPost as jest.Mock).mockReturnValue({
-        mutateAsync: mockMutateAsync,
-        isPending: false,
-        error: null,
+    it('should return different tokens on subsequent calls', async () => {
+      const token1 = mockAblyTokenResponse;
+      const token2: AblyTokenResponse = {
+        ...mockAblyTokenResponse,
+        token_request: {
+          ...mockAblyTokenResponse.token_request,
+          nonce: 'nonce-2',
+          timestamp: 1700001000000,
+        },
+      };
+
+      mockMutateAsync.mockResolvedValueOnce(token1);
+      mockMutateAsync.mockResolvedValueOnce(token2);
+
+      const { result } = renderHook(() => useAblyToken());
+
+      let response1: AblyTokenResponse | null = null;
+      let response2: AblyTokenResponse | null = null;
+
+      await act(async () => {
+        response1 = await result.current.fetchToken();
       });
 
-      renderHook(() => useAblyToken());
+      await act(async () => {
+        response2 = await result.current.fetchToken();
+      });
 
-      // Verify that hook uses mutation options with retry
-      expect(useGenerateTokenAuthAblyTokenPost).toHaveBeenCalledWith(
-        expect.objectContaining({
-          mutation: expect.objectContaining({
-            retry: 1,
-            retryDelay: 1000,
-          }),
-        })
-      );
+      expect((response1 as unknown as AblyTokenResponse).token_request.nonce).not.toBe((response2 as unknown as AblyTokenResponse).token_request.nonce);
+      expect((response1 as unknown as AblyTokenResponse).token_request.timestamp).not.toBe((response2 as unknown as AblyTokenResponse).token_request.timestamp);
     });
   });
 });

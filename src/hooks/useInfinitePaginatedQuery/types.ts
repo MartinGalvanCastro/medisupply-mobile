@@ -160,8 +160,9 @@ export interface UseInfinitePaginatedQueryResult<T> {
 
   /**
    * Function to load the next page
+   * Returns a promise that resolves when the fetch completes
    */
-  fetchNextPage: () => void;
+  fetchNextPage: () => Promise<void>;
 
   /**
    * Function to refetch all pages (pull-to-refresh)

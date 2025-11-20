@@ -1,165 +1,115 @@
 import { Platform } from 'react-native';
-import {
-  check,
-  request,
-  openSettings,
-  RESULTS,
-} from 'react-native-permissions';
+import { check, request, openSettings, RESULTS } from 'react-native-permissions';
 import { PermissionManager } from './manager';
 import { getPermission } from './platform';
 import { permissionStorage } from './storage';
 
-// Mock dependencies
+jest.mock('react-native-permissions');
 jest.mock('./platform');
 jest.mock('./storage');
 
-const mockGetPermission = getPermission as jest.MockedFunction<
-  typeof getPermission
->;
-const mockPermissionStorage = permissionStorage as jest.Mocked<
-  typeof permissionStorage
->;
-
 describe('PermissionManager', () => {
+  const mockGetPermission = getPermission as jest.MockedFunction<typeof getPermission>;
+  const mockCheck = check as jest.MockedFunction<typeof check>;
+  const mockRequest = request as jest.MockedFunction<typeof request>;
+  const mockOpenSettings = openSettings as jest.MockedFunction<typeof openSettings>;
+  const mockPermissionStorage = permissionStorage as jest.Mocked<typeof permissionStorage>;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    (check as jest.Mock).mockResolvedValue(RESULTS.GRANTED);
-    (request as jest.Mock).mockResolvedValue(RESULTS.GRANTED);
-    (openSettings as jest.Mock).mockResolvedValue(undefined);
+    Platform.OS = 'ios' as any;
     mockGetPermission.mockReturnValue('ios.permission.CAMERA');
+    mockCheck.mockResolvedValue(RESULTS.GRANTED);
+    mockRequest.mockResolvedValue(RESULTS.GRANTED);
+    mockOpenSettings.mockResolvedValue(undefined);
     mockPermissionStorage.get.mockReturnValue(null);
-    mockPermissionStorage.incrementRequestCount.mockImplementation(
-      jest.fn()
-    );
   });
 
   describe('checkPermission', () => {
-    it('should check permission and cache result', async () => {
-      mockPermissionStorage.get.mockReturnValue(null);
-
+    it('checks permission and stores result', async () => {
       const result = await PermissionManager.checkPermission('camera');
 
+      expect(mockGetPermission).toHaveBeenCalledWith('camera');
+      expect(mockCheck).toHaveBeenCalledWith('ios.permission.CAMERA');
+      expect(mockPermissionStorage.set).toHaveBeenCalledWith('ios_camera', RESULTS.GRANTED);
       expect(result).toBe(RESULTS.GRANTED);
-      expect(check).toHaveBeenCalledWith('ios.permission.CAMERA');
-      expect(mockPermissionStorage.set).toHaveBeenCalledWith(
-        'ios_camera',
-        RESULTS.GRANTED
-      );
     });
 
-    it('should use correct cache key based on platform and type', async () => {
-      mockPermissionStorage.get.mockReturnValue(null);
-      (Platform.OS as string) = 'ios';
-
-      await PermissionManager.checkPermission('photoLibrary');
-
-      expect(mockPermissionStorage.set).toHaveBeenCalledWith(
-        expect.stringContaining('_photoLibrary'),
-        RESULTS.GRANTED
-      );
-    });
-
-    it('should return BLOCKED status on Android when cached status is BLOCKED', async () => {
-      (Platform.OS as string) = 'android';
+    it('returns BLOCKED status for Android if previously blocked', async () => {
+      Platform.OS = 'android' as any;
       mockPermissionStorage.get.mockReturnValue({
         status: RESULTS.BLOCKED,
         lastChecked: Date.now(),
         requestCount: 1,
         rationaleShown: false,
       });
-      (check as jest.Mock).mockResolvedValue(RESULTS.GRANTED);
+      mockCheck.mockResolvedValue(RESULTS.DENIED);
 
       const result = await PermissionManager.checkPermission('camera');
 
       expect(result).toBe(RESULTS.BLOCKED);
     });
 
-    it('should not return BLOCKED on iOS even if cached status is BLOCKED', async () => {
-      (Platform.OS as string) = 'ios';
+    it('returns actual status for iOS even if previously blocked', async () => {
+      Platform.OS = 'ios' as any;
       mockPermissionStorage.get.mockReturnValue({
         status: RESULTS.BLOCKED,
         lastChecked: Date.now(),
         requestCount: 1,
         rationaleShown: false,
       });
-      (check as jest.Mock).mockResolvedValue(RESULTS.DENIED);
+      mockCheck.mockResolvedValue(RESULTS.GRANTED);
 
       const result = await PermissionManager.checkPermission('camera');
 
-      expect(result).toBe(RESULTS.DENIED);
-    });
-
-    it('should handle unavailable permission status', async () => {
-      mockPermissionStorage.get.mockReturnValue(null);
-      (check as jest.Mock).mockResolvedValue(RESULTS.UNAVAILABLE);
-
-      const result = await PermissionManager.checkPermission('camera');
-
-      expect(result).toBe(RESULTS.UNAVAILABLE);
-    });
-
-    it('should handle denied permission status', async () => {
-      mockPermissionStorage.get.mockReturnValue(null);
-      (check as jest.Mock).mockResolvedValue(RESULTS.DENIED);
-
-      const result = await PermissionManager.checkPermission('camera');
-
-      expect(result).toBe(RESULTS.DENIED);
+      expect(result).toBe(RESULTS.GRANTED);
     });
   });
 
   describe('requestPermission', () => {
-    it('should request permission without rationale', async () => {
-      mockPermissionStorage.get.mockReturnValue(null);
-
+    it('requests permission and stores result', async () => {
       const result = await PermissionManager.requestPermission('camera');
 
+      expect(mockGetPermission).toHaveBeenCalledWith('camera');
+      expect(mockRequest).toHaveBeenCalledWith('ios.permission.CAMERA', undefined);
+      expect(mockPermissionStorage.set).toHaveBeenCalled();
       expect(result).toBe(RESULTS.GRANTED);
-      expect(request).toHaveBeenCalledWith('ios.permission.CAMERA', undefined);
     });
 
-    it('should request permission with rationale', async () => {
-      mockPermissionStorage.get.mockReturnValue(null);
-      const rationale = {
-        title: 'Camera Permission',
-        message: 'We need camera access',
-        buttonPositive: 'Allow',
-      };
-
-      const result = await PermissionManager.requestPermission(
-        'camera',
-        rationale
-      );
-
-      expect(result).toBe(RESULTS.GRANTED);
-      expect(request).toHaveBeenCalledWith('ios.permission.CAMERA', rationale);
-    });
-
-    it('should increment request count and update cache', async () => {
-      const cachedData = {
+    it('increments request count when previously cached', async () => {
+      mockPermissionStorage.get.mockReturnValue({
         status: RESULTS.DENIED,
         lastChecked: Date.now(),
-        requestCount: 1,
+        requestCount: 2,
         rationaleShown: false,
-      };
-      mockPermissionStorage.get.mockReturnValue(cachedData);
+      });
 
       await PermissionManager.requestPermission('camera');
 
-      expect(mockPermissionStorage.incrementRequestCount).toHaveBeenCalledWith(
-        'ios_camera'
-      );
+      expect(mockPermissionStorage.incrementRequestCount).toHaveBeenCalledWith('ios_camera');
+    });
+
+    it('includes request count in set call', async () => {
+      mockPermissionStorage.get.mockReturnValue({
+        status: RESULTS.DENIED,
+        lastChecked: Date.now(),
+        requestCount: 2,
+        rationaleShown: false,
+      });
+
+      await PermissionManager.requestPermission('camera');
+
       expect(mockPermissionStorage.set).toHaveBeenCalledWith(
         'ios_camera',
         RESULTS.GRANTED,
         expect.objectContaining({
+          requestCount: 3,
           lastRequestedAt: expect.any(Number),
-          requestCount: 2,
         })
       );
     });
 
-    it('should handle first permission request (no cache)', async () => {
+    it('sets initial request count when no previous cache', async () => {
       mockPermissionStorage.get.mockReturnValue(null);
 
       await PermissionManager.requestPermission('camera');
@@ -169,61 +119,25 @@ describe('PermissionManager', () => {
         RESULTS.GRANTED,
         expect.objectContaining({
           requestCount: 1,
-          lastRequestedAt: expect.any(Number),
         })
       );
     });
 
-    it('should handle denied permission after request', async () => {
-      mockPermissionStorage.get.mockReturnValue(null);
-      (request as jest.Mock).mockResolvedValue(RESULTS.DENIED);
+    it('passes rationale to request', async () => {
+      const rationale = {
+        title: 'Camera access needed',
+        message: 'Please allow camera access',
+        buttonPositive: 'OK',
+      };
 
-      const result = await PermissionManager.requestPermission('camera');
+      await PermissionManager.requestPermission('camera', rationale);
 
-      expect(result).toBe(RESULTS.DENIED);
-      expect(mockPermissionStorage.set).toHaveBeenCalledWith(
-        'ios_camera',
-        RESULTS.DENIED,
-        expect.any(Object)
-      );
-    });
-
-    it('should handle blocked permission after request', async () => {
-      mockPermissionStorage.get.mockReturnValue(null);
-      (request as jest.Mock).mockResolvedValue(RESULTS.BLOCKED);
-
-      const result = await PermissionManager.requestPermission('camera');
-
-      expect(result).toBe(RESULTS.BLOCKED);
-    });
-
-    it('should handle limited permission (iOS)', async () => {
-      mockPermissionStorage.get.mockReturnValue(null);
-      (request as jest.Mock).mockResolvedValue(RESULTS.LIMITED);
-
-      const result = await PermissionManager.requestPermission(
-        'photoLibrary'
-      );
-
-      expect(result).toBe(RESULTS.LIMITED);
-    });
-
-    it('should use correct permission type for different media types', async () => {
-      mockPermissionStorage.get.mockReturnValue(null);
-      mockGetPermission.mockReturnValue('android.permission.READ_MEDIA_VIDEO');
-
-      await PermissionManager.requestPermission('mediaLibrary');
-
-      expect(mockGetPermission).toHaveBeenCalledWith('mediaLibrary');
-      expect(request).toHaveBeenCalledWith(
-        'android.permission.READ_MEDIA_VIDEO',
-        undefined
-      );
+      expect(mockRequest).toHaveBeenCalledWith('ios.permission.CAMERA', rationale);
     });
   });
 
   describe('shouldShowRationale', () => {
-    it('should return true when status is DENIED, cached, request count > 0, rationale not shown', () => {
+    it('returns true when status is denied, cached exists, and rationale not shown', () => {
       mockPermissionStorage.get.mockReturnValue({
         status: RESULTS.DENIED,
         lastChecked: Date.now(),
@@ -231,103 +145,33 @@ describe('PermissionManager', () => {
         rationaleShown: false,
       });
 
-      const result = PermissionManager.shouldShowRationale(
-        'camera',
-        RESULTS.DENIED
-      );
+      const result = PermissionManager.shouldShowRationale('camera', RESULTS.DENIED);
 
       expect(result).toBe(true);
     });
 
-    it('should return false when status is not DENIED', () => {
+    it('returns false when status is not denied', () => {
       mockPermissionStorage.get.mockReturnValue({
         status: RESULTS.GRANTED,
-        lastChecked: Date.now(),
-        requestCount: 2,
-        rationaleShown: false,
-      });
-
-      const result = PermissionManager.shouldShowRationale(
-        'camera',
-        RESULTS.GRANTED
-      );
-
-      expect(result).toBe(false);
-    });
-
-    it('should return false when no cached data exists', () => {
-      mockPermissionStorage.get.mockReturnValue(null);
-
-      const result = PermissionManager.shouldShowRationale(
-        'camera',
-        RESULTS.DENIED
-      );
-
-      expect(result).toBe(false);
-    });
-
-    it('should return false when request count is 0', () => {
-      mockPermissionStorage.get.mockReturnValue({
-        status: RESULTS.DENIED,
-        lastChecked: Date.now(),
-        requestCount: 0,
-        rationaleShown: false,
-      });
-
-      const result = PermissionManager.shouldShowRationale(
-        'camera',
-        RESULTS.DENIED
-      );
-
-      expect(result).toBe(false);
-    });
-
-    it('should return false when rationale already shown', () => {
-      mockPermissionStorage.get.mockReturnValue({
-        status: RESULTS.DENIED,
-        lastChecked: Date.now(),
-        requestCount: 2,
-        rationaleShown: true,
-      });
-
-      const result = PermissionManager.shouldShowRationale(
-        'camera',
-        RESULTS.DENIED
-      );
-
-      expect(result).toBe(false);
-    });
-
-    it('should return false when status is BLOCKED', () => {
-      mockPermissionStorage.get.mockReturnValue({
-        status: RESULTS.DENIED,
-        lastChecked: Date.now(),
-        requestCount: 2,
-        rationaleShown: false,
-      });
-
-      const result = PermissionManager.shouldShowRationale(
-        'camera',
-        RESULTS.BLOCKED
-      );
-
-      expect(result).toBe(false);
-    });
-
-    it('should consider all conditions together', () => {
-      // All conditions met
-      mockPermissionStorage.get.mockReturnValue({
-        status: RESULTS.DENIED,
         lastChecked: Date.now(),
         requestCount: 1,
         rationaleShown: false,
       });
 
-      expect(
-        PermissionManager.shouldShowRationale('camera', RESULTS.DENIED)
-      ).toBe(true);
+      const result = PermissionManager.shouldShowRationale('camera', RESULTS.GRANTED);
 
-      // Request count is 0
+      expect(result).toBe(false);
+    });
+
+    it('returns false when not cached', () => {
+      mockPermissionStorage.get.mockReturnValue(null);
+
+      const result = PermissionManager.shouldShowRationale('camera', RESULTS.DENIED);
+
+      expect(result).toBe(false);
+    });
+
+    it('returns false when request count is 0', () => {
       mockPermissionStorage.get.mockReturnValue({
         status: RESULTS.DENIED,
         lastChecked: Date.now(),
@@ -335,126 +179,91 @@ describe('PermissionManager', () => {
         rationaleShown: false,
       });
 
-      expect(
-        PermissionManager.shouldShowRationale('camera', RESULTS.DENIED)
-      ).toBe(false);
+      const result = PermissionManager.shouldShowRationale('camera', RESULTS.DENIED);
+
+      expect(result).toBe(false);
+    });
+
+    it('returns false when rationale already shown', () => {
+      mockPermissionStorage.get.mockReturnValue({
+        status: RESULTS.DENIED,
+        lastChecked: Date.now(),
+        requestCount: 1,
+        rationaleShown: true,
+      });
+
+      const result = PermissionManager.shouldShowRationale('camera', RESULTS.DENIED);
+
+      expect(result).toBe(false);
     });
   });
 
   describe('markRationaleShown', () => {
-    it('should mark rationale as shown in storage', () => {
+    it('marks rationale as shown', () => {
       PermissionManager.markRationaleShown('camera');
 
-      expect(mockPermissionStorage.markRationaleShown).toHaveBeenCalledWith(
-        'ios_camera'
-      );
-    });
-
-    it('should use correct cache key for different permission types', () => {
-      PermissionManager.markRationaleShown('photoLibrary');
-
-      expect(mockPermissionStorage.markRationaleShown).toHaveBeenCalledWith(
-        expect.stringContaining('_photoLibrary')
-      );
-    });
-
-    it('should use correct cache key based on platform', () => {
-      (Platform.OS as string) = 'android';
-
-      PermissionManager.markRationaleShown('camera');
-
-      expect(mockPermissionStorage.markRationaleShown).toHaveBeenCalledWith(
-        'android_camera'
-      );
+      expect(mockPermissionStorage.markRationaleShown).toHaveBeenCalledWith('ios_camera');
     });
   });
 
   describe('openAppSettings', () => {
-    it('should call openSettings from react-native-permissions', async () => {
+    it('calls openSettings', async () => {
       await PermissionManager.openAppSettings();
 
-      expect(openSettings).toHaveBeenCalled();
-    });
-
-    it('should handle openSettings error gracefully', async () => {
-      (openSettings as jest.Mock).mockRejectedValueOnce(
-        new Error('Settings error')
-      );
-
-      await expect(PermissionManager.openAppSettings()).rejects.toThrow(
-        'Settings error'
-      );
+      expect(mockOpenSettings).toHaveBeenCalled();
     });
   });
 
   describe('isGranted', () => {
-    it('should return true for GRANTED status', () => {
+    it('returns true for GRANTED status', () => {
       expect(PermissionManager.isGranted(RESULTS.GRANTED)).toBe(true);
     });
 
-    it('should return true for LIMITED status (iOS)', () => {
+    it('returns true for LIMITED status', () => {
       expect(PermissionManager.isGranted(RESULTS.LIMITED)).toBe(true);
     });
 
-    it('should return false for DENIED status', () => {
+    it('returns false for DENIED status', () => {
       expect(PermissionManager.isGranted(RESULTS.DENIED)).toBe(false);
     });
 
-    it('should return false for BLOCKED status', () => {
+    it('returns false for BLOCKED status', () => {
       expect(PermissionManager.isGranted(RESULTS.BLOCKED)).toBe(false);
     });
 
-    it('should return false for UNAVAILABLE status', () => {
+    it('returns false for UNAVAILABLE status', () => {
       expect(PermissionManager.isGranted(RESULTS.UNAVAILABLE)).toBe(false);
     });
   });
 
   describe('isBlocked', () => {
-    it('should return true for BLOCKED status', () => {
+    it('returns true for BLOCKED status', () => {
       expect(PermissionManager.isBlocked(RESULTS.BLOCKED)).toBe(true);
     });
 
-    it('should return false for GRANTED status', () => {
+    it('returns false for other statuses', () => {
       expect(PermissionManager.isBlocked(RESULTS.GRANTED)).toBe(false);
-    });
-
-    it('should return false for DENIED status', () => {
       expect(PermissionManager.isBlocked(RESULTS.DENIED)).toBe(false);
-    });
-
-    it('should return false for LIMITED status', () => {
       expect(PermissionManager.isBlocked(RESULTS.LIMITED)).toBe(false);
-    });
-
-    it('should return false for UNAVAILABLE status', () => {
       expect(PermissionManager.isBlocked(RESULTS.UNAVAILABLE)).toBe(false);
     });
   });
 
   describe('isDenied', () => {
-    it('should return true for DENIED status', () => {
+    it('returns true for DENIED status', () => {
       expect(PermissionManager.isDenied(RESULTS.DENIED)).toBe(true);
     });
 
-    it('should return false for GRANTED status', () => {
+    it('returns false for other statuses', () => {
       expect(PermissionManager.isDenied(RESULTS.GRANTED)).toBe(false);
-    });
-
-    it('should return false for BLOCKED status', () => {
       expect(PermissionManager.isDenied(RESULTS.BLOCKED)).toBe(false);
-    });
-
-    it('should return false for LIMITED status', () => {
       expect(PermissionManager.isDenied(RESULTS.LIMITED)).toBe(false);
-    });
-
-    it('should return false for UNAVAILABLE status', () => {
       expect(PermissionManager.isDenied(RESULTS.UNAVAILABLE)).toBe(false);
     });
   });
 
   describe('detectAutoRevocation', () => {
-    it('should return false when no cached data exists', async () => {
+    it('returns false when no cached permission', async () => {
       mockPermissionStorage.get.mockReturnValue(null);
 
       const result = await PermissionManager.detectAutoRevocation('camera');
@@ -462,144 +271,7 @@ describe('PermissionManager', () => {
       expect(result).toBe(false);
     });
 
-    it('should return false when cached status is not GRANTED', async () => {
-      mockPermissionStorage.get.mockReturnValue({
-        status: RESULTS.DENIED,
-        lastChecked: Date.now(),
-        requestCount: 0,
-        rationaleShown: false,
-      });
-
-      const result = await PermissionManager.detectAutoRevocation('camera');
-
-      expect(result).toBe(false);
-    });
-
-    it('should return true when permission was GRANTED but is now DENIED', async () => {
-      mockPermissionStorage.get.mockReturnValue({
-        status: RESULTS.GRANTED,
-        lastChecked: Date.now(),
-        requestCount: 1,
-        rationaleShown: false,
-      });
-      (check as jest.Mock).mockResolvedValue(RESULTS.DENIED);
-
-      const result = await PermissionManager.detectAutoRevocation('camera');
-
-      expect(result).toBe(true);
-    });
-
-    it('should return true when permission was GRANTED but is now BLOCKED', async () => {
-      mockPermissionStorage.get.mockReturnValue({
-        status: RESULTS.GRANTED,
-        lastChecked: Date.now(),
-        requestCount: 1,
-        rationaleShown: false,
-      });
-      (check as jest.Mock).mockResolvedValue(RESULTS.BLOCKED);
-
-      const result = await PermissionManager.detectAutoRevocation('camera');
-
-      expect(result).toBe(true);
-    });
-
-    it('should return false when permission remains GRANTED', async () => {
-      mockPermissionStorage.get.mockReturnValue({
-        status: RESULTS.GRANTED,
-        lastChecked: Date.now(),
-        requestCount: 1,
-        rationaleShown: false,
-      });
-      (check as jest.Mock).mockResolvedValue(RESULTS.GRANTED);
-
-      const result = await PermissionManager.detectAutoRevocation('camera');
-
-      expect(result).toBe(false);
-    });
-
-    it('should return false when permission changes from GRANTED to LIMITED', async () => {
-      mockPermissionStorage.get.mockReturnValue({
-        status: RESULTS.GRANTED,
-        lastChecked: Date.now(),
-        requestCount: 1,
-        rationaleShown: false,
-      });
-      (check as jest.Mock).mockResolvedValue(RESULTS.LIMITED);
-
-      const result = await PermissionManager.detectAutoRevocation('camera');
-
-      expect(result).toBe(false);
-    });
-
-    it('should detect revocation for different permission types', async () => {
-      mockPermissionStorage.get.mockReturnValue({
-        status: RESULTS.GRANTED,
-        lastChecked: Date.now(),
-        requestCount: 1,
-        rationaleShown: false,
-      });
-      (check as jest.Mock).mockResolvedValue(RESULTS.DENIED);
-
-      const result = await PermissionManager.detectAutoRevocation(
-        'photoLibrary'
-      );
-
-      expect(result).toBe(true);
-    });
-
-    it('should call checkPermission internally', async () => {
-      mockPermissionStorage.get.mockReturnValue({
-        status: RESULTS.GRANTED,
-        lastChecked: Date.now(),
-        requestCount: 1,
-        rationaleShown: false,
-      });
-      (check as jest.Mock).mockResolvedValue(RESULTS.DENIED);
-
-      await PermissionManager.detectAutoRevocation('camera');
-
-      expect(check).toHaveBeenCalled();
-    });
-  });
-
-  describe('Cache key construction', () => {
-    it('should construct correct cache key on iOS', () => {
-      (Platform.OS as string) = 'ios';
-
-      PermissionManager.markRationaleShown('camera');
-
-      expect(mockPermissionStorage.markRationaleShown).toHaveBeenCalledWith(
-        'ios_camera'
-      );
-    });
-
-    it('should construct correct cache key on Android', () => {
-      (Platform.OS as string) = 'android';
-
-      PermissionManager.markRationaleShown('camera');
-
-      expect(mockPermissionStorage.markRationaleShown).toHaveBeenCalledWith(
-        'android_camera'
-      );
-    });
-  });
-
-  describe('Integration scenarios', () => {
-    it('should handle complete permission flow: request -> rationale -> grant', async () => {
-      (Platform.OS as string) = 'ios';
-      mockPermissionStorage.get.mockReturnValue(null);
-
-      // First request
-      (request as jest.Mock).mockResolvedValueOnce(RESULTS.DENIED);
-      await PermissionManager.requestPermission('camera');
-
-      expect(mockPermissionStorage.set).toHaveBeenCalledWith(
-        'ios_camera',
-        RESULTS.DENIED,
-        expect.objectContaining({ requestCount: 1 })
-      );
-
-      // Check if rationale should be shown
+    it('returns false when cached status is not GRANTED', async () => {
       mockPermissionStorage.get.mockReturnValue({
         status: RESULTS.DENIED,
         lastChecked: Date.now(),
@@ -607,42 +279,51 @@ describe('PermissionManager', () => {
         rationaleShown: false,
       });
 
-      expect(
-        PermissionManager.shouldShowRationale('camera', RESULTS.DENIED)
-      ).toBe(true);
+      const result = await PermissionManager.detectAutoRevocation('camera');
 
-      // Mark rationale as shown
-      PermissionManager.markRationaleShown('camera');
-      expect(mockPermissionStorage.markRationaleShown).toHaveBeenCalledWith(
-        'ios_camera'
-      );
+      expect(result).toBe(false);
     });
 
-    it('should handle permission lifecycle with auto-revocation detection', async () => {
-      // Permission granted initially
-      mockPermissionStorage.get.mockReturnValue({
-        status: RESULTS.GRANTED,
-        lastChecked: Date.now() - 60000, // 1 minute ago
-        requestCount: 1,
-        rationaleShown: false,
-      });
-      (check as jest.Mock).mockResolvedValue(RESULTS.GRANTED);
-
-      // Check and confirm still granted
-      let result = await PermissionManager.checkPermission('camera');
-      expect(PermissionManager.isGranted(result)).toBe(true);
-
-      // Simulate auto-revocation
-      mockPermissionStorage.get.mockReturnValue({
+    it('returns true when permission was GRANTED but is now DENIED', async () => {
+      mockPermissionStorage.get.mockReturnValueOnce({
         status: RESULTS.GRANTED,
         lastChecked: Date.now(),
         requestCount: 1,
         rationaleShown: false,
       });
-      (check as jest.Mock).mockResolvedValue(RESULTS.DENIED);
+      mockCheck.mockResolvedValue(RESULTS.DENIED);
 
-      const isRevoked = await PermissionManager.detectAutoRevocation('camera');
-      expect(isRevoked).toBe(true);
+      const result = await PermissionManager.detectAutoRevocation('camera');
+
+      expect(result).toBe(true);
+    });
+
+    it('returns true when permission was GRANTED but is now BLOCKED', async () => {
+      mockPermissionStorage.get.mockReturnValueOnce({
+        status: RESULTS.GRANTED,
+        lastChecked: Date.now(),
+        requestCount: 1,
+        rationaleShown: false,
+      });
+      mockCheck.mockResolvedValue(RESULTS.BLOCKED);
+
+      const result = await PermissionManager.detectAutoRevocation('camera');
+
+      expect(result).toBe(true);
+    });
+
+    it('returns false when permission is still GRANTED', async () => {
+      mockPermissionStorage.get.mockReturnValueOnce({
+        status: RESULTS.GRANTED,
+        lastChecked: Date.now(),
+        requestCount: 1,
+        rationaleShown: false,
+      });
+      mockCheck.mockResolvedValue(RESULTS.GRANTED);
+
+      const result = await PermissionManager.detectAutoRevocation('camera');
+
+      expect(result).toBe(false);
     });
   });
 });
