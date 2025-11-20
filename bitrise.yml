@@ -38,19 +38,13 @@ workflows:
                 set -ex
                 npx expo prebuild --platform android --clean
       - script@1:
-          title: Set Gradle JVM options
-          inputs:
-            - content: |
-                #!/usr/bin/env bash
-                set -ex
-                envman add --key GRADLE_OPTS --value "-Xmx2048m -XX:MaxMetaspaceSize=512m"
-      - script@1:
           title: Build Android app for Detox
           inputs:
             - content: |
                 #!/usr/bin/env bash
                 set -ex
                 export EXPO_PUBLIC_API_URL=http://localhost:8000
+                export GRADLE_OPTS="-Xmx2048m -XX:MaxMetaspaceSize=512m"
                 yarn e2e:build:android:release
       - script@1:
           title: Start mock server
@@ -211,19 +205,14 @@ workflows:
                 #!/usr/bin/env bash
                 set -ex
                 npx expo prebuild --platform android --clean
-      - script@1:
-          title: Set Gradle JVM options
-          inputs:
-            - content: |
-                #!/usr/bin/env bash
-                set -ex
-                envman add --key GRADLE_OPTS --value "-Xmx2048m -XX:MaxMetaspaceSize=512m"
       - gradle-runner@2:
           title: Build Android Debug APK
           inputs:
             - gradle_file: $BITRISE_SOURCE_DIR/android/build.gradle
             - gradle_task: assembleDebug
             - gradlew_path: $BITRISE_SOURCE_DIR/android/gradlew
+            - gradle_options: -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxMetaspaceSize=512m" --no-daemon --stacktrace
+            - app_file_include_filter: "*.apk"
       - deploy-to-bitrise-io@2:
           title: Deploy Android artifacts
           inputs:
