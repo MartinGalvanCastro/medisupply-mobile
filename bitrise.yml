@@ -17,7 +17,10 @@ workflows:
         machine_type_id: g2-m1.4core
     steps:
       - git-clone@8: {}
-      - cache-pull@2: {}
+      - restore-cache@1:
+          inputs:
+            - key: npm-cache-{{ checksum "yarn.lock" }}
+            - key: npm-cache-
       - nvm@1:
           title: Set Node.js version
           inputs:
@@ -68,12 +71,12 @@ workflows:
           inputs:
             - deploy_path: $BITRISE_SOURCE_DIR/artifacts
             - is_compress: 'true'
-      - cache-push@2:
+      - save-cache@1:
           inputs:
-            - cache_paths: |
+            - key: npm-cache-{{ checksum "yarn.lock" }}
+            - paths: |
                 $BITRISE_SOURCE_DIR/node_modules
                 $BITRISE_SOURCE_DIR/ios/Pods
-                $BITRISE_CACHE_DIR
 
   unit_tests:
     meta:
@@ -82,7 +85,10 @@ workflows:
         machine_type_id: g2-m1.4core
     steps:
       - git-clone@8: {}
-      - cache-pull@2: {}
+      - restore-cache@1:
+          inputs:
+            - key: npm-cache-{{ checksum "yarn.lock" }}
+            - key: npm-cache-
       - yarn@0:
           title: Install dependencies
           inputs:
@@ -91,7 +97,10 @@ workflows:
           title: Run unit tests
           inputs:
             - command: test:coverage
-      - cache-push@2: {}
+      - save-cache@1:
+          inputs:
+            - key: npm-cache-{{ checksum "yarn.lock" }}
+            - paths: $BITRISE_SOURCE_DIR/node_modules
 
   build_debug_artifacts:
     meta:
@@ -100,7 +109,10 @@ workflows:
         machine_type_id: g2-m1.4core
     steps:
       - git-clone@8: {}
-      - cache-pull@2: {}
+      - restore-cache@1:
+          inputs:
+            - key: npm-cache-{{ checksum "yarn.lock" }}
+            - key: npm-cache-
       - nvm@1:
           title: Set Node.js version
           inputs:
@@ -110,6 +122,13 @@ workflows:
           inputs:
             - command: install
             - cache_local_deps: 'yes'
+      - script@1:
+          title: Run Expo prebuild for iOS
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                npx expo prebuild --platform ios --clean
       - cocoapods-install@2:
           title: Install iOS CocoaPods
           inputs:
@@ -139,10 +158,10 @@ workflows:
             - is_compress: 'false'
             - notify_user_groups: none
             - is_enable_public_page: 'true'
-      - cache-push@2:
+      - save-cache@1:
           inputs:
-            - cache_paths: |
+            - key: npm-cache-{{ checksum "yarn.lock" }}
+            - paths: |
                 $BITRISE_SOURCE_DIR/node_modules
                 $BITRISE_SOURCE_DIR/ios/Pods
                 $BITRISE_SOURCE_DIR/android/.gradle
-                $BITRISE_CACHE_DIR
