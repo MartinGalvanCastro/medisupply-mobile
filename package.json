@@ -2,6 +2,10 @@
   "name": "medisupply-mobile",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "packageManager": "yarn@1.22.22",
+  "engines": {
+    "node": ">=22.18.0"
+  },
   "scripts": {
     "start": "expo start",
     "start:reset": "expo start -c",
