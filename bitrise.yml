@@ -5,11 +5,73 @@ project_type: react-native
 
 trigger_map:
   - pull_request_target_branch: main
-    workflow: e2e_ios
+    workflow: e2e_android
   - push_branch: main
     workflow: build_debug_artifacts
 
 workflows:
+  e2e_android:
+    meta:
+      bitrise.io:
+        stack: linux-docker-android-22.04
+        machine_type_id: standard
+    steps:
+      - git-clone@8: {}
+      - nvm@1:
+          title: Set Node.js version
+          inputs:
+            - node_version: "22.18.0"
+      - restore-cache@1:
+          inputs:
+            - key: npm-cache-{{ checksum "yarn.lock" }}
+            - key: npm-cache-
+      - yarn@0:
+          title: Install dependencies
+          inputs:
+            - command: install
+            - cache_local_deps: 'yes'
+      - script@1:
+          title: Run Expo prebuild for Android
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                npx expo prebuild --platform android --clean
+      - script@1:
+          title: Build Android app for Detox
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                export EXPO_PUBLIC_API_URL=http://localhost:8000
+                yarn e2e:build:android:release
+      - script@1:
+          title: Start mock server
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                yarn e2e:mock-server &
+                sleep 5
+                curl http://localhost:8000/ || echo "Mock server health check failed"
+      - script@1:
+          title: Run E2E tests
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                yarn e2e:test:android:release
+      - deploy-to-bitrise-io@2:
+          inputs:
+            - deploy_path: $BITRISE_SOURCE_DIR/artifacts
+            - is_compress: 'true'
+      - save-cache@1:
+          inputs:
+            - key: npm-cache-{{ checksum "yarn.lock" }}
+            - paths: |
+                $BITRISE_SOURCE_DIR/node_modules
+                $BITRISE_SOURCE_DIR/android/.gradle
+
   e2e_ios:
     meta:
       bitrise.io:
@@ -39,13 +101,26 @@ workflows:
                 brew tap wix/brew
                 brew install applesimutils
       - script@1:
+          title: Run Expo prebuild for iOS
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                npx expo prebuild --platform ios --clean
+      - script@1:
+          title: Install CocoaPods
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                cd ios && pod install && cd ..
+      - script@1:
           title: Build iOS app for Detox
           inputs:
             - content: |
                 #!/usr/bin/env bash
                 set -ex
                 export EXPO_PUBLIC_API_URL=http://localhost:8000
-                yarn e2e:prebuild:ios
                 yarn e2e:build:ios:release
       - script@1:
           title: Start mock server
@@ -105,8 +180,8 @@ workflows:
   build_debug_artifacts:
     meta:
       bitrise.io:
-        stack: osx-xcode-16.2.x
-        machine_type_id: g2-m1.4core
+        stack: linux-docker-android-22.04
+        machine_type_id: standard
     steps:
       - git-clone@8: {}
       - nvm@1:
@@ -123,26 +198,12 @@ workflows:
             - command: install
             - cache_local_deps: 'yes'
       - script@1:
-          title: Run Expo prebuild for iOS
+          title: Run Expo prebuild for Android
           inputs:
             - content: |
                 #!/usr/bin/env bash
                 set -ex
-                npx expo prebuild --platform ios --clean
-      - cocoapods-install@2:
-          title: Install iOS CocoaPods
-          inputs:
-            - source_root_path: $BITRISE_SOURCE_DIR/ios
-            - podfile_path: $BITRISE_SOURCE_DIR/ios/Podfile
-      - xcode-archive@5:
-          title: Build iOS Debug Archive
-          inputs:
-            - project_path: $BITRISE_SOURCE_DIR/ios/Medisupply.xcworkspace
-            - scheme: Medisupply
-            - configuration: Debug
-            - export_method: development
-            - upload_bitcode: 'no'
-            - compile_bitcode: 'no'
+                npx expo prebuild --platform android --clean
       - gradle-runner@2:
           title: Build Android Debug APK
           inputs:
@@ -150,11 +211,9 @@ workflows:
             - gradle_task: assembleDebug
             - gradlew_path: $BITRISE_SOURCE_DIR/android/gradlew
       - deploy-to-bitrise-io@2:
-          title: Deploy iOS and Android artifacts
+          title: Deploy Android artifacts
           inputs:
-            - deploy_path: |
-                $BITRISE_DEPLOY_DIR/*.ipa
-                $BITRISE_SOURCE_DIR/android/app/build/outputs/apk/debug/*.apk
+            - deploy_path: $BITRISE_SOURCE_DIR/android/app/build/outputs/apk/debug/*.apk
             - is_compress: 'false'
             - notify_user_groups: none
             - is_enable_public_page: 'true'
@@ -163,5 +222,4 @@ workflows:
             - key: npm-cache-{{ checksum "yarn.lock" }}
             - paths: |
                 $BITRISE_SOURCE_DIR/node_modules
-                $BITRISE_SOURCE_DIR/ios/Pods
                 $BITRISE_SOURCE_DIR/android/.gradle
