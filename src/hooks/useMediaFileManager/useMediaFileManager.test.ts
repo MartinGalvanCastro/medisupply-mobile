@@ -3,8 +3,8 @@ import { useMediaFileManager } from './useMediaFileManager';
 import type { MediaFile } from './types';
 
 describe('useMediaFileManager', () => {
-  describe('initial state', () => {
-    it('should start with empty files array', () => {
+  describe('Initial State', () => {
+    it('should initialize with empty files array', () => {
       const { result } = renderHook(() => useMediaFileManager());
 
       expect(result.current.files).toEqual([]);
@@ -12,35 +12,32 @@ describe('useMediaFileManager', () => {
       expect(result.current.hasFiles).toBe(false);
     });
 
-    it('should have correct initial properties', () => {
+    it('should have all required methods available', () => {
       const { result } = renderHook(() => useMediaFileManager());
 
-      expect(result.current).toHaveProperty('files');
-      expect(result.current).toHaveProperty('addFile');
-      expect(result.current).toHaveProperty('addFiles');
-      expect(result.current).toHaveProperty('removeFile');
-      expect(result.current).toHaveProperty('clearFiles');
-      expect(result.current).toHaveProperty('hasFiles');
-      expect(result.current).toHaveProperty('fileCount');
+      expect(typeof result.current.addFile).toBe('function');
+      expect(typeof result.current.addFiles).toBe('function');
+      expect(typeof result.current.removeFile).toBe('function');
+      expect(typeof result.current.clearFiles).toBe('function');
     });
   });
 
   describe('addFile', () => {
-    it('should add a single file', () => {
+    it('should add a single file to the files array', () => {
       const { result } = renderHook(() => useMediaFileManager());
-      const file: MediaFile = {
+      const mockFile: MediaFile = {
         id: 'file-1',
-        uri: 'file:///path/to/image.jpg',
+        uri: 'file://path/to/photo.jpg',
         type: 'photo',
-        name: 'image.jpg',
+        name: 'photo.jpg',
       };
 
       act(() => {
-        result.current.addFile(file);
+        result.current.addFile(mockFile);
       });
 
       expect(result.current.files).toHaveLength(1);
-      expect(result.current.files[0]).toEqual(file);
+      expect(result.current.files[0]).toEqual(mockFile);
       expect(result.current.fileCount).toBe(1);
       expect(result.current.hasFiles).toBe(true);
     });
@@ -49,15 +46,15 @@ describe('useMediaFileManager', () => {
       const { result } = renderHook(() => useMediaFileManager());
       const file1: MediaFile = {
         id: 'file-1',
-        uri: 'file:///path/to/image1.jpg',
+        uri: 'file://path/to/photo1.jpg',
         type: 'photo',
-        name: 'image1.jpg',
+        name: 'photo1.jpg',
       };
       const file2: MediaFile = {
         id: 'file-2',
-        uri: 'file:///path/to/image2.jpg',
+        uri: 'file://path/to/photo2.jpg',
         type: 'photo',
-        name: 'image2.jpg',
+        name: 'photo2.jpg',
       };
 
       act(() => {
@@ -69,22 +66,46 @@ describe('useMediaFileManager', () => {
       expect(result.current.files[0]).toEqual(file1);
       expect(result.current.files[1]).toEqual(file2);
       expect(result.current.fileCount).toBe(2);
-      expect(result.current.hasFiles).toBe(true);
     });
 
-    it('should allow duplicate IDs in different calls', () => {
+    it('should allow adding files with different types (photo and video)', () => {
+      const { result } = renderHook(() => useMediaFileManager());
+      const photoFile: MediaFile = {
+        id: 'photo-1',
+        uri: 'file://path/to/photo.jpg',
+        type: 'photo',
+        name: 'photo.jpg',
+      };
+      const videoFile: MediaFile = {
+        id: 'video-1',
+        uri: 'file://path/to/video.mp4',
+        type: 'video',
+        name: 'video.mp4',
+      };
+
+      act(() => {
+        result.current.addFile(photoFile);
+        result.current.addFile(videoFile);
+      });
+
+      expect(result.current.files).toHaveLength(2);
+      expect(result.current.files[0].type).toBe('photo');
+      expect(result.current.files[1].type).toBe('video');
+    });
+
+    it('should add files with duplicate IDs (appending behavior)', () => {
       const { result } = renderHook(() => useMediaFileManager());
       const file1: MediaFile = {
         id: 'file-1',
-        uri: 'file:///path/to/image1.jpg',
+        uri: 'file://path/to/photo1.jpg',
         type: 'photo',
-        name: 'image1.jpg',
+        name: 'photo1.jpg',
       };
       const file2: MediaFile = {
         id: 'file-1', // Same ID
-        uri: 'file:///path/to/image2.jpg',
+        uri: 'file://path/to/photo2.jpg',
         type: 'photo',
-        name: 'image2.jpg',
+        name: 'photo2.jpg',
       };
 
       act(() => {
@@ -93,24 +114,28 @@ describe('useMediaFileManager', () => {
       });
 
       expect(result.current.files).toHaveLength(2);
-      expect(result.current.fileCount).toBe(2);
+      expect(result.current.files[0].uri).toBe('file://path/to/photo1.jpg');
+      expect(result.current.files[1].uri).toBe('file://path/to/photo2.jpg');
     });
 
-    it('should handle video files', () => {
+    it('should preserve file properties when adding', () => {
       const { result } = renderHook(() => useMediaFileManager());
-      const videoFile: MediaFile = {
-        id: 'video-1',
-        uri: 'file:///path/to/video.mp4',
-        type: 'video',
-        name: 'video.mp4',
+      const file: MediaFile = {
+        id: 'file-123',
+        uri: 'file://custom/path/my-file.jpg',
+        type: 'photo',
+        name: 'my-file.jpg',
       };
 
       act(() => {
-        result.current.addFile(videoFile);
+        result.current.addFile(file);
       });
 
-      expect(result.current.files[0].type).toBe('video');
-      expect(result.current.fileCount).toBe(1);
+      const addedFile = result.current.files[0];
+      expect(addedFile.id).toBe('file-123');
+      expect(addedFile.uri).toBe('file://custom/path/my-file.jpg');
+      expect(addedFile.type).toBe('photo');
+      expect(addedFile.name).toBe('my-file.jpg');
     });
   });
 
@@ -120,21 +145,15 @@ describe('useMediaFileManager', () => {
       const files: MediaFile[] = [
         {
           id: 'file-1',
-          uri: 'file:///path/to/image1.jpg',
+          uri: 'file://path/to/photo1.jpg',
           type: 'photo',
-          name: 'image1.jpg',
+          name: 'photo1.jpg',
         },
         {
           id: 'file-2',
-          uri: 'file:///path/to/image2.jpg',
+          uri: 'file://path/to/photo2.jpg',
           type: 'photo',
-          name: 'image2.jpg',
-        },
-        {
-          id: 'file-3',
-          uri: 'file:///path/to/video.mp4',
-          type: 'video',
-          name: 'video.mp4',
+          name: 'photo2.jpg',
         },
       ];
 
@@ -142,32 +161,50 @@ describe('useMediaFileManager', () => {
         result.current.addFiles(files);
       });
 
-      expect(result.current.files).toHaveLength(3);
-      expect(result.current.fileCount).toBe(3);
-      expect(result.current.hasFiles).toBe(true);
+      expect(result.current.files).toHaveLength(2);
       expect(result.current.files).toEqual(files);
+      expect(result.current.fileCount).toBe(2);
+      expect(result.current.hasFiles).toBe(true);
     });
 
-    it('should add files to existing files', () => {
+    it('should add empty array without affecting files', () => {
+      const { result } = renderHook(() => useMediaFileManager());
+      const file: MediaFile = {
+        id: 'file-1',
+        uri: 'file://path/to/photo.jpg',
+        type: 'photo',
+        name: 'photo.jpg',
+      };
+
+      act(() => {
+        result.current.addFile(file);
+        result.current.addFiles([]);
+      });
+
+      expect(result.current.files).toHaveLength(1);
+      expect(result.current.fileCount).toBe(1);
+    });
+
+    it('should append files to existing files', () => {
       const { result } = renderHook(() => useMediaFileManager());
       const file1: MediaFile = {
         id: 'file-1',
-        uri: 'file:///path/to/image1.jpg',
+        uri: 'file://path/to/photo1.jpg',
         type: 'photo',
-        name: 'image1.jpg',
+        name: 'photo1.jpg',
       };
       const newFiles: MediaFile[] = [
         {
           id: 'file-2',
-          uri: 'file:///path/to/image2.jpg',
+          uri: 'file://path/to/photo2.jpg',
           type: 'photo',
-          name: 'image2.jpg',
+          name: 'photo2.jpg',
         },
         {
           id: 'file-3',
-          uri: 'file:///path/to/image3.jpg',
+          uri: 'file://path/to/photo3.jpg',
           type: 'photo',
-          name: 'image3.jpg',
+          name: 'photo3.jpg',
         },
       ];
 
@@ -177,16 +214,44 @@ describe('useMediaFileManager', () => {
       });
 
       expect(result.current.files).toHaveLength(3);
-      expect(result.current.files[0]).toEqual(file1);
-      expect(result.current.files[1]).toEqual(newFiles[0]);
-      expect(result.current.files[2]).toEqual(newFiles[1]);
+      expect(result.current.files[0].id).toBe('file-1');
+      expect(result.current.files[1].id).toBe('file-2');
+      expect(result.current.files[2].id).toBe('file-3');
     });
 
-    it('should handle empty files array', () => {
+    it('should handle adding single file via addFiles', () => {
       const { result } = renderHook(() => useMediaFileManager());
+      const files: MediaFile[] = [
+        {
+          id: 'file-1',
+          uri: 'file://path/to/photo.jpg',
+          type: 'photo',
+          name: 'photo.jpg',
+        },
+      ];
 
       act(() => {
-        result.current.addFiles([]);
+        result.current.addFiles(files);
+      });
+
+      expect(result.current.files).toHaveLength(1);
+      expect(result.current.fileCount).toBe(1);
+    });
+  });
+
+  describe('removeFile', () => {
+    it('should remove a file by ID', () => {
+      const { result } = renderHook(() => useMediaFileManager());
+      const file: MediaFile = {
+        id: 'file-1',
+        uri: 'file://path/to/photo.jpg',
+        type: 'photo',
+        name: 'photo.jpg',
+      };
+
+      act(() => {
+        result.current.addFile(file);
+        result.current.removeFile('file-1');
       });
 
       expect(result.current.files).toHaveLength(0);
@@ -194,104 +259,26 @@ describe('useMediaFileManager', () => {
       expect(result.current.hasFiles).toBe(false);
     });
 
-    it('should handle single file in array', () => {
+    it('should remove only the specified file from multiple files', () => {
       const { result } = renderHook(() => useMediaFileManager());
       const files: MediaFile[] = [
         {
           id: 'file-1',
-          uri: 'file:///path/to/image.jpg',
+          uri: 'file://path/to/photo1.jpg',
           type: 'photo',
-          name: 'image.jpg',
-        },
-      ];
-
-      act(() => {
-        result.current.addFiles(files);
-      });
-
-      expect(result.current.files).toHaveLength(1);
-      expect(result.current.fileCount).toBe(1);
-    });
-
-    it('should handle mixed photo and video files', () => {
-      const { result } = renderHook(() => useMediaFileManager());
-      const files: MediaFile[] = [
-        {
-          id: 'photo-1',
-          uri: 'file:///path/to/image.jpg',
-          type: 'photo',
-          name: 'image.jpg',
-        },
-        {
-          id: 'video-1',
-          uri: 'file:///path/to/video.mp4',
-          type: 'video',
-          name: 'video.mp4',
-        },
-        {
-          id: 'photo-2',
-          uri: 'file:///path/to/image2.jpg',
-          type: 'photo',
-          name: 'image2.jpg',
-        },
-      ];
-
-      act(() => {
-        result.current.addFiles(files);
-      });
-
-      expect(result.current.files).toHaveLength(3);
-      expect(result.current.files.filter((f) => f.type === 'photo')).toHaveLength(2);
-      expect(result.current.files.filter((f) => f.type === 'video')).toHaveLength(1);
-    });
-  });
-
-  describe('removeFile', () => {
-    it('should remove file by ID', () => {
-      const { result } = renderHook(() => useMediaFileManager());
-      const file1: MediaFile = {
-        id: 'file-1',
-        uri: 'file:///path/to/image1.jpg',
-        type: 'photo',
-        name: 'image1.jpg',
-      };
-      const file2: MediaFile = {
-        id: 'file-2',
-        uri: 'file:///path/to/image2.jpg',
-        type: 'photo',
-        name: 'image2.jpg',
-      };
-
-      act(() => {
-        result.current.addFiles([file1, file2]);
-        result.current.removeFile('file-1');
-      });
-
-      expect(result.current.files).toHaveLength(1);
-      expect(result.current.files[0].id).toBe('file-2');
-      expect(result.current.fileCount).toBe(1);
-    });
-
-    it('should not affect other files when removing one', () => {
-      const { result } = renderHook(() => useMediaFileManager());
-      const files: MediaFile[] = [
-        {
-          id: 'file-1',
-          uri: 'file:///path/to/image1.jpg',
-          type: 'photo',
-          name: 'image1.jpg',
+          name: 'photo1.jpg',
         },
         {
           id: 'file-2',
-          uri: 'file:///path/to/image2.jpg',
+          uri: 'file://path/to/photo2.jpg',
           type: 'photo',
-          name: 'image2.jpg',
+          name: 'photo2.jpg',
         },
         {
           id: 'file-3',
-          uri: 'file:///path/to/image3.jpg',
+          uri: 'file://path/to/photo3.jpg',
           type: 'photo',
-          name: 'image3.jpg',
+          name: 'photo3.jpg',
         },
       ];
 
@@ -305,75 +292,72 @@ describe('useMediaFileManager', () => {
       expect(result.current.files[1].id).toBe('file-3');
     });
 
-    it('should do nothing when removing non-existent file', () => {
+    it('should not fail when removing non-existent file', () => {
       const { result } = renderHook(() => useMediaFileManager());
       const file: MediaFile = {
         id: 'file-1',
-        uri: 'file:///path/to/image.jpg',
+        uri: 'file://path/to/photo.jpg',
         type: 'photo',
-        name: 'image.jpg',
+        name: 'photo.jpg',
       };
 
       act(() => {
         result.current.addFile(file);
-        result.current.removeFile('non-existent');
+        result.current.removeFile('non-existent-id');
       });
 
       expect(result.current.files).toHaveLength(1);
-      expect(result.current.files[0]).toEqual(file);
+      expect(result.current.files[0].id).toBe('file-1');
     });
 
-    it('should update hasFiles to false when removing last file', () => {
+    it('should handle removing from empty files array', () => {
       const { result } = renderHook(() => useMediaFileManager());
-      const file: MediaFile = {
-        id: 'file-1',
-        uri: 'file:///path/to/image.jpg',
-        type: 'photo',
-        name: 'image.jpg',
-      };
-
-      act(() => {
-        result.current.addFile(file);
-      });
-      expect(result.current.hasFiles).toBe(true);
 
       act(() => {
         result.current.removeFile('file-1');
       });
-      expect(result.current.hasFiles).toBe(false);
+
+      expect(result.current.files).toHaveLength(0);
       expect(result.current.fileCount).toBe(0);
     });
 
-    it('should remove correct file when multiple have similar IDs', () => {
+    it('should correctly update file count after removal', () => {
       const { result } = renderHook(() => useMediaFileManager());
       const files: MediaFile[] = [
         {
           id: 'file-1',
-          uri: 'file:///path/to/image1.jpg',
+          uri: 'file://path/to/photo1.jpg',
           type: 'photo',
-          name: 'image1.jpg',
+          name: 'photo1.jpg',
         },
         {
-          id: 'file-10',
-          uri: 'file:///path/to/image10.jpg',
+          id: 'file-2',
+          uri: 'file://path/to/photo2.jpg',
           type: 'photo',
-          name: 'image10.jpg',
-        },
-        {
-          id: 'file-12',
-          uri: 'file:///path/to/image12.jpg',
-          type: 'photo',
-          name: 'image12.jpg',
+          name: 'photo2.jpg',
         },
       ];
 
       act(() => {
         result.current.addFiles(files);
+      });
+
+      expect(result.current.fileCount).toBe(2);
+      expect(result.current.hasFiles).toBe(true);
+
+      act(() => {
         result.current.removeFile('file-1');
       });
 
-      expect(result.current.files).toHaveLength(2);
-      expect(result.current.files.map((f) => f.id)).toEqual(['file-10', 'file-12']);
+      expect(result.current.fileCount).toBe(1);
+      expect(result.current.hasFiles).toBe(true);
+
+      act(() => {
+        result.current.removeFile('file-2');
+      });
+
+      expect(result.current.fileCount).toBe(0);
+      expect(result.current.hasFiles).toBe(false);
     });
   });
 
@@ -383,93 +367,376 @@ describe('useMediaFileManager', () => {
       const files: MediaFile[] = [
         {
           id: 'file-1',
-          uri: 'file:///path/to/image1.jpg',
+          uri: 'file://path/to/photo1.jpg',
           type: 'photo',
-          name: 'image1.jpg',
+          name: 'photo1.jpg',
         },
         {
           id: 'file-2',
-          uri: 'file:///path/to/image2.jpg',
+          uri: 'file://path/to/photo2.jpg',
           type: 'photo',
-          name: 'image2.jpg',
-        },
-        {
-          id: 'file-3',
-          uri: 'file:///path/to/video.mp4',
-          type: 'video',
-          name: 'video.mp4',
+          name: 'photo2.jpg',
         },
       ];
 
       act(() => {
         result.current.addFiles(files);
       });
-      expect(result.current.fileCount).toBe(3);
+
+      expect(result.current.files).toHaveLength(2);
 
       act(() => {
         result.current.clearFiles();
       });
+
       expect(result.current.files).toHaveLength(0);
       expect(result.current.fileCount).toBe(0);
       expect(result.current.hasFiles).toBe(false);
     });
 
-    it('should reset hasFiles to false', () => {
+    it('should handle clearing empty files array', () => {
+      const { result } = renderHook(() => useMediaFileManager());
+
+      act(() => {
+        result.current.clearFiles();
+      });
+
+      expect(result.current.files).toHaveLength(0);
+      expect(result.current.fileCount).toBe(0);
+      expect(result.current.hasFiles).toBe(false);
+    });
+
+    it('should reset state properly after clearing', () => {
       const { result } = renderHook(() => useMediaFileManager());
       const file: MediaFile = {
         id: 'file-1',
-        uri: 'file:///path/to/image.jpg',
+        uri: 'file://path/to/photo.jpg',
         type: 'photo',
-        name: 'image.jpg',
+        name: 'photo.jpg',
       };
 
       act(() => {
         result.current.addFile(file);
       });
+
+      expect(result.current.hasFiles).toBe(true);
+      expect(result.current.fileCount).toBe(1);
+
+      act(() => {
+        result.current.clearFiles();
+      });
+
+      expect(result.current.hasFiles).toBe(false);
+      expect(result.current.fileCount).toBe(0);
+    });
+  });
+
+  describe('hasFiles flag', () => {
+    it('should return true when files exist', () => {
+      const { result } = renderHook(() => useMediaFileManager());
+      const file: MediaFile = {
+        id: 'file-1',
+        uri: 'file://path/to/photo.jpg',
+        type: 'photo',
+        name: 'photo.jpg',
+      };
+
+      act(() => {
+        result.current.addFile(file);
+      });
+
+      expect(result.current.hasFiles).toBe(true);
+    });
+
+    it('should return false when no files exist', () => {
+      const { result } = renderHook(() => useMediaFileManager());
+
+      expect(result.current.hasFiles).toBe(false);
+    });
+
+    it('should update when files are added', () => {
+      const { result } = renderHook(() => useMediaFileManager());
+      const file: MediaFile = {
+        id: 'file-1',
+        uri: 'file://path/to/photo.jpg',
+        type: 'photo',
+        name: 'photo.jpg',
+      };
+
+      expect(result.current.hasFiles).toBe(false);
+
+      act(() => {
+        result.current.addFile(file);
+      });
+
+      expect(result.current.hasFiles).toBe(true);
+    });
+
+    it('should update when files are removed', () => {
+      const { result } = renderHook(() => useMediaFileManager());
+      const file: MediaFile = {
+        id: 'file-1',
+        uri: 'file://path/to/photo.jpg',
+        type: 'photo',
+        name: 'photo.jpg',
+      };
+
+      act(() => {
+        result.current.addFile(file);
+      });
+
+      expect(result.current.hasFiles).toBe(true);
+
+      act(() => {
+        result.current.removeFile('file-1');
+      });
+
+      expect(result.current.hasFiles).toBe(false);
+    });
+
+    it('should update when files are cleared', () => {
+      const { result } = renderHook(() => useMediaFileManager());
+      const file: MediaFile = {
+        id: 'file-1',
+        uri: 'file://path/to/photo.jpg',
+        type: 'photo',
+        name: 'photo.jpg',
+      };
+
+      act(() => {
+        result.current.addFile(file);
+      });
+
       expect(result.current.hasFiles).toBe(true);
 
       act(() => {
         result.current.clearFiles();
       });
+
       expect(result.current.hasFiles).toBe(false);
     });
+  });
 
-    it('should be idempotent', () => {
+  describe('fileCount', () => {
+    it('should return 0 for empty files array', () => {
       const { result } = renderHook(() => useMediaFileManager());
-      const file: MediaFile = {
-        id: 'file-1',
-        uri: 'file:///path/to/image.jpg',
-        type: 'photo',
-        name: 'image.jpg',
-      };
 
-      act(() => {
-        result.current.addFile(file);
-      });
-
-      act(() => {
-        result.current.clearFiles();
-        result.current.clearFiles();
-        result.current.clearFiles();
-      });
-
-      expect(result.current.files).toHaveLength(0);
       expect(result.current.fileCount).toBe(0);
     });
 
-    it('should allow adding files after clearing', () => {
+    it('should increment when files are added', () => {
       const { result } = renderHook(() => useMediaFileManager());
       const file1: MediaFile = {
         id: 'file-1',
-        uri: 'file:///path/to/image1.jpg',
+        uri: 'file://path/to/photo1.jpg',
         type: 'photo',
-        name: 'image1.jpg',
+        name: 'photo1.jpg',
       };
       const file2: MediaFile = {
         id: 'file-2',
-        uri: 'file:///path/to/image2.jpg',
+        uri: 'file://path/to/photo2.jpg',
         type: 'photo',
-        name: 'image2.jpg',
+        name: 'photo2.jpg',
+      };
+
+      act(() => {
+        result.current.addFile(file1);
+      });
+
+      expect(result.current.fileCount).toBe(1);
+
+      act(() => {
+        result.current.addFile(file2);
+      });
+
+      expect(result.current.fileCount).toBe(2);
+    });
+
+    it('should reflect correct count after addFiles', () => {
+      const { result } = renderHook(() => useMediaFileManager());
+      const files: MediaFile[] = [
+        {
+          id: 'file-1',
+          uri: 'file://path/to/photo1.jpg',
+          type: 'photo',
+          name: 'photo1.jpg',
+        },
+        {
+          id: 'file-2',
+          uri: 'file://path/to/photo2.jpg',
+          type: 'photo',
+          name: 'photo2.jpg',
+        },
+        {
+          id: 'file-3',
+          uri: 'file://path/to/photo3.jpg',
+          type: 'photo',
+          name: 'photo3.jpg',
+        },
+      ];
+
+      act(() => {
+        result.current.addFiles(files);
+      });
+
+      expect(result.current.fileCount).toBe(3);
+    });
+
+    it('should decrement when files are removed', () => {
+      const { result } = renderHook(() => useMediaFileManager());
+      const files: MediaFile[] = [
+        {
+          id: 'file-1',
+          uri: 'file://path/to/photo1.jpg',
+          type: 'photo',
+          name: 'photo1.jpg',
+        },
+        {
+          id: 'file-2',
+          uri: 'file://path/to/photo2.jpg',
+          type: 'photo',
+          name: 'photo2.jpg',
+        },
+      ];
+
+      act(() => {
+        result.current.addFiles(files);
+      });
+
+      expect(result.current.fileCount).toBe(2);
+
+      act(() => {
+        result.current.removeFile('file-1');
+      });
+
+      expect(result.current.fileCount).toBe(1);
+    });
+
+    it('should reset to 0 when files are cleared', () => {
+      const { result } = renderHook(() => useMediaFileManager());
+      const files: MediaFile[] = [
+        {
+          id: 'file-1',
+          uri: 'file://path/to/photo1.jpg',
+          type: 'photo',
+          name: 'photo1.jpg',
+        },
+        {
+          id: 'file-2',
+          uri: 'file://path/to/photo2.jpg',
+          type: 'photo',
+          name: 'photo2.jpg',
+        },
+      ];
+
+      act(() => {
+        result.current.addFiles(files);
+      });
+
+      expect(result.current.fileCount).toBe(2);
+
+      act(() => {
+        result.current.clearFiles();
+      });
+
+      expect(result.current.fileCount).toBe(0);
+    });
+  });
+
+  describe('Complex Scenarios', () => {
+    it('should handle mixed operations in sequence', () => {
+      const { result } = renderHook(() => useMediaFileManager());
+      const file1: MediaFile = {
+        id: 'file-1',
+        uri: 'file://path/to/photo1.jpg',
+        type: 'photo',
+        name: 'photo1.jpg',
+      };
+      const file2: MediaFile = {
+        id: 'file-2',
+        uri: 'file://path/to/photo2.jpg',
+        type: 'photo',
+        name: 'photo2.jpg',
+      };
+      const file3: MediaFile = {
+        id: 'file-3',
+        uri: 'file://path/to/photo3.jpg',
+        type: 'photo',
+        name: 'photo3.jpg',
+      };
+
+      act(() => {
+        result.current.addFile(file1);
+      });
+
+      expect(result.current.fileCount).toBe(1);
+
+      act(() => {
+        result.current.addFiles([file2, file3]);
+      });
+
+      expect(result.current.fileCount).toBe(3);
+      expect(result.current.hasFiles).toBe(true);
+
+      act(() => {
+        result.current.removeFile('file-2');
+      });
+
+      expect(result.current.fileCount).toBe(2);
+      expect(result.current.files[0].id).toBe('file-1');
+      expect(result.current.files[1].id).toBe('file-3');
+    });
+
+    it('should maintain integrity with multiple removals', () => {
+      const { result } = renderHook(() => useMediaFileManager());
+      const files: MediaFile[] = [
+        {
+          id: 'file-1',
+          uri: 'file://path/to/photo1.jpg',
+          type: 'photo',
+          name: 'photo1.jpg',
+        },
+        {
+          id: 'file-2',
+          uri: 'file://path/to/photo2.jpg',
+          type: 'photo',
+          name: 'photo2.jpg',
+        },
+        {
+          id: 'file-3',
+          uri: 'file://path/to/photo3.jpg',
+          type: 'photo',
+          name: 'photo3.jpg',
+        },
+      ];
+
+      act(() => {
+        result.current.addFiles(files);
+      });
+
+      act(() => {
+        result.current.removeFile('file-1');
+        result.current.removeFile('file-3');
+      });
+
+      expect(result.current.files).toHaveLength(1);
+      expect(result.current.files[0].id).toBe('file-2');
+      expect(result.current.fileCount).toBe(1);
+    });
+
+    it('should handle add after clear', () => {
+      const { result } = renderHook(() => useMediaFileManager());
+      const file1: MediaFile = {
+        id: 'file-1',
+        uri: 'file://path/to/photo1.jpg',
+        type: 'photo',
+        name: 'photo1.jpg',
+      };
+      const file2: MediaFile = {
+        id: 'file-2',
+        uri: 'file://path/to/photo2.jpg',
+        type: 'photo',
+        name: 'photo2.jpg',
       };
 
       act(() => {
@@ -479,226 +746,101 @@ describe('useMediaFileManager', () => {
       });
 
       expect(result.current.files).toHaveLength(1);
-      expect(result.current.files[0]).toEqual(file2);
-    });
-  });
-
-  describe('hasFiles computed property', () => {
-    it('should be false for empty state', () => {
-      const { result } = renderHook(() => useMediaFileManager());
-
-      expect(result.current.hasFiles).toBe(false);
-    });
-
-    it('should be true when files exist', () => {
-      const { result } = renderHook(() => useMediaFileManager());
-      const file: MediaFile = {
-        id: 'file-1',
-        uri: 'file:///path/to/image.jpg',
-        type: 'photo',
-        name: 'image.jpg',
-      };
-
-      act(() => {
-        result.current.addFile(file);
-      });
-
+      expect(result.current.files[0].id).toBe('file-2');
+      expect(result.current.fileCount).toBe(1);
       expect(result.current.hasFiles).toBe(true);
     });
 
-    it('should update correctly when adding and removing files', () => {
-      const { result } = renderHook(() => useMediaFileManager());
-      const file: MediaFile = {
+    it('should handle multiple independent hooks without interference', () => {
+      const { result: result1 } = renderHook(() => useMediaFileManager());
+      const { result: result2 } = renderHook(() => useMediaFileManager());
+
+      const file1: MediaFile = {
         id: 'file-1',
-        uri: 'file:///path/to/image.jpg',
+        uri: 'file://path/to/photo1.jpg',
         type: 'photo',
-        name: 'image.jpg',
+        name: 'photo1.jpg',
+      };
+      const file2: MediaFile = {
+        id: 'file-2',
+        uri: 'file://path/to/photo2.jpg',
+        type: 'photo',
+        name: 'photo2.jpg',
       };
 
-      expect(result.current.hasFiles).toBe(false);
-
       act(() => {
-        result.current.addFile(file);
+        result1.current.addFile(file1);
+        result2.current.addFiles([file2]);
       });
 
-      expect(result.current.hasFiles).toBe(true);
-
-      act(() => {
-        result.current.removeFile('file-1');
-      });
-
-      expect(result.current.hasFiles).toBe(false);
+      expect(result1.current.fileCount).toBe(1);
+      expect(result2.current.fileCount).toBe(1);
+      expect(result1.current.files[0].id).toBe('file-1');
+      expect(result2.current.files[0].id).toBe('file-2');
     });
   });
 
-  describe('fileCount computed property', () => {
-    it('should return 0 for empty state', () => {
+  describe('State Immutability', () => {
+    it('should not mutate files array when adding', () => {
       const { result } = renderHook(() => useMediaFileManager());
+      const file1: MediaFile = {
+        id: 'file-1',
+        uri: 'file://path/to/photo1.jpg',
+        type: 'photo',
+        name: 'photo1.jpg',
+      };
+      const file2: MediaFile = {
+        id: 'file-2',
+        uri: 'file://path/to/photo2.jpg',
+        type: 'photo',
+        name: 'photo2.jpg',
+      };
 
-      expect(result.current.fileCount).toBe(0);
-    });
-
-    it('should increment with each added file', () => {
-      const { result } = renderHook(() => useMediaFileManager());
-      const files: MediaFile[] = Array.from({ length: 5 }, (_, i) => ({
-        id: `file-${i + 1}`,
-        uri: `file:///path/to/image${i + 1}.jpg`,
-        type: 'photo' as const,
-        name: `image${i + 1}.jpg`,
-      }));
-
-      files.forEach((file) => {
-        act(() => {
-          result.current.addFile(file);
-        });
+      act(() => {
+        result.current.addFile(file1);
       });
 
-      expect(result.current.fileCount).toBe(5);
+      const firstSnapshot = result.current.files;
+
+      act(() => {
+        result.current.addFile(file2);
+      });
+
+      expect(firstSnapshot).not.toBe(result.current.files);
+      expect(firstSnapshot).toHaveLength(1);
+      expect(result.current.files).toHaveLength(2);
     });
 
-    it('should correctly reflect file count after removal', () => {
+    it('should not mutate files array when removing', () => {
       const { result } = renderHook(() => useMediaFileManager());
       const files: MediaFile[] = [
         {
           id: 'file-1',
-          uri: 'file:///path/to/image1.jpg',
+          uri: 'file://path/to/photo1.jpg',
           type: 'photo',
-          name: 'image1.jpg',
+          name: 'photo1.jpg',
         },
         {
           id: 'file-2',
-          uri: 'file:///path/to/image2.jpg',
+          uri: 'file://path/to/photo2.jpg',
           type: 'photo',
-          name: 'image2.jpg',
-        },
-        {
-          id: 'file-3',
-          uri: 'file:///path/to/image3.jpg',
-          type: 'photo',
-          name: 'image3.jpg',
+          name: 'photo2.jpg',
         },
       ];
 
       act(() => {
         result.current.addFiles(files);
       });
-      expect(result.current.fileCount).toBe(3);
 
-      act(() => {
-        result.current.removeFile('file-2');
-      });
-      expect(result.current.fileCount).toBe(2);
+      const beforeRemoval = result.current.files;
 
       act(() => {
         result.current.removeFile('file-1');
       });
-      expect(result.current.fileCount).toBe(1);
-    });
 
-    it('should be 0 after clearing', () => {
-      const { result } = renderHook(() => useMediaFileManager());
-      const files: MediaFile[] = Array.from({ length: 10 }, (_, i) => ({
-        id: `file-${i + 1}`,
-        uri: `file:///path/to/image${i + 1}.jpg`,
-        type: 'photo' as const,
-        name: `image${i + 1}.jpg`,
-      }));
-
-      act(() => {
-        result.current.addFiles(files);
-      });
-      expect(result.current.fileCount).toBe(10);
-
-      act(() => {
-        result.current.clearFiles();
-      });
-      expect(result.current.fileCount).toBe(0);
-    });
-  });
-
-  describe('complex scenarios', () => {
-    it('should handle add, remove, and clear operations', () => {
-      const { result } = renderHook(() => useMediaFileManager());
-      const file1: MediaFile = {
-        id: 'file-1',
-        uri: 'file:///path/to/image1.jpg',
-        type: 'photo',
-        name: 'image1.jpg',
-      };
-      const file2: MediaFile = {
-        id: 'file-2',
-        uri: 'file:///path/to/image2.jpg',
-        type: 'photo',
-        name: 'image2.jpg',
-      };
-      const file3: MediaFile = {
-        id: 'file-3',
-        uri: 'file:///path/to/image3.jpg',
-        type: 'photo',
-        name: 'image3.jpg',
-      };
-
-      act(() => {
-        result.current.addFile(file1);
-      });
-      expect(result.current.fileCount).toBe(1);
-
-      act(() => {
-        result.current.addFiles([file2, file3]);
-      });
-      expect(result.current.fileCount).toBe(3);
-
-      act(() => {
-        result.current.removeFile('file-2');
-      });
-      expect(result.current.fileCount).toBe(2);
-
-      act(() => {
-        result.current.clearFiles();
-      });
-      expect(result.current.fileCount).toBe(0);
-      expect(result.current.files).toHaveLength(0);
-      expect(result.current.hasFiles).toBe(false);
-    });
-
-    it('should maintain file order', () => {
-      const { result } = renderHook(() => useMediaFileManager());
-      const files: MediaFile[] = Array.from({ length: 5 }, (_, i) => ({
-        id: `file-${i + 1}`,
-        uri: `file:///path/to/image${i + 1}.jpg`,
-        type: 'photo' as const,
-        name: `image${i + 1}.jpg`,
-      }));
-
-      act(() => {
-        result.current.addFiles(files);
-      });
-
-      const fileIds = result.current.files.map((f) => f.id);
-      expect(fileIds).toEqual(['file-1', 'file-2', 'file-3', 'file-4', 'file-5']);
-    });
-
-    it('should handle large number of files', () => {
-      const { result } = renderHook(() => useMediaFileManager());
-      const files: MediaFile[] = Array.from({ length: 100 }, (_, i) => ({
-        id: `file-${i + 1}`,
-        uri: `file:///path/to/image${i + 1}.jpg`,
-        type: 'photo' as const,
-        name: `image${i + 1}.jpg`,
-      }));
-
-      act(() => {
-        result.current.addFiles(files);
-      });
-
-      expect(result.current.fileCount).toBe(100);
-      expect(result.current.hasFiles).toBe(true);
-
-      act(() => {
-        result.current.removeFile('file-50');
-      });
-
-      expect(result.current.fileCount).toBe(99);
+      expect(beforeRemoval).not.toBe(result.current.files);
+      expect(beforeRemoval).toHaveLength(2);
+      expect(result.current.files).toHaveLength(1);
     });
   });
 });

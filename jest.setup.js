@@ -76,5 +76,27 @@ jest.mock('react-native-permissions', () => ({
   openSettings: jest.fn(async () => {}),
 }));
 
+// Mock expo-router
+jest.mock('expo-router', () => ({
+  router: {
+    push: jest.fn(),
+    replace: jest.fn(),
+    back: jest.fn(),
+    canGoBack: jest.fn(() => true),
+  },
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    back: jest.fn(),
+  }),
+  useLocalSearchParams: () => ({}),
+  usePathname: () => '/',
+}));
+
+// Mock expo-linear-gradient
+jest.mock('expo-linear-gradient', () => ({
+  LinearGradient: ({ children, ...props }: any) => children,
+}));
+
 // Setup testing library
 require('@testing-library/react-native/dont-cleanup-after-each');

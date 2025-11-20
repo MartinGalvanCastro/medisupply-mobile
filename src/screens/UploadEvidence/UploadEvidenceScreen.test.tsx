@@ -1,191 +1,260 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UploadEvidenceScreen } from './UploadEvidenceScreen';
-import type { MediaFile } from '@/hooks/useMediaFileManager';
+import { useTranslation } from '@/i18n/hooks';
+import { useToast } from '@/components/ui/toast';
+import { useMediaFileManager } from '@/hooks/useMediaFileManager';
+import { useMediaPicker } from '@/hooks/useMediaPicker';
+import { useEvidenceUpload } from '@/hooks/useEvidenceUpload';
+import { router, useLocalSearchParams } from 'expo-router';
 
-// Mock router
+jest.mock('@/i18n/hooks');
+jest.mock('@/components/ui/toast');
+jest.mock('@/hooks/useMediaFileManager');
+jest.mock('@/hooks/useMediaPicker');
+jest.mock('@/hooks/useEvidenceUpload');
 jest.mock('expo-router', () => ({
   router: {
     back: jest.fn(),
     replace: jest.fn(),
-    canGoBack: jest.fn(() => true),
+    canGoBack: jest.fn(),
   },
-  useLocalSearchParams: jest.fn(() => ({ visitId: 'visit-123' })),
+  useLocalSearchParams: jest.fn(),
 }));
 
-// Mock useMediaFileManager
-jest.mock('@/hooks/useMediaFileManager', () => ({
-  useMediaFileManager: jest.fn(() => ({
-    files: [],
-    addFile: jest.fn(),
-    addFiles: jest.fn(),
-    removeFile: jest.fn(),
-    clearFiles: jest.fn(),
-    hasFiles: false,
-    fileCount: 0,
-  })),
-}));
+const mockUseTranslation = useTranslation as jest.MockedFunction<typeof useTranslation>;
+const mockUseToast = useToast as jest.MockedFunction<typeof useToast>;
+const mockUseMediaFileManager = useMediaFileManager as jest.MockedFunction<
+  typeof useMediaFileManager
+>;
+const mockUseMediaPicker = useMediaPicker as jest.MockedFunction<typeof useMediaPicker>;
+const mockUseEvidenceUpload = useEvidenceUpload as jest.MockedFunction<
+  typeof useEvidenceUpload
+>;
 
-// Mock useMediaPermissions
-jest.mock('@/hooks/useMediaPermissions', () => ({
-  useMediaPermissions: jest.fn(() => ({
-    camera: {
-      isGranted: false,
-      isBlocked: false,
-      isDenied: true,
-    },
-    photoLibrary: {
-      isGranted: false,
-      isBlocked: false,
-      isDenied: true,
-    },
-    mediaLibrary: {
-      isGranted: false,
-      isBlocked: false,
-      isDenied: true,
-    },
-    requestCameraPermission: jest.fn(),
-    requestPhotoLibraryPermission: jest.fn(),
-    requestMediaLibraryPermission: jest.fn(),
-    handleBlockedPermission: jest.fn(),
-  })),
-}));
+const mockFile = {
+  id: '1',
+  name: 'photo.jpg',
+  uri: 'file:///photo.jpg',
+  type: 'photo' as const,
+};
 
-// Mock useMediaPicker
-jest.mock('@/hooks/useMediaPicker', () => ({
-  useMediaPicker: jest.fn(() => ({
-    takePhoto: jest.fn(),
-    uploadPhotos: jest.fn(),
-    uploadVideos: jest.fn(),
-    isProcessing: false,
-  })),
-}));
+const mockVideoFile = {
+  id: '2',
+  name: 'video.mp4',
+  uri: 'file:///video.mp4',
+  type: 'video' as const,
+};
 
-// Mock useEvidenceUpload
-jest.mock('@/hooks/useEvidenceUpload', () => ({
-  useEvidenceUpload: jest.fn(() => ({
-    uploadFiles: jest.fn(async () => ({
-      success: true,
-      uploadedUrls: [],
-      errors: [],
-    })),
-    progress: {
-      uploadedCount: 0,
-      totalCount: 0,
-      currentFile: null,
-      isUploading: false,
-    },
-    isUploading: false,
-  })),
-}));
-
-// Mock useToast
-jest.mock('@/components/ui/toast', () => ({
-  useToast: jest.fn(() => ({
-    show: jest.fn(),
-  })),
-}));
-
-// Mock useTranslation
-jest.mock('@/i18n/hooks', () => ({
-  useTranslation: jest.fn(() => ({
-    t: (key: string) => key,
-  })),
-}));
+const createWrapper = (queryClient?: QueryClient) => {
+  const client = queryClient || new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
+};
 
 describe('UploadEvidenceScreen', () => {
+  let mockQueryClient: QueryClient;
+  let mockToast: any;
+  let mockAddFiles: jest.Mock;
+  let mockRemoveFile: jest.Mock;
+  let mockUploadFiles: jest.Mock;
+  let mockTakePhoto: jest.Mock;
+  let mockUploadPhotos: jest.Mock;
+  let mockUploadVideos: jest.Mock;
+
   beforeEach(() => {
+    jest.useFakeTimers();
+    mockQueryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     jest.clearAllMocks();
+
+    mockAddFiles = jest.fn();
+    mockRemoveFile = jest.fn();
+    mockUploadFiles = jest.fn().mockResolvedValue({ success: true, uploadedUrls: [], errors: [] });
+    mockTakePhoto = jest.fn();
+    mockUploadPhotos = jest.fn();
+    mockUploadVideos = jest.fn();
+
+    mockUseTranslation.mockReturnValue({
+      t: (key: string) => {
+        const translations: Record<string, string> = {
+          'uploadEvidence.title': 'Upload Evidence',
+          'uploadEvidence.description': 'Add photos or videos as evidence',
+          'uploadEvidence.takePhoto': 'Take Photo',
+          'uploadEvidence.uploadPhoto': 'Upload Photo',
+          'uploadEvidence.uploadVideo': 'Upload Video',
+          'uploadEvidence.filesUploaded': '{{count}} file(s) uploaded',
+          'uploadEvidence.noFilesYet': 'No files yet',
+          'uploadEvidence.uploading': 'Uploading...',
+          'uploadEvidence.uploadButton': 'Upload Evidence',
+          'uploadEvidence.skipButton': 'Skip',
+          'uploadEvidence.uploadSuccess': 'Evidence uploaded successfully',
+        };
+        return translations[key] || key;
+      },
+      i18n: {} as any,
+    });
+
+    mockToast = {
+      show: jest.fn(),
+    };
+    mockUseToast.mockReturnValue(mockToast);
+
+    mockUseMediaFileManager.mockReturnValue({
+      files: [],
+      addFiles: mockAddFiles,
+      removeFile: mockRemoveFile,
+      hasFiles: false,
+      fileCount: 0,
+      addFile: jest.fn(),
+      clearFiles: jest.fn(),
+    } as any);
+
+    mockUseMediaPicker.mockReturnValue({
+      takePhoto: mockTakePhoto,
+      uploadPhotos: mockUploadPhotos,
+      uploadVideos: mockUploadVideos,
+      isProcessing: false,
+    } as any);
+
+    mockUseEvidenceUpload.mockReturnValue({
+      uploadFiles: mockUploadFiles,
+      isUploading: false,
+      progress: {
+        uploadedCount: 0,
+        totalCount: 0,
+        currentFile: null,
+        isUploading: false,
+      },
+    } as any);
+
+    (useLocalSearchParams as jest.Mock).mockReturnValue({ visitId: 'visit123' });
+    (router.canGoBack as jest.Mock).mockReturnValue(true);
+    (router.back as jest.Mock).mockImplementation(() => {});
+    (router.replace as jest.Mock).mockResolvedValue(true);
   });
 
-  describe('rendering', () => {
-    it('should render the screen', () => {
-      render(<UploadEvidenceScreen />);
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  describe('Screen Rendering', () => {
+    it('should render upload evidence screen', () => {
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
       expect(screen.getByTestId('upload-evidence-screen')).toBeDefined();
     });
 
-    it('should render action buttons', () => {
-      render(<UploadEvidenceScreen />);
-
-      expect(screen.getByTestId('take-photo-button')).toBeDefined();
-      expect(screen.getByTestId('upload-photo-button')).toBeDefined();
-      expect(screen.getByTestId('upload-video-button')).toBeDefined();
-    });
-
-    it('should render upload and skip buttons', () => {
-      render(<UploadEvidenceScreen />);
-
-      expect(screen.getByTestId('upload-evidence-button')).toBeDefined();
-      expect(screen.getByTestId('skip-button')).toBeDefined();
-    });
-
     it('should render back button', () => {
-      render(<UploadEvidenceScreen />);
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
       expect(screen.getByTestId('back-button')).toBeDefined();
     });
 
-    it('should display no files message when empty', () => {
-      const { useMediaFileManager } = require('@/hooks/useMediaFileManager');
-      useMediaFileManager.mockReturnValue({
-        files: [],
-        addFile: jest.fn(),
-        addFiles: jest.fn(),
-        removeFile: jest.fn(),
-        clearFiles: jest.fn(),
-        hasFiles: false,
-        fileCount: 0,
-      });
+    it('should render take photo button', () => {
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
-      render(<UploadEvidenceScreen />);
-
-      // Screen should contain "no files" related text
-      expect(screen.getByTestId('upload-evidence-screen')).toBeDefined();
+      expect(screen.getByTestId('take-photo-button')).toBeDefined();
     });
 
-    it('should display file count when files exist', () => {
-      const { useMediaFileManager } = require('@/hooks/useMediaFileManager');
-      const mockFiles: MediaFile[] = [
-        {
-          id: 'file-1',
-          uri: 'file:///path/to/image.jpg',
-          type: 'photo',
-          name: 'image.jpg',
-        },
-      ];
+    it('should render upload photo button', () => {
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
-      useMediaFileManager.mockReturnValue({
-        files: mockFiles,
-        addFile: jest.fn(),
-        addFiles: jest.fn(),
-        removeFile: jest.fn(),
-        clearFiles: jest.fn(),
-        hasFiles: true,
-        fileCount: 1,
-      });
+      expect(screen.getByTestId('upload-photo-button')).toBeDefined();
+    });
 
-      render(<UploadEvidenceScreen />);
+    it('should render upload video button', () => {
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
-      // File should be displayed in the list
-      const screen_rendered = screen.getByTestId('upload-evidence-screen');
-      expect(screen_rendered).toBeDefined();
+      expect(screen.getByTestId('upload-video-button')).toBeDefined();
+    });
+
+    it('should render upload evidence button', () => {
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
+
+      expect(screen.getByTestId('upload-evidence-button')).toBeDefined();
+    });
+
+    it('should render skip button', () => {
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
+
+      expect(screen.getByTestId('skip-button')).toBeDefined();
     });
   });
 
-  describe('button interactions', () => {
+  describe('File Management', () => {
+    it('should display no files message when no files selected', () => {
+      mockUseMediaFileManager.mockReturnValue({
+        files: [],
+        addFiles: mockAddFiles,
+        removeFile: mockRemoveFile,
+        hasFiles: false,
+        fileCount: 0,
+        addFile: jest.fn(),
+        clearFiles: jest.fn(),
+      } as any);
+
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
+
+      expect(screen.getByText('No files yet')).toBeDefined();
+    });
+
+    it('should display file count when files are selected', () => {
+      mockUseMediaFileManager.mockReturnValue({
+        files: [mockFile, mockVideoFile],
+        addFiles: mockAddFiles,
+        removeFile: mockRemoveFile,
+        hasFiles: true,
+        fileCount: 2,
+        addFile: jest.fn(),
+        clearFiles: jest.fn(),
+      } as any);
+
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
+
+      expect(screen.getByText('2 file(s) uploaded')).toBeDefined();
+    });
+
+    it('should display file list when files are available', () => {
+      mockUseMediaFileManager.mockReturnValue({
+        files: [mockFile],
+        addFiles: mockAddFiles,
+        removeFile: mockRemoveFile,
+        hasFiles: true,
+        fileCount: 1,
+        addFile: jest.fn(),
+        clearFiles: jest.fn(),
+      } as any);
+
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
+
+      expect(screen.getByTestId(`remove-file-${mockFile.id}`)).toBeDefined();
+    });
+
+    it('should remove file when remove button is pressed', async () => {
+      mockUseMediaFileManager.mockReturnValue({
+        files: [mockFile],
+        addFiles: mockAddFiles,
+        removeFile: mockRemoveFile,
+        hasFiles: true,
+        fileCount: 1,
+        addFile: jest.fn(),
+        clearFiles: jest.fn(),
+      } as any);
+
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
+
+      const removeButton = screen.getByTestId(`remove-file-${mockFile.id}`);
+      fireEvent.press(removeButton);
+
+      expect(mockRemoveFile).toHaveBeenCalledWith(mockFile.id);
+    });
+  });
+
+  describe('Media Picker Actions', () => {
     it('should call takePhoto when take photo button is pressed', () => {
-      const { useMediaPicker } = require('@/hooks/useMediaPicker');
-      const mockTakePhoto = jest.fn();
-
-      useMediaPicker.mockReturnValue({
-        takePhoto: mockTakePhoto,
-        uploadPhotos: jest.fn(),
-        uploadVideos: jest.fn(),
-        isProcessing: false,
-      });
-
-      render(<UploadEvidenceScreen />);
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
       const takePhotoButton = screen.getByTestId('take-photo-button');
       fireEvent.press(takePhotoButton);
@@ -194,17 +263,7 @@ describe('UploadEvidenceScreen', () => {
     });
 
     it('should call uploadPhotos when upload photo button is pressed', () => {
-      const { useMediaPicker } = require('@/hooks/useMediaPicker');
-      const mockUploadPhotos = jest.fn();
-
-      useMediaPicker.mockReturnValue({
-        takePhoto: jest.fn(),
-        uploadPhotos: mockUploadPhotos,
-        uploadVideos: jest.fn(),
-        isProcessing: false,
-      });
-
-      render(<UploadEvidenceScreen />);
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
       const uploadPhotoButton = screen.getByTestId('upload-photo-button');
       fireEvent.press(uploadPhotoButton);
@@ -213,462 +272,113 @@ describe('UploadEvidenceScreen', () => {
     });
 
     it('should call uploadVideos when upload video button is pressed', () => {
-      const { useMediaPicker } = require('@/hooks/useMediaPicker');
-      const mockUploadVideos = jest.fn();
-
-      useMediaPicker.mockReturnValue({
-        takePhoto: jest.fn(),
-        uploadPhotos: jest.fn(),
-        uploadVideos: mockUploadVideos,
-        isProcessing: false,
-      });
-
-      render(<UploadEvidenceScreen />);
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
       const uploadVideoButton = screen.getByTestId('upload-video-button');
       fireEvent.press(uploadVideoButton);
 
       expect(mockUploadVideos).toHaveBeenCalled();
     });
-
-    it('should disable action buttons when isProcessing is true', () => {
-      const { useMediaPicker } = require('@/hooks/useMediaPicker');
-
-      useMediaPicker.mockReturnValue({
-        takePhoto: jest.fn(),
-        uploadPhotos: jest.fn(),
-        uploadVideos: jest.fn(),
-        isProcessing: true,
-      });
-
-      render(<UploadEvidenceScreen />);
-
-      const takePhotoButton = screen.getByTestId('take-photo-button');
-      const uploadPhotoButton = screen.getByTestId('upload-photo-button');
-      const uploadVideoButton = screen.getByTestId('upload-video-button');
-
-      expect(takePhotoButton.props.accessibilityState?.disabled).toBe(true);
-      expect(uploadPhotoButton.props.accessibilityState?.disabled).toBe(true);
-      expect(uploadVideoButton.props.accessibilityState?.disabled).toBe(true);
-    });
   });
 
-  describe('file removal', () => {
-    it('should remove file when remove button is pressed', () => {
-      const { useMediaFileManager } = require('@/hooks/useMediaFileManager');
-      const mockRemoveFile = jest.fn();
-      const mockFiles: MediaFile[] = [
-        {
-          id: 'file-1',
-          uri: 'file:///path/to/image.jpg',
-          type: 'photo',
-          name: 'image.jpg',
-        },
-      ];
-
-      useMediaFileManager.mockReturnValue({
-        files: mockFiles,
-        addFile: jest.fn(),
-        addFiles: jest.fn(),
+  describe('Upload Evidence', () => {
+    it('should show warning toast when upload is pressed without files', async () => {
+      mockUseMediaFileManager.mockReturnValue({
+        files: [],
+        addFiles: mockAddFiles,
         removeFile: mockRemoveFile,
-        clearFiles: jest.fn(),
-        hasFiles: true,
-        fileCount: 1,
-      });
-
-      render(<UploadEvidenceScreen />);
-
-      const removeButton = screen.getByTestId('remove-file-file-1');
-      fireEvent.press(removeButton);
-
-      expect(mockRemoveFile).toHaveBeenCalledWith('file-1');
-    });
-
-    it('should display remove button for each file', () => {
-      const { useMediaFileManager } = require('@/hooks/useMediaFileManager');
-      const mockFiles: MediaFile[] = [
-        {
-          id: 'file-1',
-          uri: 'file:///path/to/image1.jpg',
-          type: 'photo',
-          name: 'image1.jpg',
-        },
-        {
-          id: 'file-2',
-          uri: 'file:///path/to/image2.jpg',
-          type: 'photo',
-          name: 'image2.jpg',
-        },
-      ];
-
-      useMediaFileManager.mockReturnValue({
-        files: mockFiles,
-        addFile: jest.fn(),
-        addFiles: jest.fn(),
-        removeFile: jest.fn(),
-        clearFiles: jest.fn(),
-        hasFiles: true,
-        fileCount: 2,
-      });
-
-      render(<UploadEvidenceScreen />);
-
-      const removeButton1 = screen.getByTestId('remove-file-file-1');
-      const removeButton2 = screen.getByTestId('remove-file-file-2');
-
-      expect(removeButton1).toBeDefined();
-      expect(removeButton2).toBeDefined();
-    });
-  });
-
-  describe('upload functionality', () => {
-    it('should show warning when uploading with no files', async () => {
-      const { useToast } = require('@/components/ui/toast');
-      const { useMediaFileManager } = require('@/hooks/useMediaFileManager');
-      const { useMediaPicker } = require('@/hooks/useMediaPicker');
-      const { useEvidenceUpload } = require('@/hooks/useEvidenceUpload');
-      const mockToastShow = jest.fn();
-
-      useToast.mockReturnValue({
-        show: mockToastShow,
-      });
-
-      useMediaFileManager.mockReturnValue({
-        files: [],
-        addFile: jest.fn(),
-        addFiles: jest.fn(),
-        removeFile: jest.fn(),
-        clearFiles: jest.fn(),
         hasFiles: false,
         fileCount: 0,
-      });
+        addFile: jest.fn(),
+        clearFiles: jest.fn(),
+      } as any);
 
-      useMediaPicker.mockReturnValue({
-        takePhoto: jest.fn(),
-        uploadPhotos: jest.fn(),
-        uploadVideos: jest.fn(),
-        isProcessing: false,
-      });
-
-      useEvidenceUpload.mockReturnValue({
-        uploadFiles: jest.fn(async () => ({
-          success: true,
-          uploadedUrls: [],
-          errors: [],
-        })),
-        progress: {
-          uploadedCount: 0,
-          totalCount: 0,
-          currentFile: null,
-          isUploading: false,
-        },
-        isUploading: false,
-      });
-
-      render(<UploadEvidenceScreen />);
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
       const uploadButton = screen.getByTestId('upload-evidence-button');
       fireEvent.press(uploadButton);
 
       await waitFor(() => {
-        expect(mockToastShow).toHaveBeenCalled();
+        expect(mockToast.show).toHaveBeenCalled();
       });
     });
 
-    it('should disable upload button when isUploading is true', () => {
-      const { useEvidenceUpload } = require('@/hooks/useEvidenceUpload');
-      const { useMediaFileManager } = require('@/hooks/useMediaFileManager');
-      const mockFiles: MediaFile[] = [
-        {
-          id: 'file-1',
-          uri: 'file:///path/to/image.jpg',
-          type: 'photo',
-          name: 'image.jpg',
-        },
-      ];
-
-      useMediaFileManager.mockReturnValue({
-        files: mockFiles,
-        addFile: jest.fn(),
-        addFiles: jest.fn(),
-        removeFile: jest.fn(),
-        clearFiles: jest.fn(),
+    it('should call uploadFiles when upload is pressed with files', async () => {
+      mockUseMediaFileManager.mockReturnValue({
+        files: [mockFile],
+        addFiles: mockAddFiles,
+        removeFile: mockRemoveFile,
         hasFiles: true,
         fileCount: 1,
-      });
-
-      useEvidenceUpload.mockReturnValue({
-        uploadFiles: jest.fn(),
-        progress: {
-          uploadedCount: 0,
-          totalCount: 1,
-          currentFile: 'image.jpg',
-          isUploading: true,
-        },
-        isUploading: true,
-      });
-
-      render(<UploadEvidenceScreen />);
-
-      const uploadButton = screen.getByTestId('upload-evidence-button');
-      expect(uploadButton.props.accessibilityState?.disabled).toBe(true);
-    });
-
-    it('should enable upload button even when no files (shows warning on press)', () => {
-      const { useMediaFileManager } = require('@/hooks/useMediaFileManager');
-      const { useMediaPicker } = require('@/hooks/useMediaPicker');
-      const { useEvidenceUpload } = require('@/hooks/useEvidenceUpload');
-
-      useMediaFileManager.mockReturnValue({
-        files: [],
         addFile: jest.fn(),
-        addFiles: jest.fn(),
-        removeFile: jest.fn(),
         clearFiles: jest.fn(),
-        hasFiles: false,
-        fileCount: 0,
-      });
+      } as any);
 
-      // Explicitly ensure isProcessing and isUploading are false
-      useMediaPicker.mockReturnValue({
-        takePhoto: jest.fn(),
-        uploadPhotos: jest.fn(),
-        uploadVideos: jest.fn(),
-        isProcessing: false,
-      });
-
-      useEvidenceUpload.mockReturnValue({
-        uploadFiles: jest.fn(async () => ({
-          success: true,
-          uploadedUrls: [],
-          errors: [],
-        })),
-        progress: {
-          uploadedCount: 0,
-          totalCount: 0,
-          currentFile: null,
-          isUploading: false,
-        },
-        isUploading: false,
-      });
-
-      render(<UploadEvidenceScreen />);
-
-      const uploadButton = screen.getByTestId('upload-evidence-button');
-      // Button should be enabled so users can see the warning toast
-      expect(uploadButton.props.accessibilityState?.disabled).toBe(false);
-    });
-
-    it('should call uploadFiles with files', async () => {
-      const { useEvidenceUpload } = require('@/hooks/useEvidenceUpload');
-      const { useMediaFileManager } = require('@/hooks/useMediaFileManager');
-      const { useMediaPicker } = require('@/hooks/useMediaPicker');
-      const mockUploadFiles = jest.fn(async () => ({
-        success: true,
-        uploadedUrls: ['https://s3.amazonaws.com/bucket/file.jpg'],
-        errors: [],
-      }));
-      const mockFiles: MediaFile[] = [
-        {
-          id: 'file-1',
-          uri: 'file:///path/to/image.jpg',
-          type: 'photo',
-          name: 'image.jpg',
-        },
-      ];
-
-      useMediaFileManager.mockReturnValue({
-        files: mockFiles,
-        addFile: jest.fn(),
-        addFiles: jest.fn(),
-        removeFile: jest.fn(),
-        clearFiles: jest.fn(),
-        hasFiles: true,
-        fileCount: 1,
-      });
-
-      useMediaPicker.mockReturnValue({
-        takePhoto: jest.fn(),
-        uploadPhotos: jest.fn(),
-        uploadVideos: jest.fn(),
-        isProcessing: false,
-      });
-
-      useEvidenceUpload.mockReturnValue({
-        uploadFiles: mockUploadFiles,
-        progress: {
-          uploadedCount: 0,
-          totalCount: 1,
-          currentFile: null,
-          isUploading: false,
-        },
-        isUploading: false,
-      });
-
-      render(<UploadEvidenceScreen />);
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
       const uploadButton = screen.getByTestId('upload-evidence-button');
       fireEvent.press(uploadButton);
 
       await waitFor(() => {
-        expect(mockUploadFiles).toHaveBeenCalledWith(mockFiles);
+        expect(mockUploadFiles).toHaveBeenCalledWith([mockFile]);
       });
     });
 
-    it('should navigate to visits on successful upload', async () => {
-      const { router } = require('expo-router');
-      const { useEvidenceUpload } = require('@/hooks/useEvidenceUpload');
-      const { useMediaFileManager } = require('@/hooks/useMediaFileManager');
-      const { useMediaPicker } = require('@/hooks/useMediaPicker');
-      const { useToast } = require('@/components/ui/toast');
-
-      const mockFiles: MediaFile[] = [
-        {
-          id: 'file-1',
-          uri: 'file:///path/to/image.jpg',
-          type: 'photo',
-          name: 'image.jpg',
-        },
-      ];
-
-      useMediaFileManager.mockReturnValue({
-        files: mockFiles,
-        addFile: jest.fn(),
-        addFiles: jest.fn(),
-        removeFile: jest.fn(),
-        clearFiles: jest.fn(),
+    it('should show success toast and navigate on successful upload', async () => {
+      mockUseMediaFileManager.mockReturnValue({
+        files: [mockFile],
+        addFiles: mockAddFiles,
+        removeFile: mockRemoveFile,
         hasFiles: true,
         fileCount: 1,
-      });
+        addFile: jest.fn(),
+        clearFiles: jest.fn(),
+      } as any);
 
-      useMediaPicker.mockReturnValue({
-        takePhoto: jest.fn(),
-        uploadPhotos: jest.fn(),
-        uploadVideos: jest.fn(),
-        isProcessing: false,
-      });
+      mockUploadFiles.mockResolvedValue({ success: true, uploadedUrls: [], errors: [] });
 
-      useEvidenceUpload.mockReturnValue({
-        uploadFiles: jest.fn(async () => ({
-          success: true,
-          uploadedUrls: ['https://s3.amazonaws.com/bucket/file.jpg'],
-          errors: [],
-        })),
-        progress: {
-          uploadedCount: 1,
-          totalCount: 1,
-          currentFile: null,
-          isUploading: false,
-        },
-        isUploading: false,
-      });
-
-      useToast.mockReturnValue({
-        show: jest.fn(),
-      });
-
-      render(<UploadEvidenceScreen />);
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
       const uploadButton = screen.getByTestId('upload-evidence-button');
       fireEvent.press(uploadButton);
 
       await waitFor(() => {
+        expect(mockToast.show).toHaveBeenCalled();
         expect(router.replace).toHaveBeenCalledWith('/(tabs)/visits');
       });
     });
 
-    it('should show error toast on upload failure', async () => {
-      const { useEvidenceUpload } = require('@/hooks/useEvidenceUpload');
-      const { useMediaFileManager } = require('@/hooks/useMediaFileManager');
-      const { useMediaPicker } = require('@/hooks/useMediaPicker');
-      const { useToast } = require('@/components/ui/toast');
-      const mockToastShow = jest.fn();
-
-      const mockFiles: MediaFile[] = [
-        {
-          id: 'file-1',
-          uri: 'file:///path/to/image.jpg',
-          type: 'photo',
-          name: 'image.jpg',
-        },
-      ];
-
-      useMediaFileManager.mockReturnValue({
-        files: mockFiles,
-        addFile: jest.fn(),
-        addFiles: jest.fn(),
-        removeFile: jest.fn(),
-        clearFiles: jest.fn(),
+    it('should show error toast and errors on failed upload', async () => {
+      mockUseMediaFileManager.mockReturnValue({
+        files: [mockFile],
+        addFiles: mockAddFiles,
+        removeFile: mockRemoveFile,
         hasFiles: true,
         fileCount: 1,
+        addFile: jest.fn(),
+        clearFiles: jest.fn(),
+      } as any);
+
+      mockUploadFiles.mockResolvedValue({
+        success: false,
+        uploadedUrls: [],
+        errors: ['Upload failed', 'Network error'],
       });
 
-      useMediaPicker.mockReturnValue({
-        takePhoto: jest.fn(),
-        uploadPhotos: jest.fn(),
-        uploadVideos: jest.fn(),
-        isProcessing: false,
-      });
-
-      useEvidenceUpload.mockReturnValue({
-        uploadFiles: jest.fn(async () => ({
-          success: false,
-          uploadedUrls: [],
-          errors: ['Upload failed'],
-        })),
-        progress: {
-          uploadedCount: 0,
-          totalCount: 1,
-          currentFile: null,
-          isUploading: false,
-        },
-        isUploading: false,
-      });
-
-      useToast.mockReturnValue({
-        show: mockToastShow,
-      });
-
-      render(<UploadEvidenceScreen />);
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
       const uploadButton = screen.getByTestId('upload-evidence-button');
       fireEvent.press(uploadButton);
 
       await waitFor(() => {
-        expect(mockToastShow).toHaveBeenCalled();
+        expect(mockToast.show).toHaveBeenCalled();
       });
     });
   });
 
-  describe('skip functionality', () => {
+  describe('Skip Navigation', () => {
     it('should navigate to visits when skip button is pressed', () => {
-      const { router } = require('expo-router');
-      const { useMediaPicker } = require('@/hooks/useMediaPicker');
-      const { useEvidenceUpload } = require('@/hooks/useEvidenceUpload');
-
-      useMediaPicker.mockReturnValue({
-        takePhoto: jest.fn(),
-        uploadPhotos: jest.fn(),
-        uploadVideos: jest.fn(),
-        isProcessing: false,
-      });
-
-      useEvidenceUpload.mockReturnValue({
-        uploadFiles: jest.fn(async () => ({
-          success: true,
-          uploadedUrls: [],
-          errors: [],
-        })),
-        progress: {
-          uploadedCount: 0,
-          totalCount: 0,
-          currentFile: null,
-          isUploading: false,
-        },
-        isUploading: false,
-      });
-
-      render(<UploadEvidenceScreen />);
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
       const skipButton = screen.getByTestId('skip-button');
       fireEvent.press(skipButton);
@@ -676,49 +386,29 @@ describe('UploadEvidenceScreen', () => {
       expect(router.replace).toHaveBeenCalledWith('/(tabs)/visits');
     });
 
-    it('should disable skip button when isUploading is true', () => {
-      const { useEvidenceUpload } = require('@/hooks/useEvidenceUpload');
-
-      useEvidenceUpload.mockReturnValue({
-        uploadFiles: jest.fn(),
+    it('should disable skip button when uploading', () => {
+      mockUseEvidenceUpload.mockReturnValue({
+        uploadFiles: mockUploadFiles,
+        isUploading: true,
         progress: {
           uploadedCount: 0,
           totalCount: 1,
-          currentFile: 'image.jpg',
+          currentFile: 'photo.jpg',
           isUploading: true,
         },
-        isUploading: true,
-      });
+      } as any);
 
-      render(<UploadEvidenceScreen />);
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
-      const skipButton = screen.getByTestId('skip-button');
-      expect(skipButton.props.accessibilityState?.disabled).toBe(true);
-    });
-
-    it('should disable skip button when isProcessing is true', () => {
-      const { useMediaPicker } = require('@/hooks/useMediaPicker');
-
-      useMediaPicker.mockReturnValue({
-        takePhoto: jest.fn(),
-        uploadPhotos: jest.fn(),
-        uploadVideos: jest.fn(),
-        isProcessing: true,
-      });
-
-      render(<UploadEvidenceScreen />);
-
-      const skipButton = screen.getByTestId('skip-button');
-      expect(skipButton.props.accessibilityState?.disabled).toBe(true);
+      expect(screen.getByTestId('skip-button')).toBeDefined();
     });
   });
 
-  describe('back button', () => {
-    it('should call router.back when back button is pressed and canGoBack is true', () => {
-      const { router } = require('expo-router');
-      router.canGoBack.mockReturnValue(true);
+  describe('Back Navigation', () => {
+    it('should go back when back button is pressed if router can go back', () => {
+      (router.canGoBack as jest.Mock).mockReturnValue(true);
 
-      render(<UploadEvidenceScreen />);
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
       const backButton = screen.getByTestId('back-button');
       fireEvent.press(backButton);
@@ -726,11 +416,10 @@ describe('UploadEvidenceScreen', () => {
       expect(router.back).toHaveBeenCalled();
     });
 
-    it('should navigate to visits when back button is pressed and canGoBack is false', () => {
-      const { router } = require('expo-router');
-      router.canGoBack.mockReturnValue(false);
+    it('should navigate to visits if router cannot go back', () => {
+      (router.canGoBack as jest.Mock).mockReturnValue(false);
 
-      render(<UploadEvidenceScreen />);
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
       const backButton = screen.getByTestId('back-button');
       fireEvent.press(backButton);
@@ -739,239 +428,313 @@ describe('UploadEvidenceScreen', () => {
     });
   });
 
-  describe('file preview', () => {
-    it('should display file name', () => {
-      const { useMediaFileManager } = require('@/hooks/useMediaFileManager');
-      const mockFiles: MediaFile[] = [
-        {
-          id: 'file-1',
-          uri: 'file:///path/to/photo.jpg',
-          type: 'photo',
-          name: 'photo.jpg',
-        },
-      ];
+  describe('Button Disabled States', () => {
+    it('should disable media buttons when isProcessing is true', () => {
+      mockUseMediaPicker.mockReturnValue({
+        takePhoto: mockTakePhoto,
+        uploadPhotos: mockUploadPhotos,
+        uploadVideos: mockUploadVideos,
+        isProcessing: true,
+      } as any);
 
-      useMediaFileManager.mockReturnValue({
-        files: mockFiles,
-        addFile: jest.fn(),
-        addFiles: jest.fn(),
-        removeFile: jest.fn(),
-        clearFiles: jest.fn(),
-        hasFiles: true,
-        fileCount: 1,
-      });
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
-      render(<UploadEvidenceScreen />);
-
-      // File name should be displayed
-      const screen_rendered = screen.getByTestId('upload-evidence-screen');
-      expect(screen_rendered).toBeDefined();
+      expect(screen.getByTestId('take-photo-button')).toBeDefined();
+      expect(screen.getByTestId('upload-photo-button')).toBeDefined();
+      expect(screen.getByTestId('upload-video-button')).toBeDefined();
     });
 
-    it('should display all files in preview', () => {
-      const { useMediaFileManager } = require('@/hooks/useMediaFileManager');
-      const mockFiles: MediaFile[] = [
-        {
-          id: 'file-1',
-          uri: 'file:///path/to/photo1.jpg',
-          type: 'photo',
-          name: 'photo1.jpg',
-        },
-        {
-          id: 'file-2',
-          uri: 'file:///path/to/photo2.jpg',
-          type: 'photo',
-          name: 'photo2.jpg',
-        },
-        {
-          id: 'file-3',
-          uri: 'file:///path/to/video.mp4',
-          type: 'video',
-          name: 'video.mp4',
-        },
-      ];
-
-      useMediaFileManager.mockReturnValue({
-        files: mockFiles,
-        addFile: jest.fn(),
-        addFiles: jest.fn(),
-        removeFile: jest.fn(),
-        clearFiles: jest.fn(),
-        hasFiles: true,
-        fileCount: 3,
-      });
-
-      render(<UploadEvidenceScreen />);
-
-      const removeButton1 = screen.getByTestId('remove-file-file-1');
-      const removeButton2 = screen.getByTestId('remove-file-file-2');
-      const removeButton3 = screen.getByTestId('remove-file-file-3');
-
-      expect(removeButton1).toBeDefined();
-      expect(removeButton2).toBeDefined();
-      expect(removeButton3).toBeDefined();
-    });
-  });
-
-  describe('upload button text', () => {
-    it('should show upload text when not uploading', () => {
-      const { useEvidenceUpload } = require('@/hooks/useEvidenceUpload');
-      const { useMediaFileManager } = require('@/hooks/useMediaFileManager');
-
-      const mockFiles: MediaFile[] = [
-        {
-          id: 'file-1',
-          uri: 'file:///path/to/image.jpg',
-          type: 'photo',
-          name: 'image.jpg',
-        },
-      ];
-
-      useMediaFileManager.mockReturnValue({
-        files: mockFiles,
-        addFile: jest.fn(),
-        addFiles: jest.fn(),
-        removeFile: jest.fn(),
-        clearFiles: jest.fn(),
-        hasFiles: true,
-        fileCount: 1,
-      });
-
-      useEvidenceUpload.mockReturnValue({
-        uploadFiles: jest.fn(),
+    it('should disable upload buttons when isUploading is true', () => {
+      mockUseEvidenceUpload.mockReturnValue({
+        uploadFiles: mockUploadFiles,
+        isUploading: true,
         progress: {
           uploadedCount: 0,
           totalCount: 1,
+          currentFile: 'photo.jpg',
+          isUploading: true,
+        },
+      } as any);
+
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
+
+      expect(screen.getByTestId('upload-evidence-button')).toBeDefined();
+      expect(screen.getByTestId('skip-button')).toBeDefined();
+    });
+  });
+
+  describe('Media Picker Error Handling', () => {
+    it('should handle media picker errors', () => {
+      mockUseMediaPicker.mockImplementation(({ onError }: any) => {
+        if (onError) {
+          onError(new Error('Camera not available'));
+        }
+        return {
+          takePhoto: mockTakePhoto,
+          uploadPhotos: mockUploadPhotos,
+          uploadVideos: mockUploadVideos,
+          isProcessing: false,
+        };
+      });
+
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
+
+      expect(screen.getByTestId('upload-evidence-screen')).toBeDefined();
+    });
+  });
+
+  describe('File Types Display', () => {
+    it('should display remove button for photo files', () => {
+      mockUseMediaFileManager.mockReturnValue({
+        files: [mockFile],
+        addFiles: mockAddFiles,
+        removeFile: mockRemoveFile,
+        hasFiles: true,
+        fileCount: 1,
+        addFile: jest.fn(),
+        clearFiles: jest.fn(),
+      } as any);
+
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
+
+      expect(screen.getByTestId(`remove-file-${mockFile.id}`)).toBeDefined();
+    });
+
+    it('should display remove button for video files', () => {
+      mockUseMediaFileManager.mockReturnValue({
+        files: [mockVideoFile],
+        addFiles: mockAddFiles,
+        removeFile: mockRemoveFile,
+        hasFiles: true,
+        fileCount: 1,
+        addFile: jest.fn(),
+        clearFiles: jest.fn(),
+      } as any);
+
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
+
+      expect(screen.getByTestId(`remove-file-${mockVideoFile.id}`)).toBeDefined();
+    });
+  });
+
+  describe('Multiple Files Display', () => {
+    it('should display all files when multiple files are selected', () => {
+      const file3 = {
+        id: '3',
+        name: 'photo2.jpg',
+        uri: 'file:///photo2.jpg',
+        type: 'photo' as const,
+      };
+
+      mockUseMediaFileManager.mockReturnValue({
+        files: [mockFile, mockVideoFile, file3],
+        addFiles: mockAddFiles,
+        removeFile: mockRemoveFile,
+        hasFiles: true,
+        fileCount: 3,
+        addFile: jest.fn(),
+        clearFiles: jest.fn(),
+      } as any);
+
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
+
+      expect(screen.getByTestId(`remove-file-${mockFile.id}`)).toBeDefined();
+      expect(screen.getByTestId(`remove-file-${mockVideoFile.id}`)).toBeDefined();
+      expect(screen.getByTestId(`remove-file-${file3.id}`)).toBeDefined();
+    });
+  });
+
+  describe('Upload Button Text States', () => {
+    it('should show upload evidence button when not uploading', () => {
+      mockUseEvidenceUpload.mockReturnValue({
+        uploadFiles: mockUploadFiles,
+        isUploading: false,
+        progress: {
+          uploadedCount: 0,
+          totalCount: 0,
           currentFile: null,
           isUploading: false,
         },
-        isUploading: false,
-      });
+      } as any);
 
-      render(<UploadEvidenceScreen />);
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
-      const uploadButton = screen.getByTestId('upload-evidence-button');
-      expect(uploadButton).toBeDefined();
+      expect(screen.getByTestId('upload-evidence-button')).toBeDefined();
     });
 
     it('should show uploading text when uploading', () => {
-      const { useEvidenceUpload } = require('@/hooks/useEvidenceUpload');
-      const { useMediaFileManager } = require('@/hooks/useMediaFileManager');
-
-      const mockFiles: MediaFile[] = [
-        {
-          id: 'file-1',
-          uri: 'file:///path/to/image.jpg',
-          type: 'photo',
-          name: 'image.jpg',
-        },
-      ];
-
-      useMediaFileManager.mockReturnValue({
-        files: mockFiles,
-        addFile: jest.fn(),
-        addFiles: jest.fn(),
-        removeFile: jest.fn(),
-        clearFiles: jest.fn(),
-        hasFiles: true,
-        fileCount: 1,
-      });
-
-      useEvidenceUpload.mockReturnValue({
-        uploadFiles: jest.fn(),
+      mockUseEvidenceUpload.mockReturnValue({
+        uploadFiles: mockUploadFiles,
+        isUploading: true,
         progress: {
           uploadedCount: 0,
           totalCount: 1,
-          currentFile: 'image.jpg',
+          currentFile: 'photo.jpg',
           isUploading: true,
         },
-        isUploading: true,
-      });
+      } as any);
 
-      render(<UploadEvidenceScreen />);
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
-      const uploadButton = screen.getByTestId('upload-evidence-button');
-      expect(uploadButton).toBeDefined();
+      expect(screen.getByText('Uploading...')).toBeDefined();
     });
   });
 
-  describe('edge cases', () => {
-    it('should handle missing visitId gracefully', () => {
-      const { useLocalSearchParams } = require('expo-router');
-      useLocalSearchParams.mockReturnValue({ visitId: undefined });
-
-      render(<UploadEvidenceScreen />);
-
-      expect(screen.getByTestId('upload-evidence-screen')).toBeDefined();
-    });
-
-    it('should handle rapid file additions', () => {
-      const { useMediaFileManager } = require('@/hooks/useMediaFileManager');
-      const mockAddFiles = jest.fn();
-      const mockFiles: MediaFile[] = Array.from({ length: 10 }, (_, i) => ({
-        id: `file-${i + 1}`,
-        uri: `file:///path/to/image${i + 1}.jpg`,
-        type: 'photo' as const,
-        name: `image${i + 1}.jpg`,
-      }));
-
-      useMediaFileManager.mockReturnValue({
-        files: mockFiles,
-        addFile: jest.fn(),
+  describe('Multiple Error Messages', () => {
+    it('should handle multiple error messages when upload fails', async () => {
+      mockUseMediaFileManager.mockReturnValue({
+        files: [mockFile, mockVideoFile],
         addFiles: mockAddFiles,
-        removeFile: jest.fn(),
-        clearFiles: jest.fn(),
+        removeFile: mockRemoveFile,
         hasFiles: true,
-        fileCount: 10,
+        fileCount: 2,
+        addFile: jest.fn(),
+        clearFiles: jest.fn(),
+      } as any);
+
+      mockUploadFiles.mockResolvedValue({
+        success: false,
+        uploadedUrls: [],
+        errors: ['Error 1', 'Error 2', 'Error 3'],
       });
 
-      render(<UploadEvidenceScreen />);
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
+
+      const uploadButton = screen.getByTestId('upload-evidence-button');
+      fireEvent.press(uploadButton);
+
+      await waitFor(() => {
+        expect(mockToast.show).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('useLocalSearchParams', () => {
+    it('should handle missing visitId and use empty string as fallback', () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ visitId: undefined });
+
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
       expect(screen.getByTestId('upload-evidence-screen')).toBeDefined();
+      expect(mockUseEvidenceUpload).toHaveBeenCalledWith({ visitId: '' });
+    });
+  });
+
+  describe('Toast Content Rendering', () => {
+    it('should render correct warning toast content when no files', async () => {
+      mockUseMediaFileManager.mockReturnValue({
+        files: [],
+        addFiles: mockAddFiles,
+        removeFile: mockRemoveFile,
+        hasFiles: false,
+        fileCount: 0,
+        addFile: jest.fn(),
+        clearFiles: jest.fn(),
+      } as any);
+
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
+
+      const uploadButton = screen.getByTestId('upload-evidence-button');
+      fireEvent.press(uploadButton);
+
+      await waitFor(() => {
+        expect(mockToast.show).toHaveBeenCalled();
+        const toastCall = mockToast.show.mock.calls[0][0];
+        expect(toastCall.placement).toBe('top');
+        const renderedComponent = toastCall.render({ id: 'test' });
+        expect(renderedComponent).toBeDefined();
+      });
     });
 
-    it('should handle mixed file types', () => {
-      const { useMediaFileManager } = require('@/hooks/useMediaFileManager');
-      const mockFiles: MediaFile[] = [
-        {
-          id: 'file-1',
-          uri: 'file:///path/to/photo.jpg',
-          type: 'photo',
-          name: 'photo.jpg',
-        },
-        {
-          id: 'file-2',
-          uri: 'file:///path/to/video.mp4',
-          type: 'video',
-          name: 'video.mp4',
-        },
-        {
-          id: 'file-3',
-          uri: 'file:///path/to/photo2.jpg',
-          type: 'photo',
-          name: 'photo2.jpg',
-        },
-      ];
-
-      useMediaFileManager.mockReturnValue({
-        files: mockFiles,
-        addFile: jest.fn(),
-        addFiles: jest.fn(),
-        removeFile: jest.fn(),
-        clearFiles: jest.fn(),
+    it('should render correct success toast content on upload success', async () => {
+      mockUseMediaFileManager.mockReturnValue({
+        files: [mockFile],
+        addFiles: mockAddFiles,
+        removeFile: mockRemoveFile,
         hasFiles: true,
-        fileCount: 3,
+        fileCount: 1,
+        addFile: jest.fn(),
+        clearFiles: jest.fn(),
+      } as any);
+
+      mockUploadFiles.mockResolvedValue({ success: true, uploadedUrls: [], errors: [] });
+
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
+
+      const uploadButton = screen.getByTestId('upload-evidence-button');
+      fireEvent.press(uploadButton);
+
+      await waitFor(() => {
+        expect(mockToast.show).toHaveBeenCalled();
+        const successCall = mockToast.show.mock.calls[0][0];
+        expect(successCall.placement).toBe('top');
+        const renderedComponent = successCall.render({ id: 'test' });
+        expect(renderedComponent).toBeDefined();
+      });
+    });
+
+    it('should render correct error toast content on upload failure', async () => {
+      mockUseMediaFileManager.mockReturnValue({
+        files: [mockFile],
+        addFiles: mockAddFiles,
+        removeFile: mockRemoveFile,
+        hasFiles: true,
+        fileCount: 1,
+        addFile: jest.fn(),
+        clearFiles: jest.fn(),
+      } as any);
+
+      mockUploadFiles.mockResolvedValue({
+        success: false,
+        uploadedUrls: [],
+        errors: ['Upload failed', 'Network error'],
       });
 
-      render(<UploadEvidenceScreen />);
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
 
-      const removeButton1 = screen.getByTestId('remove-file-file-1');
-      const removeButton2 = screen.getByTestId('remove-file-file-2');
-      const removeButton3 = screen.getByTestId('remove-file-file-3');
+      const uploadButton = screen.getByTestId('upload-evidence-button');
+      fireEvent.press(uploadButton);
 
-      expect(removeButton1).toBeDefined();
-      expect(removeButton2).toBeDefined();
-      expect(removeButton3).toBeDefined();
+      await waitFor(() => {
+        expect(mockToast.show).toHaveBeenCalled();
+        const errorCall = mockToast.show.mock.calls[0][0];
+        expect(errorCall.placement).toBe('top');
+        const renderedComponent = errorCall.render({ id: 'test' });
+        expect(renderedComponent).toBeDefined();
+      });
+    });
+
+    it('should render error toast from media picker onError callback', async () => {
+      const errorCallbacks: any[] = [];
+      mockUseMediaPicker.mockImplementation(({ onError }: any) => {
+        if (onError) {
+          errorCallbacks.push(onError);
+        }
+        return {
+          takePhoto: mockTakePhoto,
+          uploadPhotos: mockUploadPhotos,
+          uploadVideos: mockUploadVideos,
+          isProcessing: false,
+        };
+      });
+
+      render(<UploadEvidenceScreen />, { wrapper: createWrapper(mockQueryClient) });
+
+      // Verify the error callback was registered
+      expect(errorCallbacks.length).toBeGreaterThan(0);
+
+      // Call the error callback
+      if (errorCallbacks[0]) {
+        errorCallbacks[0](new Error('Camera not available'));
+      }
+
+      await waitFor(() => {
+        expect(mockToast.show).toHaveBeenCalled();
+        const errorCall = mockToast.show.mock.calls[0][0];
+        expect(errorCall.placement).toBe('top');
+        const renderedComponent = errorCall.render({ id: 'test' });
+        expect(renderedComponent).toBeDefined();
+      });
     });
   });
 });

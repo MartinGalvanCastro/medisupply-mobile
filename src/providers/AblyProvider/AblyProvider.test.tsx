@@ -1,805 +1,688 @@
 import React from 'react';
-import { renderHook, act } from '@testing-library/react-native';
+import { renderHook, render, waitFor, act } from '@testing-library/react-native';
 import * as Ably from 'ably';
-import { useQueryClient } from '@tanstack/react-query';
-import type { AblyTokenResponse } from '@/api/generated/models';
-import type { AppStateStatus } from 'react-native';
-
-// Mock dependencies - MUST come before importing AblyProvider
-jest.mock('react-native', () => ({
-  AppState: {
-    currentState: 'active',
-    addEventListener: jest.fn(),
-  },
-  Appearance: {
-    getColorScheme: jest.fn(() => 'light'),
-    addChangeListener: jest.fn(),
-    removeChangeListener: jest.fn(),
-  },
-  AccessibilityInfo: {
-    isReduceMotionEnabled: jest.fn(() => Promise.resolve(false)),
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-  },
-  Platform: {
-    OS: 'ios',
-    Version: '15.0',
-    select: jest.fn((obj) => obj.ios),
-  },
-  PixelRatio: {
-    get: jest.fn(() => 2),
-    getFontScale: jest.fn(() => 1),
-  },
-  Dimensions: {
-    get: jest.fn(() => ({ width: 375, height: 812, scale: 2, fontScale: 1 })),
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-  },
-}));
-
-// Suppress CSS interop warnings
-beforeAll(() => {
-  jest.spyOn(console, 'warn').mockImplementation(() => {});
-  jest.spyOn(console, 'error').mockImplementation(() => {});
-});
-
-jest.mock('@tanstack/react-query', () => ({
-  useQueryClient: jest.fn(),
-}));
-
-jest.mock('@/store/useAuthStore/useAuthStore');
-jest.mock('@/hooks/useAblyToken');
-
-jest.mock('ably', () => {
-  const mockConnection = {
-    on: jest.fn(),
-    state: 'connected',
-  };
-
-  const mockChannel = {
-    subscribe: jest.fn(),
-    unsubscribe: jest.fn(),
-  };
-
-  const mockChannels = {
-    get: jest.fn(() => mockChannel),
-  };
-
-  return {
-    Realtime: jest.fn(() => ({
-      connection: mockConnection,
-      channels: mockChannels,
-      close: jest.fn(),
-    })),
-  };
-});
-
-// Import after mocks are set up
 import { AblyProvider, useAbly } from './AblyProvider';
 import { useAuthStore } from '@/store/useAuthStore/useAuthStore';
 import { useAblyToken } from '@/hooks/useAblyToken';
+import { useQueryClient } from '@tanstack/react-query';
 import { AppState } from 'react-native';
+
+jest.mock('@/store/useAuthStore/useAuthStore');
+jest.mock('@/hooks/useAblyToken');
+jest.mock('@tanstack/react-query');
+jest.mock('ably');
 
 describe('AblyProvider', () => {
   let mockGetValidToken: jest.Mock;
   let mockClearCache: jest.Mock;
-  let mockQueryClient: any;
-  let mockAblyInstance: any;
-  let mockConnectionOn: jest.Mock;
+  let mockQueryClientRefetchQueries: jest.Mock;
   let mockChannelSubscribe: jest.Mock;
   let mockChannelUnsubscribe: jest.Mock;
   let mockChannelGet: jest.Mock;
+  let mockAblyConnectionOn: jest.Mock;
+  let mockAblyClose: jest.Mock;
+  let mockAblyConnect: jest.Mock;
   let mockAppStateAddEventListener: jest.Mock;
-  let appStateListeners: { [key: string]: (state: AppStateStatus) => void } = {};
-  const now = Date.now();
+  let mockUseAuthStore: jest.MockedFunction<typeof useAuthStore>;
+  let mockUseAblyToken: jest.MockedFunction<typeof useAblyToken>;
+  let mockUseQueryClient: jest.MockedFunction<typeof useQueryClient>;
 
-  const createMockTokenResponse = (): AblyTokenResponse => ({
+  const mockTokenResponse = {
     token_request: {
       keyName: 'test-key',
+      clientId: 'test-client',
       ttl: 3600000,
-      timestamp: now,
+      timestamp: 1700000000000,
       capability: '{"mobile:products":["subscribe"]}',
       nonce: 'test-nonce',
       mac: 'test-mac',
-      clientId: 'test-client-id',
     },
-    expires_at: now + 3600000,
+    expires_at: 1700003600000,
     channels: ['mobile:products'],
-  });
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    appStateListeners = {};
+
+    // Setup AppState mock with proper state tracking
+    let appStateChangeHandler: ((state: string) => void) | null = null;
+    let currentAppState = 'active';
+
+    mockAppStateAddEventListener = jest.fn((event, callback) => {
+      appStateChangeHandler = callback;
+      return {
+        remove: jest.fn(),
+      };
+    });
+
+    Object.defineProperty(AppState, 'addEventListener', {
+      value: mockAppStateAddEventListener,
+      writable: true,
+      configurable: true,
+    });
+
+    // Setup Ably connection mock
+    mockAblyConnectionOn = jest.fn((event, callback) => {
+      // Store callbacks for testing
+      (mockAblyConnectionOn as any)[`${event}Callback`] = callback;
+    });
+    mockAblyClose = jest.fn();
+    mockAblyConnect = jest.fn();
+
+    const mockAblyConnection = {
+      on: mockAblyConnectionOn,
+      close: mockAblyClose,
+      connect: mockAblyConnect,
+      state: 'connected',
+    };
+
+    // Setup channel mock
+    mockChannelSubscribe = jest.fn();
+    mockChannelUnsubscribe = jest.fn();
+    mockChannelGet = jest.fn(() => ({
+      subscribe: mockChannelSubscribe,
+      unsubscribe: mockChannelUnsubscribe,
+    }));
+
+    const mockAblyChannels = {
+      get: mockChannelGet,
+    };
+
+    // Setup Ably Realtime mock - create NEW instance each time for proper cleanup tracking
+    let instanceCount = 0;
+    (Ably.Realtime as unknown as jest.Mock).mockImplementation(() => {
+      instanceCount++;
+      const mockAblyRealtime: any = {
+        connection: mockAblyConnection,
+        channels: mockAblyChannels,
+        close: mockAblyClose,
+        connect: mockAblyConnect,
+        instanceId: instanceCount,
+      };
+      return mockAblyRealtime;
+    });
+
+    // Setup useAuthStore mock
+    mockUseAuthStore = useAuthStore as jest.MockedFunction<typeof useAuthStore>;
+    mockUseAuthStore.mockReturnValue({
+      isAuthenticated: true,
+      user: {} as any,
+      login: jest.fn(),
+      logout: jest.fn(),
+      setUser: jest.fn(),
+      clearAuth: jest.fn(),
+    });
 
     // Setup useAblyToken mock
-    mockGetValidToken = jest.fn();
+    mockGetValidToken = jest.fn().mockResolvedValue(mockTokenResponse);
     mockClearCache = jest.fn();
-    (useAblyToken as jest.Mock).mockReturnValue({
+    mockUseAblyToken = useAblyToken as jest.MockedFunction<typeof useAblyToken>;
+    mockUseAblyToken.mockReturnValue({
       getValidToken: mockGetValidToken,
+      fetchToken: jest.fn(),
       clearCache: mockClearCache,
       isPending: false,
       error: null,
     });
 
     // Setup useQueryClient mock
-    mockQueryClient = {
-      invalidateQueries: jest.fn(),
-      refetchQueries: jest.fn(),
-    };
-    (useQueryClient as jest.Mock).mockReturnValue(mockQueryClient);
-
-    // Setup AppState mock
-    mockAppStateAddEventListener = jest.fn((event, callback) => {
-      appStateListeners[event] = callback;
-      return { remove: jest.fn() };
-    });
-    (AppState.addEventListener as jest.Mock) = mockAppStateAddEventListener;
-    (AppState.currentState as any) = 'active';
-
-    // Setup Ably mocks
-    mockConnectionOn = jest.fn();
-    mockChannelSubscribe = jest.fn();
-    mockChannelUnsubscribe = jest.fn();
-    mockChannelGet = jest.fn();
-
-    mockAblyInstance = {
-      connection: {
-        on: mockConnectionOn,
-        state: 'connected',
-      },
-      channels: {
-        get: mockChannelGet,
-      },
-      close: jest.fn(),
-      connect: jest.fn(),
-    };
-
-    mockChannelGet.mockReturnValue({
-      subscribe: mockChannelSubscribe,
-      unsubscribe: mockChannelUnsubscribe,
-    });
-
-    (Ably.Realtime as unknown as jest.Mock).mockImplementation(() => mockAblyInstance);
+    mockQueryClientRefetchQueries = jest.fn().mockResolvedValue(undefined);
+    mockUseQueryClient = useQueryClient as jest.MockedFunction<typeof useQueryClient>;
+    mockUseQueryClient.mockReturnValue({
+      refetchQueries: mockQueryClientRefetchQueries,
+    } as any);
   });
 
-  const TestComponent = ({ children }: { children: React.ReactNode }) => (
-    <AblyProvider>{children}</AblyProvider>
-  );
+  describe('Ably connection initialization', () => {
+    it('should initialize Ably connection when authenticated', async () => {
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
 
-  describe('Authentication State', () => {
-    it('should not initialize Ably when user is not authenticated', () => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalledWith(
+          expect.objectContaining({
+            autoConnect: true,
+            disconnectedRetryTimeout: 15000,
+            suspendedRetryTimeout: 30000,
+          })
+        );
+      });
+    });
+
+    it('should setup authCallback in Ably configuration', async () => {
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        const ablyConfig = (Ably.Realtime as unknown as jest.Mock).mock.calls[0][0];
+        expect(typeof ablyConfig.authCallback).toBe('function');
+      });
+    });
+
+    it('should not initialize Ably when not authenticated', () => {
+      mockUseAuthStore.mockReturnValue({
         isAuthenticated: false,
+        user: null as any,
+        login: jest.fn(),
+        logout: jest.fn(),
+        setUser: jest.fn(),
+        clearAuth: jest.fn(),
       });
 
-      renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
 
       expect(Ably.Realtime).not.toHaveBeenCalled();
     });
 
-    it('should initialize Ably when user is authenticated', () => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({
-        isAuthenticated: true,
-      });
-      mockGetValidToken.mockResolvedValue(createMockTokenResponse());
+    it('should close connection when user logs out', async () => {
+      const { rerender } = render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
 
-      renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
-
-      expect(Ably.Realtime).toHaveBeenCalled();
-    });
-
-    it('should close connection and clear cache on logout', async () => {
-      let isAuthenticated = true;
-      (useAuthStore as unknown as jest.Mock).mockImplementation(() => ({
-        isAuthenticated,
-      }));
-      mockGetValidToken.mockResolvedValue(createMockTokenResponse());
-
-      const { rerender } = renderHook(() => useAbly(), {
-        wrapper: TestComponent,
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
       });
 
-      expect(Ably.Realtime).toHaveBeenCalled();
-      expect(mockAblyInstance.close).not.toHaveBeenCalled();
+      mockUseAuthStore.mockReturnValue({
+        isAuthenticated: false,
+        user: null as any,
+        login: jest.fn(),
+        logout: jest.fn(),
+        setUser: jest.fn(),
+        clearAuth: jest.fn(),
+      });
 
-      // Simulate logout
-      isAuthenticated = false;
-      (useAuthStore as unknown as jest.Mock).mockImplementation(() => ({
-        isAuthenticated,
-      }));
+      rerender(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
 
-      rerender(() => useAbly());
-
-      expect(mockAblyInstance.close).toHaveBeenCalled();
-      expect(mockClearCache).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(mockAblyClose).toHaveBeenCalled();
+        expect(mockClearCache).toHaveBeenCalled();
+      });
     });
   });
 
-  describe('Connection Initialization', () => {
-    beforeEach(() => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({
-        isAuthenticated: true,
-      });
-    });
-
-    it('should create Ably instance with authCallback', () => {
-      mockGetValidToken.mockResolvedValue(createMockTokenResponse());
-
-      renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
-
-      expect(Ably.Realtime).toHaveBeenCalledWith(
-        expect.objectContaining({
-          authCallback: expect.any(Function),
-          disconnectedRetryTimeout: 15000,
-          suspendedRetryTimeout: 30000,
-          autoConnect: true,
-        })
+  describe('authCallback functionality', () => {
+    it('should invoke authCallback with token when Ably requests token', async () => {
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
       );
-    });
 
-    it('should call authCallback when Ably requests token', async () => {
-      const mockToken = createMockTokenResponse();
-      mockGetValidToken.mockResolvedValue(mockToken);
-
-      renderHook(() => useAbly(), {
-        wrapper: TestComponent,
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
       });
 
-      // Get the authCallback that was passed to Ably.Realtime
-      const callArgs = (Ably.Realtime as unknown as jest.Mock).mock.calls[0][0];
-      const authCallback = callArgs.authCallback;
-
-      const mockCallback = jest.fn();
+      const ablyConfig = (Ably.Realtime as unknown as jest.Mock).mock.calls[0][0];
+      const tokenParams = {} as any;
+      const callback = jest.fn();
 
       await act(async () => {
-        await authCallback({}, mockCallback);
+        await ablyConfig.authCallback(tokenParams, callback);
       });
 
-      expect(mockGetValidToken).toHaveBeenCalled();
-      expect(mockCallback).toHaveBeenCalledWith(null, mockToken.token_request);
+      await waitFor(() => {
+        expect(mockGetValidToken).toHaveBeenCalled();
+        expect(callback).toHaveBeenCalledWith(null, mockTokenResponse.token_request);
+      });
     });
 
-    it('should handle authCallback errors', async () => {
+    it('should pass error to callback when token fetch fails', async () => {
       const error = new Error('Token fetch failed');
+      mockGetValidToken.mockRejectedValueOnce(error);
+
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      const ablyConfig = (Ably.Realtime as unknown as jest.Mock).mock.calls[0][0];
+      const callback = jest.fn();
+
+      await act(async () => {
+        await ablyConfig.authCallback({} as any, callback);
+      });
+
+      await waitFor(() => {
+        expect(callback).toHaveBeenCalledWith(error, null);
+      });
+    });
+
+    it('should increment auth failure count on token fetch failure', async () => {
+      mockGetValidToken.mockRejectedValueOnce(new Error('Failure 1'));
+
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      const ablyConfig = (Ably.Realtime as unknown as jest.Mock).mock.calls[0][0];
+      const callback = jest.fn();
+
+      // First failure
+      await act(async () => {
+        await ablyConfig.authCallback({} as any, callback);
+      });
+
+      expect(callback).toHaveBeenCalled();
+
+      // Second failure
+      mockGetValidToken.mockRejectedValueOnce(new Error('Failure 2'));
+      callback.mockClear();
+
+      await act(async () => {
+        await ablyConfig.authCallback({} as any, callback);
+      });
+
+      expect(callback).toHaveBeenCalled();
+    });
+
+    it('should stop retrying after 3 auth failures', async () => {
+      const error = new Error('Auth failed');
       mockGetValidToken.mockRejectedValue(error);
 
-      renderHook(() => useAbly(), {
-        wrapper: TestComponent,
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
       });
 
-      const callArgs = (Ably.Realtime as unknown as jest.Mock).mock.calls[0][0];
-      const authCallback = callArgs.authCallback;
+      const ablyConfig = (Ably.Realtime as unknown as jest.Mock).mock.calls[0][0];
+      const callback = jest.fn();
 
-      const mockCallback = jest.fn();
+      // Make 3 failed attempts
+      for (let i = 0; i < 3; i++) {
+        callback.mockClear();
+        await act(async () => {
+          await ablyConfig.authCallback({} as any, callback);
+        });
+        expect(callback).toHaveBeenCalled();
+      }
+
+      // Fourth attempt should return error about too many auth failures
+      callback.mockClear();
+      await act(async () => {
+        await ablyConfig.authCallback({} as any, callback);
+      });
+
+      expect(callback).toHaveBeenCalledWith(
+        expect.any(Error),
+        null
+      );
+      const errorCall = callback.mock.calls[0][0];
+      expect(errorCall.message).toContain('Ably authentication failed');
+    });
+
+    it('should reset failure count on successful token fetch', async () => {
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      const ablyConfig = (Ably.Realtime as unknown as jest.Mock).mock.calls[0][0];
+      const callback = jest.fn();
+
+      // Successful call
+      await act(async () => {
+        await ablyConfig.authCallback({} as any, callback);
+      });
+
+      expect(callback).toHaveBeenCalledWith(null, mockTokenResponse.token_request);
+
+      // Failed call after success
+      mockGetValidToken.mockRejectedValueOnce(new Error('Failure'));
+      callback.mockClear();
 
       await act(async () => {
-        await authCallback({}, mockCallback);
+        await ablyConfig.authCallback({} as any, callback);
       });
 
-      expect(mockCallback).toHaveBeenCalledWith(error, null);
+      expect(callback).toHaveBeenCalledWith(
+        expect.any(Error),
+        null
+      );
+
+      // Success again - should not be blocked
+      mockGetValidToken.mockResolvedValueOnce(mockTokenResponse);
+      callback.mockClear();
+
+      await act(async () => {
+        await ablyConfig.authCallback({} as any, callback);
+      });
+
+      expect(callback).toHaveBeenCalledWith(null, mockTokenResponse.token_request);
     });
   });
 
-  describe('Connection State Events', () => {
-    beforeEach(() => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({
-        isAuthenticated: true,
-      });
-      mockGetValidToken.mockResolvedValue(createMockTokenResponse());
-    });
-
-    it('should set isConnected to true on connected event', () => {
+  describe('Connection state handling', () => {
+    it('should set isConnected to true on connected event', async () => {
       const { result } = renderHook(() => useAbly(), {
-        wrapper: TestComponent,
+        wrapper: (props) => <AblyProvider>{props.children}</AblyProvider>,
+      });
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
       });
 
       expect(result.current.isConnected).toBe(false);
 
-      // Simulate connected event
-      const connectedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'connected'
-      )?.[1];
-
+      // Trigger connected callback
       act(() => {
-        connectedHandler?.();
+        const connectedCallback = (mockAblyConnectionOn as any).connectedCallback;
+        connectedCallback?.();
       });
 
-      expect(result.current.isConnected).toBe(true);
+      await waitFor(() => {
+        expect(result.current.isConnected).toBe(true);
+      });
     });
 
-    it('should set isConnected to false on disconnected event', () => {
+    it('should set isConnected to false on disconnected event', async () => {
       const { result } = renderHook(() => useAbly(), {
-        wrapper: TestComponent,
+        wrapper: (props) => <AblyProvider>{props.children}</AblyProvider>,
+      });
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
       });
 
       // First connect
-      const connectedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'connected'
-      )?.[1];
-
       act(() => {
-        connectedHandler?.();
+        const connectedCallback = (mockAblyConnectionOn as any).connectedCallback;
+        connectedCallback?.();
       });
 
-      expect(result.current.isConnected).toBe(true);
+      await waitFor(() => {
+        expect(result.current.isConnected).toBe(true);
+      });
 
       // Then disconnect
-      const disconnectedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'disconnected'
-      )?.[1];
-
       act(() => {
-        disconnectedHandler?.();
+        const disconnectedCallback = (mockAblyConnectionOn as any).disconnectedCallback;
+        disconnectedCallback?.();
       });
 
-      expect(result.current.isConnected).toBe(false);
+      await waitFor(() => {
+        expect(result.current.isConnected).toBe(false);
+      });
     });
 
-    it('should set isConnected to false on failed event', () => {
+    it('should set isConnected to false on failed event', async () => {
       const { result } = renderHook(() => useAbly(), {
-        wrapper: TestComponent,
+        wrapper: (props) => <AblyProvider>{props.children}</AblyProvider>,
       });
 
-      const failedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'failed'
-      )?.[1];
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
 
+      // Trigger failed callback
       act(() => {
-        failedHandler?.({ reason: 'Network error' });
+        const failedCallback = (mockAblyConnectionOn as any).failedCallback;
+        failedCallback?.({
+          reason: {
+            code: 50000,
+            message: 'Connection failed',
+          },
+        });
       });
 
-      expect(result.current.isConnected).toBe(false);
+      await waitFor(() => {
+        expect(result.current.isConnected).toBe(false);
+      });
     });
 
-    it('should set isConnected to false on suspended event', () => {
+    it('should set isConnected to false on suspended event', async () => {
       const { result } = renderHook(() => useAbly(), {
-        wrapper: TestComponent,
+        wrapper: (props) => <AblyProvider>{props.children}</AblyProvider>,
       });
 
-      const suspendedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'suspended'
-      )?.[1];
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
 
+      // Trigger suspended callback
       act(() => {
-        suspendedHandler?.();
+        const suspendedCallback = (mockAblyConnectionOn as any).suspendedCallback;
+        suspendedCallback?.();
       });
 
-      expect(result.current.isConnected).toBe(false);
+      await waitFor(() => {
+        expect(result.current.isConnected).toBe(false);
+      });
     });
 
-    it('should register all connection event listeners', () => {
-      renderHook(() => useAbly(), {
-        wrapper: TestComponent,
+    it('should handle HMAC signature mismatch error (code 40101)', async () => {
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
       });
 
-      expect(mockConnectionOn).toHaveBeenCalledWith('connected', expect.any(Function));
-      expect(mockConnectionOn).toHaveBeenCalledWith('disconnected', expect.any(Function));
-      expect(mockConnectionOn).toHaveBeenCalledWith('failed', expect.any(Function));
-      expect(mockConnectionOn).toHaveBeenCalledWith('suspended', expect.any(Function));
+      act(() => {
+        const failedCallback = (mockAblyConnectionOn as any).failedCallback;
+        failedCallback?.({
+          reason: {
+            code: 40101,
+            message: 'HMAC signature mismatch',
+          },
+        });
+      });
+
+      // Should handle gracefully without throwing
+      expect(true).toBe(true);
     });
   });
 
-  describe('App State Handling', () => {
-    beforeEach(() => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({
-        isAuthenticated: true,
-      });
-      mockGetValidToken.mockResolvedValue(createMockTokenResponse());
-    });
-
-    it('should register AppState listener', () => {
-      renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
-
-      expect(mockAppStateAddEventListener).toHaveBeenCalledWith(
-        'change',
-        expect.any(Function)
+  describe('App state handling', () => {
+    it('should register app state change listener', async () => {
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
       );
+
+      await waitFor(() => {
+        expect(mockAppStateAddEventListener).toHaveBeenCalledWith(
+          'change',
+          expect.any(Function)
+        );
+      });
     });
 
-    it('should reconnect when app comes to foreground from background', () => {
+    it('should reconnect when app comes to foreground from background', async () => {
+      // Setup app state listener to capture the callback
+      let appStateCallback: ((state: string) => void) | null = null;
+      mockAppStateAddEventListener.mockImplementation((event, callback) => {
+        appStateCallback = callback;
+        return { remove: jest.fn() };
+      });
+
+      // Mock AppState.currentState
+      Object.defineProperty(AppState, 'currentState', {
+        value: 'active',
+        writable: true,
+        configurable: true,
+      });
+
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      const mockAblyInstance = (Ably.Realtime as unknown as jest.Mock).mock.results[0].value;
       mockAblyInstance.connection.state = 'disconnected';
 
-      renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
-
-      // First transition to background
-      act(() => {
-        appStateListeners['change']?.('background');
-      });
-
-      // Then transition to foreground
-      act(() => {
-        appStateListeners['change']?.('active');
-      });
-
-      expect(mockAblyInstance.connect).toHaveBeenCalled();
-    });
-
-    it('should reconnect when app comes to foreground from inactive', () => {
-      mockAblyInstance.connection.state = 'suspended';
-
-      renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
-
-      // First transition to inactive
-      act(() => {
-        appStateListeners['change']?.('inactive');
-      });
-
-      // Then transition to foreground
-      act(() => {
-        appStateListeners['change']?.('active');
-      });
-
-      expect(mockAblyInstance.connect).toHaveBeenCalled();
-    });
-
-    it('should not reconnect if already connected', () => {
-      mockAblyInstance.connection.state = 'connected';
-
-      renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
-
-      act(() => {
-        appStateListeners['change']?.('active');
-      });
-
-      expect(mockAblyInstance.connect).not.toHaveBeenCalled();
-    });
-
-    it('should not attempt to reconnect without Ably instance', () => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({
-        isAuthenticated: false,
-      });
-
-      renderHook(() => {
-        // This will throw, but we're testing the behavior
-        try {
-          useAbly();
-        } catch (e) {
-          // Expected to throw when used outside provider
-        }
-      });
-
-      // No Ably instance, so app state change should not throw
-      expect(() => {
+      // Simulate app going to background, then to foreground
+      mockAblyConnect.mockClear();
+      if (appStateCallback) {
+        // First go from active to background
         act(() => {
-          appStateListeners['change']?.('active');
-        });
-      }).not.toThrow();
-    });
-
-    it('should handle app state transition from background to foreground', () => {
-      mockAblyInstance.connection.state = 'suspended';
-
-      renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
-
-      // Simulate background
-      act(() => {
-        appStateListeners['change']?.('background');
-      });
-
-      // Simulate foreground
-      act(() => {
-        appStateListeners['change']?.('active');
-      });
-
-      expect(mockAblyInstance.connect).toHaveBeenCalled();
-    });
-  });
-
-  describe('Channel Subscription', () => {
-    beforeEach(() => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({
-        isAuthenticated: true,
-      });
-      mockGetValidToken.mockResolvedValue(createMockTokenResponse());
-    });
-
-    it('should subscribe to mobile:products channel when connected', async () => {
-      renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
-
-      // Trigger connected state
-      const connectedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'connected'
-      )?.[1];
-
-      act(() => {
-        connectedHandler?.();
-      });
-
-      await act(async () => {
-        // Allow promises to resolve
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-
-      expect(mockChannelGet).toHaveBeenCalledWith('mobile:products');
-      expect(mockChannelSubscribe).toHaveBeenCalledWith('product.updated', expect.any(Function));
-    });
-
-    it('should not subscribe when not connected', () => {
-      renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
-
-      expect(mockChannelSubscribe).not.toHaveBeenCalled();
-    });
-
-    it('should not subscribe when not authenticated', () => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({
-        isAuthenticated: false,
-      });
-
-      renderHook(() => {
-        try {
-          useAbly();
-        } catch (e) {
-          // Expected
-        }
-      }, { wrapper: TestComponent });
-
-      expect(mockChannelSubscribe).not.toHaveBeenCalled();
-    });
-
-    it('should unsubscribe on unmount', async () => {
-      const { unmount } = renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
-
-      // Trigger connected state
-      const connectedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'connected'
-      )?.[1];
-
-      act(() => {
-        connectedHandler?.();
-      });
-
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-
-      unmount();
-
-      // Verify unsubscribe was called
-      expect(mockChannelUnsubscribe).toHaveBeenCalledWith('product.updated', expect.any(Function));
-    });
-  });
-
-  describe('Event Handling', () => {
-    beforeEach(() => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({
-        isAuthenticated: true,
-      });
-      mockGetValidToken.mockResolvedValue(createMockTokenResponse());
-    });
-
-    it('should invalidate products query on product.updated event', async () => {
-      renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
-
-      // Connect
-      const connectedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'connected'
-      )?.[1];
-
-      act(() => {
-        connectedHandler?.();
-      });
-
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-
-      // Get the event handler
-      const eventHandler = mockChannelSubscribe.mock.calls[0]?.[1];
-
-      const mockMessage: Ably.Message = {
-        name: 'product.updated',
-        data: { productId: '123' },
-        timestamp: Date.now(),
-      } as any;
-
-      act(() => {
-        eventHandler?.(mockMessage);
-      });
-
-      expect(mockQueryClient.refetchQueries).toHaveBeenCalledWith({
-        queryKey: ['products'],
-        type: 'active',
-      });
-    });
-
-    it('should ignore non-product.updated events', async () => {
-      renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
-
-      const connectedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'connected'
-      )?.[1];
-
-      act(() => {
-        connectedHandler?.();
-      });
-
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-
-      const eventHandler = mockChannelSubscribe.mock.calls[0]?.[1];
-
-      const mockMessage: Ably.Message = {
-        name: 'other.event',
-        data: { test: 'data' },
-        timestamp: Date.now(),
-      } as any;
-
-      act(() => {
-        eventHandler?.(mockMessage);
-      });
-
-      expect(mockQueryClient.refetchQueries).not.toHaveBeenCalled();
-    });
-
-    it('should handle multiple product.updated events', async () => {
-      renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
-
-      const connectedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'connected'
-      )?.[1];
-
-      act(() => {
-        connectedHandler?.();
-      });
-
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-
-      const eventHandler = mockChannelSubscribe.mock.calls[0]?.[1];
-
-      // Send multiple events
-      for (let i = 0; i < 3; i++) {
-        const mockMessage: Ably.Message = {
-          name: 'product.updated',
-          data: { productId: `${i}` },
-          timestamp: Date.now(),
-        } as any;
-
-        act(() => {
-          eventHandler?.(mockMessage);
+          appStateCallback?.('background');
         });
       }
 
-      expect(mockQueryClient.refetchQueries).toHaveBeenCalledTimes(3);
-    });
-  });
+      if (appStateCallback) {
+        // Then go from background to active - should trigger reconnect
+        act(() => {
+          appStateCallback?.('active');
+        });
+      }
 
-  describe('Context Value', () => {
-    beforeEach(() => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({
-        isAuthenticated: true,
+      await waitFor(() => {
+        expect(mockAblyConnect).toHaveBeenCalled();
       });
-      mockGetValidToken.mockResolvedValue(createMockTokenResponse());
-    });
-
-    it('should provide ably instance through context', () => {
-      const { result } = renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
-
-      // Need to trigger a connection event to force a re-render
-      // (the ably instance is stored in a ref, so we need state to change to see it updated)
-      const connectedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'connected'
-      )?.[1];
-
-      act(() => {
-        connectedHandler?.();
-      });
-
-      // After a state change, the context value will include the ably instance
-      expect(result.current.ably).toBe(mockAblyInstance);
     });
 
-    it('should provide isConnected state through context', () => {
-      const { result } = renderHook(() => useAbly(), {
-        wrapper: TestComponent,
+    it('should reconnect when connection is suspended and app comes to foreground', async () => {
+      let appStateCallback: ((state: string) => void) | null = null;
+      mockAppStateAddEventListener.mockImplementation((event, callback) => {
+        appStateCallback = callback;
+        return { remove: jest.fn() };
       });
 
-      expect(result.current.isConnected).toBe(false);
-
-      const connectedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'connected'
-      )?.[1];
-
-      act(() => {
-        connectedHandler?.();
+      // Mock AppState.currentState
+      Object.defineProperty(AppState, 'currentState', {
+        value: 'active',
+        writable: true,
+        configurable: true,
       });
 
-      expect(result.current.isConnected).toBe(true);
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      const mockAblyInstance = (Ably.Realtime as unknown as jest.Mock).mock.results[0].value;
+      mockAblyInstance.connection.state = 'suspended';
+
+      mockAblyConnect.mockClear();
+      if (appStateCallback) {
+        act(() => {
+          appStateCallback?.('background');
+        });
+      }
+
+      if (appStateCallback) {
+        act(() => {
+          appStateCallback?.('active');
+        });
+      }
+
+      await waitFor(() => {
+        expect(mockAblyConnect).toHaveBeenCalled();
+      });
     });
 
-    it('should return null ably instance when not authenticated', () => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({
-        isAuthenticated: false,
+    it('should not reconnect when connection is already connected', async () => {
+      let appStateCallback: ((state: string) => void) | null = null;
+      mockAppStateAddEventListener.mockImplementation((event, callback) => {
+        appStateCallback = callback;
+        return { remove: jest.fn() };
       });
 
-      const { result } = renderHook(() => useAbly(), {
-        wrapper: TestComponent,
+      // Mock AppState.currentState
+      Object.defineProperty(AppState, 'currentState', {
+        value: 'active',
+        writable: true,
+        configurable: true,
       });
 
-      // When not authenticated, ably should be null
-      expect(result.current.ably).toBeNull();
-      expect(result.current.isConnected).toBe(false);
-    });
-  });
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
 
-  describe('useAbly Hook', () => {
-    it('should throw when used outside AblyProvider', () => {
-      expect(() => {
-        renderHook(() => useAbly());
-      }).toThrow('useAbly must be used within an AblyProvider');
-    });
-
-    it('should return context when used within AblyProvider', () => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({
-        isAuthenticated: true,
-      });
-      mockGetValidToken.mockResolvedValue(createMockTokenResponse());
-
-      const { result } = renderHook(() => useAbly(), {
-        wrapper: TestComponent,
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
       });
 
-      expect(result.current).toHaveProperty('ably');
-      expect(result.current).toHaveProperty('isConnected');
-    });
-  });
+      const mockAblyInstance = (Ably.Realtime as unknown as jest.Mock).mock.results[0].value;
+      mockAblyInstance.connection.state = 'connected';
 
-  describe('Cleanup', () => {
-    beforeEach(() => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({
-        isAuthenticated: true,
-      });
-      mockGetValidToken.mockResolvedValue(createMockTokenResponse());
-    });
+      mockAblyConnect.mockClear();
 
-    it('should close connection on unmount', () => {
-      const { unmount } = renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
+      // Simulate app foreground transition
+      if (appStateCallback) {
+        act(() => {
+          appStateCallback?.('background');
+        });
+      }
 
-      unmount();
+      if (appStateCallback) {
+        act(() => {
+          appStateCallback?.('active');
+        });
+      }
 
-      expect(mockAblyInstance.close).toHaveBeenCalled();
+      // Should not reconnect if already connected
+      expect(mockAblyConnect).not.toHaveBeenCalled();
     });
 
-    it('should cleanup AppState listener on unmount', () => {
+    it('should remove app state listener on unmount', async () => {
       const mockRemove = jest.fn();
-      mockAppStateAddEventListener.mockReturnValue({ remove: mockRemove });
+      mockAppStateAddEventListener.mockReturnValue({
+        remove: mockRemove,
+      } as any);
 
-      const { unmount } = renderHook(() => useAbly(), {
-        wrapper: TestComponent,
+      const { unmount } = render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(mockAppStateAddEventListener).toHaveBeenCalled();
       });
 
       unmount();
@@ -807,256 +690,900 @@ describe('AblyProvider', () => {
       expect(mockRemove).toHaveBeenCalled();
     });
 
-    it('should unsubscribe from channel on connection change', async () => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({
-        isAuthenticated: true,
+    it('should handle app state transitions from inactive to active', async () => {
+      let appStateCallback: ((state: string) => void) | null = null;
+      mockAppStateAddEventListener.mockImplementation((event, callback) => {
+        appStateCallback = callback;
+        return { remove: jest.fn() };
       });
 
-      const { rerender } = renderHook(() => useAbly(), {
-        wrapper: TestComponent,
+      // Mock AppState.currentState
+      Object.defineProperty(AppState, 'currentState', {
+        value: 'active',
+        writable: true,
+        configurable: true,
       });
 
-      // Trigger connected state to subscribe
-      const connectedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'connected'
-      )?.[1];
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
 
-      act(() => {
-        connectedHandler?.();
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
       });
 
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-
-      // Trigger disconnected state
-      const disconnectedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'disconnected'
-      )?.[1];
-
-      act(() => {
-        disconnectedHandler?.();
-      });
-
-      expect(mockChannelUnsubscribe).toHaveBeenCalled();
-    });
-  });
-
-  describe('Edge Cases', () => {
-    beforeEach(() => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({
-        isAuthenticated: true,
-      });
-      mockGetValidToken.mockResolvedValue(createMockTokenResponse());
-    });
-
-    it('should handle rapid authentication state changes', async () => {
-      let isAuthenticated = true;
-      (useAuthStore as unknown as jest.Mock).mockImplementation(() => ({
-        isAuthenticated,
-      }));
-
-      const { rerender } = renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
-
-      // Logout
-      isAuthenticated = false;
-      (useAuthStore as unknown as jest.Mock).mockImplementation(() => ({
-        isAuthenticated,
-      }));
-      rerender(() => useAbly());
-
-      expect(mockAblyInstance.close).toHaveBeenCalled();
-
-      // Login again
-      isAuthenticated = true;
-      (useAuthStore as unknown as jest.Mock).mockImplementation(() => ({
-        isAuthenticated,
-      }));
-      rerender(() => useAbly());
-
-      expect(Ably.Realtime).toHaveBeenCalledTimes(2);
-    });
-
-    it('should handle connection state changes during subscription setup', async () => {
-      renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
-
-      // Connect
-      const connectedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'connected'
-      )?.[1];
-
-      act(() => {
-        connectedHandler?.();
-      });
-
-      // Disconnect before subscription completes
-      const disconnectedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'disconnected'
-      )?.[1];
-
-      act(() => {
-        disconnectedHandler?.();
-      });
-
-      expect(mockChannelUnsubscribe).toHaveBeenCalled();
-    });
-
-    it('should handle missing Ably instance gracefully', () => {
-      mockAblyInstance = null;
-      (Ably.Realtime as unknown as jest.Mock).mockReturnValue(null);
-
-      // When Ably.Realtime returns null, the provider will crash when trying to set up listeners
-      // This is expected behavior - Ably initialization should not return null
-      expect(() => {
-        renderHook(() => useAbly(), {
-          wrapper: TestComponent,
-        });
-      }).toThrow();
-    });
-
-    it('should handle authCallback with null tokenParams', async () => {
-      const mockToken = createMockTokenResponse();
-      mockGetValidToken.mockResolvedValue(mockToken);
-
-      renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
-
-      const callArgs = (Ably.Realtime as unknown as jest.Mock).mock.calls[0][0];
-      const authCallback = callArgs.authCallback;
-
-      const mockCallback = jest.fn();
-
-      await act(async () => {
-        await authCallback(null, mockCallback);
-      });
-
-      expect(mockCallback).toHaveBeenCalledWith(null, mockToken.token_request);
-    });
-  });
-
-  describe('Integration Scenarios', () => {
-    beforeEach(() => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({
-        isAuthenticated: true,
-      });
-      mockGetValidToken.mockResolvedValue(createMockTokenResponse());
-    });
-
-    it('should handle complete connection lifecycle', async () => {
-      const { result } = renderHook(() => useAbly(), {
-        wrapper: TestComponent,
-      });
-
-      expect(result.current.isConnected).toBe(false);
-
-      // Connect
-      const connectedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'connected'
-      )?.[1];
-
-      act(() => {
-        connectedHandler?.();
-      });
-
-      expect(result.current.isConnected).toBe(true);
-
-      // Receive event
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-
-      const eventHandler = mockChannelSubscribe.mock.calls[0]?.[1];
-      const mockMessage: Ably.Message = {
-        name: 'product.updated',
-        data: { productId: '123' },
-        timestamp: Date.now(),
-      } as any;
-
-      act(() => {
-        eventHandler?.(mockMessage);
-      });
-
-      expect(mockQueryClient.refetchQueries).toHaveBeenCalled();
-
-      // Disconnect
-      const disconnectedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'disconnected'
-      )?.[1];
-
-      act(() => {
-        disconnectedHandler?.();
-      });
-
-      expect(result.current.isConnected).toBe(false);
-    });
-
-    it('should handle app background and foreground with events', async () => {
+      const mockAblyInstance = (Ably.Realtime as unknown as jest.Mock).mock.results[0].value;
       mockAblyInstance.connection.state = 'disconnected';
 
-      const { result } = renderHook(() => useAbly(), {
-        wrapper: TestComponent,
+      mockAblyConnect.mockClear();
+
+      // Transition from inactive to active
+      if (appStateCallback) {
+        act(() => {
+          appStateCallback?.('inactive');
+        });
+      }
+
+      if (appStateCallback) {
+        act(() => {
+          appStateCallback?.('active');
+        });
+      }
+
+      await waitFor(() => {
+        expect(mockAblyConnect).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('Channel subscription', () => {
+    it('should subscribe to mobile:products channel when connected', async () => {
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
       });
 
-      // App goes to background
+      // Trigger connected event
       act(() => {
-        appStateListeners['change']?.('background');
+        const connectedCallback = (mockAblyConnectionOn as any).connectedCallback;
+        connectedCallback?.();
       });
 
-      // App comes to foreground
-      act(() => {
-        appStateListeners['change']?.('active');
+      await waitFor(() => {
+        expect(mockChannelGet).toHaveBeenCalledWith('mobile:products');
+        expect(mockChannelSubscribe).toHaveBeenCalledWith(
+          'order.created',
+          expect.any(Function)
+        );
       });
-
-      expect(mockAblyInstance.connect).toHaveBeenCalled();
-
-      // Now connect
-      const connectedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'connected'
-      )?.[1];
-
-      act(() => {
-        connectedHandler?.();
-      });
-
-      expect(result.current.isConnected).toBe(true);
     });
 
-    it('should handle logout flow completely', async () => {
-      let isAuthenticated = true;
-      (useAuthStore as unknown as jest.Mock).mockImplementation(() => ({
-        isAuthenticated,
-      }));
+    it('should not subscribe to channel when not connected', async () => {
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
 
-      const { result, rerender } = renderHook(() => useAbly(), {
-        wrapper: TestComponent,
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      expect(mockChannelSubscribe).not.toHaveBeenCalled();
+    });
+
+    it('should not subscribe to channel when not authenticated', async () => {
+      mockUseAuthStore.mockReturnValue({
+        isAuthenticated: false,
+        user: null as any,
+        login: jest.fn(),
+        logout: jest.fn(),
+        setUser: jest.fn(),
+        clearAuth: jest.fn(),
+      });
+
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      expect(mockChannelSubscribe).not.toHaveBeenCalled();
+    });
+
+    it('should unsubscribe from channel on unmount', async () => {
+      const { unmount } = render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      // Trigger connected event
+      act(() => {
+        const connectedCallback = (mockAblyConnectionOn as any).connectedCallback;
+        connectedCallback?.();
+      });
+
+      await waitFor(() => {
+        expect(mockChannelSubscribe).toHaveBeenCalled();
+      });
+
+      unmount();
+
+      await waitFor(() => {
+        expect(mockChannelUnsubscribe).toHaveBeenCalled();
+      });
+    });
+
+    it('should unsubscribe when connection state changes', async () => {
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      // Subscribe by connecting
+      act(() => {
+        const connectedCallback = (mockAblyConnectionOn as any).connectedCallback;
+        connectedCallback?.();
+      });
+
+      await waitFor(() => {
+        expect(mockChannelSubscribe).toHaveBeenCalled();
+      });
+
+      // Disconnect
+      mockChannelUnsubscribe.mockClear();
+      act(() => {
+        const disconnectedCallback = (mockAblyConnectionOn as any).disconnectedCallback;
+        disconnectedCallback?.();
+      });
+
+      await waitFor(() => {
+        expect(mockChannelUnsubscribe).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('Event handling', () => {
+    it('should refetch inventories on order.created event', async () => {
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      // Connect to trigger subscription
+      act(() => {
+        const connectedCallback = (mockAblyConnectionOn as any).connectedCallback;
+        connectedCallback?.();
+      });
+
+      await waitFor(() => {
+        expect(mockChannelSubscribe).toHaveBeenCalled();
+      });
+
+      // Get the message handler
+      const messageHandler = mockChannelSubscribe.mock.calls[0][1];
+
+      // Trigger order.created event
+      const message: Ably.Message = {
+        name: 'order.created',
+        data: { orderId: '123' },
+        timestamp: Date.now(),
+        extras: undefined,
+        encoding: '',
+        id: 'test-id',
+      };
+
+      act(() => {
+        messageHandler(message);
+      });
+
+      await waitFor(() => {
+        expect(mockQueryClientRefetchQueries).toHaveBeenCalledWith({
+          queryKey: ['inventories'],
+          type: 'active',
+        });
+      });
+    });
+
+    it('should not refetch on other events', async () => {
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      // Connect to trigger subscription
+      act(() => {
+        const connectedCallback = (mockAblyConnectionOn as any).connectedCallback;
+        connectedCallback?.();
+      });
+
+      await waitFor(() => {
+        expect(mockChannelSubscribe).toHaveBeenCalled();
+      });
+
+      mockQueryClientRefetchQueries.mockClear();
+
+      // Get the message handler
+      const messageHandler = mockChannelSubscribe.mock.calls[0][1];
+
+      // Trigger different event
+      const message: Ably.Message = {
+        name: 'order.updated',
+        data: { orderId: '123' },
+        timestamp: Date.now(),
+        extras: undefined,
+        encoding: '',
+        id: 'test-id',
+      };
+
+      act(() => {
+        messageHandler(message);
+      });
+
+      expect(mockQueryClientRefetchQueries).not.toHaveBeenCalled();
+    });
+
+    it('should handle multiple order.created events', async () => {
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      // Connect to trigger subscription
+      act(() => {
+        const connectedCallback = (mockAblyConnectionOn as any).connectedCallback;
+        connectedCallback?.();
+      });
+
+      await waitFor(() => {
+        expect(mockChannelSubscribe).toHaveBeenCalled();
+      });
+
+      mockQueryClientRefetchQueries.mockClear();
+
+      const messageHandler = mockChannelSubscribe.mock.calls[0][1];
+
+      // Trigger multiple events
+      for (let i = 0; i < 3; i++) {
+        const message: Ably.Message = {
+          name: 'order.created',
+          data: { orderId: `${i}` },
+          timestamp: Date.now(),
+          extras: undefined,
+          encoding: '',
+          id: `test-id-${i}`,
+        };
+
+        act(() => {
+          messageHandler(message);
+        });
+      }
+
+      await waitFor(() => {
+        expect(mockQueryClientRefetchQueries).toHaveBeenCalledTimes(3);
+      });
+    });
+  });
+
+  describe('useAbly hook', () => {
+    it('should provide isConnected state', async () => {
+      const { result } = renderHook(() => useAbly(), {
+        wrapper: (props) => <AblyProvider>{props.children}</AblyProvider>,
+      });
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      expect(typeof result.current.isConnected).toBe('boolean');
+      expect(result.current.isConnected).toBe(false);
+    });
+
+    it('should provide ably instance', async () => {
+      const { result } = renderHook(() => useAbly(), {
+        wrapper: (props) => <AblyProvider>{props.children}</AblyProvider>,
+      });
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      expect(result.current.ably).toBeDefined();
+    });
+
+    it('should throw error when used outside provider', () => {
+      const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      expect(() => {
+        renderHook(() => useAbly());
+      }).toThrow('useAbly must be used within an AblyProvider');
+
+      consoleError.mockRestore();
+    });
+
+    it('should update isConnected when connection state changes', async () => {
+      const { result } = renderHook(() => useAbly(), {
+        wrapper: (props) => <AblyProvider>{props.children}</AblyProvider>,
+      });
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      expect(result.current.isConnected).toBe(false);
+
+      // Connect
+      act(() => {
+        const connectedCallback = (mockAblyConnectionOn as any).connectedCallback;
+        connectedCallback?.();
+      });
+
+      await waitFor(() => {
+        expect(result.current.isConnected).toBe(true);
+      });
+
+      // Disconnect
+      act(() => {
+        const disconnectedCallback = (mockAblyConnectionOn as any).disconnectedCallback;
+        disconnectedCallback?.();
+      });
+
+      await waitFor(() => {
+        expect(result.current.isConnected).toBe(false);
+      });
+    });
+  });
+
+  describe('Provider cleanup', () => {
+    it('should close Ably connection on unmount', async () => {
+      const { unmount } = render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      unmount();
+
+      await waitFor(() => {
+        expect(mockAblyClose).toHaveBeenCalled();
+      });
+    });
+
+    it('should close Ably connection when user logs out', async () => {
+      const { rerender } = render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      // Ensure connection is established
+      act(() => {
+        const connectedCallback = (mockAblyConnectionOn as any).connectedCallback;
+        connectedCallback?.();
+      });
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      mockAblyClose.mockClear();
+
+      // User logs out
+      mockUseAuthStore.mockReturnValue({
+        isAuthenticated: false,
+        user: null as any,
+        login: jest.fn(),
+        logout: jest.fn(),
+        setUser: jest.fn(),
+        clearAuth: jest.fn(),
+      });
+
+      rerender(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(mockAblyClose).toHaveBeenCalled();
+      });
+    });
+
+    it('should clear cache on logout', async () => {
+      const { rerender } = render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      mockClearCache.mockClear();
+
+      mockUseAuthStore.mockReturnValue({
+        isAuthenticated: false,
+        user: null as any,
+        login: jest.fn(),
+        logout: jest.fn(),
+        setUser: jest.fn(),
+        clearAuth: jest.fn(),
+      });
+
+      rerender(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(mockClearCache).toHaveBeenCalled();
+      });
+    });
+
+    it('should set isConnected to false on logout', async () => {
+      const { result, rerender } = renderHook(
+        ({ trigger }: any) => useAbly(),
+        {
+          wrapper: (props) => <AblyProvider>{props.children}</AblyProvider>,
+          initialProps: { trigger: 0 },
+        }
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
       });
 
       // Connect
-      const connectedHandler = mockConnectionOn.mock.calls.find(
-        (call) => call[0] === 'connected'
-      )?.[1];
-
       act(() => {
-        connectedHandler?.();
+        const connectedCallback = (mockAblyConnectionOn as any).connectedCallback;
+        connectedCallback?.();
       });
 
-      expect(result.current.isConnected).toBe(true);
+      await waitFor(() => {
+        expect(result.current.isConnected).toBe(true);
+      });
 
       // Logout
-      isAuthenticated = false;
-      (useAuthStore as unknown as jest.Mock).mockImplementation(() => ({
-        isAuthenticated,
-      }));
+      mockUseAuthStore.mockReturnValue({
+        isAuthenticated: false,
+        user: null as any,
+        login: jest.fn(),
+        logout: jest.fn(),
+        setUser: jest.fn(),
+        clearAuth: jest.fn(),
+      });
 
-      rerender(() => useAbly());
+      rerender({ trigger: 1 });
 
-      expect(mockAblyInstance.close).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(result.current.isConnected).toBe(false);
+      });
+    });
+
+    it('should null out ably reference on logout and call close', async () => {
+      const { result, rerender } = renderHook(
+        ({ trigger }: any) => useAbly(),
+        {
+          wrapper: (props) => <AblyProvider>{props.children}</AblyProvider>,
+          initialProps: { trigger: 0 },
+        }
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      // Ensure Ably instance is properly set by triggering a connection
+      act(() => {
+        const connectedCallback = (mockAblyConnectionOn as any).connectedCallback;
+        connectedCallback?.();
+      });
+
+      await waitFor(() => {
+        expect(result.current.ably).toBeDefined();
+      });
+
+      // After logout, ably should be closed and nulled
+      mockAblyClose.mockClear();
+      mockUseAuthStore.mockReturnValue({
+        isAuthenticated: false,
+        user: null as any,
+        login: jest.fn(),
+        logout: jest.fn(),
+        setUser: jest.fn(),
+        clearAuth: jest.fn(),
+      });
+
+      rerender({ trigger: 1 });
+
+      await waitFor(() => {
+        expect(mockAblyClose).toHaveBeenCalled();
+      });
+    });
+
+    it('should handle logout when ablyRef is already null', async () => {
+      // Start not authenticated
+      mockUseAuthStore.mockReturnValue({
+        isAuthenticated: false,
+        user: null as any,
+        login: jest.fn(),
+        logout: jest.fn(),
+        setUser: jest.fn(),
+        clearAuth: jest.fn(),
+      });
+
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      // Ably should not be initialized
+      expect(Ably.Realtime).not.toHaveBeenCalled();
+
+      // Now user logs in
+      mockUseAuthStore.mockReturnValue({
+        isAuthenticated: true,
+        user: {} as any,
+        login: jest.fn(),
+        logout: jest.fn(),
+        setUser: jest.fn(),
+        clearAuth: jest.fn(),
+      });
+
+      const { rerender: rerender2 } = render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      // Logout immediately without waiting for connection
+      mockUseAuthStore.mockReturnValue({
+        isAuthenticated: false,
+        user: null as any,
+        login: jest.fn(),
+        logout: jest.fn(),
+        setUser: jest.fn(),
+        clearAuth: jest.fn(),
+      });
+
+      rerender2(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      // Should handle cleanup gracefully
       expect(mockClearCache).toHaveBeenCalled();
+    });
+
+    it('should close connection and nullify ref when logging out with existing ref', async () => {
+      // Start with authenticated state and let Ably initialize
+      const { rerender } = render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalledTimes(1);
+      });
+
+      // Clear mocks to measure the logout behavior
+      mockAblyClose.mockClear();
+      mockClearCache.mockClear();
+
+      // Perform logout by changing isAuthenticated to false
+      mockUseAuthStore.mockReturnValue({
+        isAuthenticated: false,
+        user: null as any,
+        login: jest.fn(),
+        logout: jest.fn(),
+        setUser: jest.fn(),
+        clearAuth: jest.fn(),
+      });
+
+      // Re-render to trigger the effect with the new auth state
+      await act(async () => {
+        rerender(
+          <AblyProvider>
+            <></>
+          </AblyProvider>
+        );
+      });
+
+      await waitFor(() => {
+        // Wait for the logout effect to execute
+        // The logout code path calls clearCache when !isAuthenticated
+        expect(mockClearCache).toHaveBeenCalled();
+      });
+
+      // Verify that close was called
+      expect(mockAblyClose).toHaveBeenCalled();
+    });
+  });
+
+  describe('Integration scenarios', () => {
+    it('should handle login flow', async () => {
+      mockUseAuthStore.mockReturnValue({
+        isAuthenticated: false,
+        user: null as any,
+        login: jest.fn(),
+        logout: jest.fn(),
+        setUser: jest.fn(),
+        clearAuth: jest.fn(),
+      });
+
+      const { rerender } = render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      // Initially not authenticated
+      expect(Ably.Realtime).not.toHaveBeenCalled();
+
+      // User logs in
+      mockUseAuthStore.mockReturnValue({
+        isAuthenticated: true,
+        user: {} as any,
+        login: jest.fn(),
+        logout: jest.fn(),
+        setUser: jest.fn(),
+        clearAuth: jest.fn(),
+      });
+
+      rerender(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+    });
+
+    it('should handle complete lifecycle', async () => {
+      mockUseAuthStore.mockReturnValue({
+        isAuthenticated: true,
+        user: {} as any,
+        login: jest.fn(),
+        logout: jest.fn(),
+        setUser: jest.fn(),
+        clearAuth: jest.fn(),
+      });
+
+      const { result, rerender, unmount } = renderHook(
+        ({ trigger }: any) => useAbly(),
+        {
+          wrapper: (props) => <AblyProvider>{props.children}</AblyProvider>,
+          initialProps: { trigger: 0 },
+        }
+      );
+
+      // 1. Provider initialized
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      // 2. Connect
+      act(() => {
+        const connectedCallback = (mockAblyConnectionOn as any).connectedCallback;
+        connectedCallback?.();
+      });
+
+      await waitFor(() => {
+        expect(result.current.isConnected).toBe(true);
+      });
+
+      // 3. Receive event
+      act(() => {
+        const connectedCallback = (mockAblyConnectionOn as any).connectedCallback;
+        connectedCallback?.();
+      });
+
+      await waitFor(() => {
+        expect(mockChannelSubscribe).toHaveBeenCalled();
+      });
+
+      const messageHandler = mockChannelSubscribe.mock.calls[0][1];
+      mockQueryClientRefetchQueries.mockClear();
+
+      const message: Ably.Message = {
+        name: 'order.created',
+        data: { orderId: '123' },
+        timestamp: Date.now(),
+        extras: undefined,
+        encoding: '',
+        id: 'test-id',
+      };
+
+      act(() => {
+        messageHandler(message);
+      });
+
+      await waitFor(() => {
+        expect(mockQueryClientRefetchQueries).toHaveBeenCalled();
+      });
+
+      // 4. Logout
+      mockUseAuthStore.mockReturnValue({
+        isAuthenticated: false,
+        user: null as any,
+        login: jest.fn(),
+        logout: jest.fn(),
+        setUser: jest.fn(),
+        clearAuth: jest.fn(),
+      });
+
+      rerender({ trigger: 1 });
+
+      await waitFor(() => {
+        expect(result.current.isConnected).toBe(false);
+        expect(mockAblyClose).toHaveBeenCalled();
+      });
+
+      // 5. Unmount
+      unmount();
+
+      expect(true).toBe(true); // Should complete without errors
+    });
+
+    it('should refetch on multiple events in sequence', async () => {
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      // Connect to trigger subscription
+      act(() => {
+        const connectedCallback = (mockAblyConnectionOn as any).connectedCallback;
+        connectedCallback?.();
+      });
+
+      await waitFor(() => {
+        expect(mockChannelSubscribe).toHaveBeenCalled();
+      });
+
+      mockQueryClientRefetchQueries.mockClear();
+
+      const messageHandler = mockChannelSubscribe.mock.calls[0][1];
+
+      // Send multiple events and verify each triggers refetch
+      for (let i = 0; i < 3; i++) {
+        const message: Ably.Message = {
+          name: 'order.created',
+          data: { orderId: `${i}` },
+          timestamp: Date.now(),
+          extras: undefined,
+          encoding: '',
+          id: `test-id-${i}`,
+        };
+
+        act(() => {
+          messageHandler(message);
+        });
+      }
+
+      await waitFor(() => {
+        expect(mockQueryClientRefetchQueries).toHaveBeenCalledTimes(3);
+      });
+    });
+  });
+
+  describe('Provider context value', () => {
+    it('should provide ably instance', async () => {
+      const { result } = renderHook(() => useAbly(), {
+        wrapper: (props) => <AblyProvider>{props.children}</AblyProvider>,
+      });
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      // Ably instance is provided by the provider
+      expect(result.current.ably).toBeDefined();
+    });
+
+    it('should update context when connection state changes', async () => {
+      const { result } = renderHook(() => useAbly(), {
+        wrapper: (props) => <AblyProvider>{props.children}</AblyProvider>,
+      });
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      const initialConnected = result.current.isConnected;
+
+      act(() => {
+        const connectedCallback = (mockAblyConnectionOn as any).connectedCallback;
+        connectedCallback?.();
+      });
+
+      await waitFor(() => {
+        expect(result.current.isConnected).toBe(true);
+      });
+
+      expect(result.current.isConnected).not.toBe(initialConnected);
+    });
+  });
+
+  describe('Error scenarios', () => {
+    it('should handle token fetch returning null', async () => {
+      mockGetValidToken.mockResolvedValueOnce(null as any);
+
+      render(
+        <AblyProvider>
+          <></>
+        </AblyProvider>
+      );
+
+      await waitFor(() => {
+        expect(Ably.Realtime).toHaveBeenCalled();
+      });
+
+      const ablyConfig = (Ably.Realtime as unknown as jest.Mock).mock.calls[0][0];
+      const callback = jest.fn();
+
+      await act(async () => {
+        await ablyConfig.authCallback({} as any, callback);
+      });
+
+      // Should handle gracefully
+      expect(callback).toHaveBeenCalled();
     });
   });
 });

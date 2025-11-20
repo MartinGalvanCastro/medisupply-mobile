@@ -55,7 +55,8 @@ export const OrdersScreen = () => {
   });
 
   // Filter orders based on delivery date
-  const orders = (allOrders as ExtendedOrderResponse[]).filter((order) => {
+  const ordersArray = Array.isArray(allOrders) ? allOrders : [];
+  const orders = (ordersArray as ExtendedOrderResponse[]).filter((order) => {
     const deliveryDate = order.fecha_entrega_estimada
       ? new Date(order.fecha_entrega_estimada)
       : null;

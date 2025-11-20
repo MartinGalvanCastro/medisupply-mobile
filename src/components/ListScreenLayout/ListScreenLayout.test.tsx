@@ -1,160 +1,138 @@
-import React from 'react';
 import { render } from '@testing-library/react-native';
-import { Text } from 'react-native';
 import { ListScreenLayout } from './ListScreenLayout';
+import { Text } from '@/components/ui/text';
+
+// Mock SafeAreaView to simplify testing
+jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: jest.fn(({ children, testID, ...props }: any) => (
+    <div testID={testID} {...props}>
+      {children}
+    </div>
+  )),
+}));
 
 describe('ListScreenLayout', () => {
-  describe('Rendering', () => {
-    it('should render with title', () => {
-      const { getByText, getByTestId } = render(
-        <ListScreenLayout title="Test Screen">
-          <Text>Content</Text>
-        </ListScreenLayout>
-      );
+  it('should render title and children', () => {
+    const { getByText } = render(
+      <ListScreenLayout title="Screen Title">
+        <Text>Screen Content</Text>
+      </ListScreenLayout>
+    );
 
-      expect(getByTestId('list-screen-layout')).toBeTruthy();
-      expect(getByText('Test Screen')).toBeTruthy();
-    });
-
-    it('should render with custom testID', () => {
-      const { getByTestId } = render(
-        <ListScreenLayout title="Screen" testID="custom-layout">
-          <Text>Content</Text>
-        </ListScreenLayout>
-      );
-
-      expect(getByTestId('custom-layout')).toBeTruthy();
-      expect(getByTestId('custom-layout-title')).toBeTruthy();
-    });
-
-    it('should render children', () => {
-      const { getByText } = render(
-        <ListScreenLayout title="Screen">
-          <Text>Test Content</Text>
-        </ListScreenLayout>
-      );
-
-      expect(getByText('Test Content')).toBeTruthy();
-    });
-
-    it('should render multiple children', () => {
-      const { getByText } = render(
-        <ListScreenLayout title="Screen">
-          <Text>First Child</Text>
-          <Text>Second Child</Text>
-        </ListScreenLayout>
-      );
-
-      expect(getByText('First Child')).toBeTruthy();
-      expect(getByText('Second Child')).toBeTruthy();
-    });
+    expect(getByText('Screen Title')).toBeDefined();
+    expect(getByText('Screen Content')).toBeDefined();
   });
 
-  describe('Layout Structure', () => {
-    it('should have proper content container', () => {
-      const { getByTestId } = render(
-        <ListScreenLayout title="Screen">
-          <Text>Content</Text>
-        </ListScreenLayout>
-      );
+  it('should render title with correct testID', () => {
+    const { getByTestId } = render(
+      <ListScreenLayout title="Test Title">
+        <Text>Content</Text>
+      </ListScreenLayout>
+    );
 
-      expect(getByTestId('list-screen-layout-content')).toBeTruthy();
-    });
-
-    it('should render content inside content container', () => {
-      const { getByTestId, getByText } = render(
-        <ListScreenLayout title="Screen">
-          <Text>Test Content</Text>
-        </ListScreenLayout>
-      );
-
-      const contentContainer = getByTestId('list-screen-layout-content');
-      const content = getByText('Test Content');
-
-      expect(contentContainer).toBeTruthy();
-      expect(content).toBeTruthy();
-    });
+    expect(getByTestId('list-screen-layout-title')).toBeDefined();
   });
 
-  describe('Edge Cases', () => {
-    it('should handle empty title', () => {
-      const { getByTestId } = render(
-        <ListScreenLayout title="">
-          <Text>Content</Text>
-        </ListScreenLayout>
-      );
+  it('should render main container with default testID', () => {
+    const { getByTestId } = render(
+      <ListScreenLayout title="Title">
+        <Text>Content</Text>
+      </ListScreenLayout>
+    );
 
-      expect(getByTestId('list-screen-layout')).toBeTruthy();
-    });
-
-    it('should handle very long titles', () => {
-      const longTitle = 'This is a very long title that might wrap to multiple lines';
-      const { getByText } = render(
-        <ListScreenLayout title={longTitle}>
-          <Text>Content</Text>
-        </ListScreenLayout>
-      );
-
-      expect(getByText(longTitle)).toBeTruthy();
-    });
-
-    it('should handle special characters in title', () => {
-      const { getByText } = render(
-        <ListScreenLayout title="Products @ 50% off!">
-          <Text>Content</Text>
-        </ListScreenLayout>
-      );
-
-      expect(getByText('Products @ 50% off!')).toBeTruthy();
-    });
-
-    it('should handle no children', () => {
-      const { getByTestId } = render(
-        <ListScreenLayout title="Screen">
-          {null}
-        </ListScreenLayout>
-      );
-
-      expect(getByTestId('list-screen-layout')).toBeTruthy();
-    });
-
-    it('should handle complex children', () => {
-      const { getByText } = render(
-        <ListScreenLayout title="Screen">
-          <Text>First</Text>
-          <Text>Second</Text>
-          <Text>Third</Text>
-        </ListScreenLayout>
-      );
-
-      expect(getByText('First')).toBeTruthy();
-      expect(getByText('Second')).toBeTruthy();
-      expect(getByText('Third')).toBeTruthy();
-    });
+    expect(getByTestId('list-screen-layout')).toBeDefined();
   });
 
-  describe('Integration', () => {
-    it('should work with testID', () => {
-      const { getByText, getByTestId } = render(
-        <ListScreenLayout title="Products" testID="products-layout">
-          <Text>Product List</Text>
-        </ListScreenLayout>
-      );
+  it('should use custom testID when provided', () => {
+    const { getByTestId } = render(
+      <ListScreenLayout title="Title" testID="custom-layout">
+        <Text>Content</Text>
+      </ListScreenLayout>
+    );
 
-      expect(getByTestId('products-layout')).toBeTruthy();
-      expect(getByText('Products')).toBeTruthy();
-      expect(getByText('Product List')).toBeTruthy();
-    });
+    expect(getByTestId('custom-layout')).toBeDefined();
+    expect(getByTestId('custom-layout-title')).toBeDefined();
+    expect(getByTestId('custom-layout-content')).toBeDefined();
+  });
 
-    it('should work with minimal props', () => {
-      const { getByText } = render(
-        <ListScreenLayout title="Static List">
-          <Text>Items</Text>
-        </ListScreenLayout>
-      );
+  it('should render content wrapper with testID', () => {
+    const { getByTestId } = render(
+      <ListScreenLayout title="Title">
+        <Text>Content</Text>
+      </ListScreenLayout>
+    );
 
-      expect(getByText('Static List')).toBeTruthy();
-      expect(getByText('Items')).toBeTruthy();
-    });
+    expect(getByTestId('list-screen-layout-content')).toBeDefined();
+  });
+
+  it('should render multiple children correctly', () => {
+    const { getByText } = render(
+      <ListScreenLayout title="Title">
+        <Text>Item 1</Text>
+        <Text>Item 2</Text>
+        <Text>Item 3</Text>
+      </ListScreenLayout>
+    );
+
+    expect(getByText('Item 1')).toBeDefined();
+    expect(getByText('Item 2')).toBeDefined();
+    expect(getByText('Item 3')).toBeDefined();
+  });
+
+  it('should maintain component hierarchy', () => {
+    const { getByTestId } = render(
+      <ListScreenLayout title="Title">
+        <Text>Content</Text>
+      </ListScreenLayout>
+    );
+
+    expect(getByTestId('list-screen-layout')).toBeDefined();
+    expect(getByTestId('list-screen-layout-title')).toBeDefined();
+    expect(getByTestId('list-screen-layout-content')).toBeDefined();
+  });
+
+  it('should render with complex children structure', () => {
+    const { getByText } = render(
+      <ListScreenLayout title="List Screen">
+        <Text>Header</Text>
+        <Text>Content Line 1</Text>
+        <Text>Content Line 2</Text>
+        <Text>Footer</Text>
+      </ListScreenLayout>
+    );
+
+    expect(getByText('Header')).toBeDefined();
+    expect(getByText('Content Line 1')).toBeDefined();
+    expect(getByText('Content Line 2')).toBeDefined();
+    expect(getByText('Footer')).toBeDefined();
+  });
+
+  it('should support different title values', () => {
+    const { getByText, rerender } = render(
+      <ListScreenLayout title="Title One">
+        <Text>Content</Text>
+      </ListScreenLayout>
+    );
+
+    expect(getByText('Title One')).toBeDefined();
+
+    rerender(
+      <ListScreenLayout title="Title Two">
+        <Text>Content</Text>
+      </ListScreenLayout>
+    );
+
+    expect(getByText('Title Two')).toBeDefined();
+  });
+
+  it('should render SafeAreaView wrapper', () => {
+    const { getByTestId } = render(
+      <ListScreenLayout title="Title">
+        <Text>Content</Text>
+      </ListScreenLayout>
+    );
+
+    const container = getByTestId('list-screen-layout');
+    expect(container).toBeDefined();
   });
 });

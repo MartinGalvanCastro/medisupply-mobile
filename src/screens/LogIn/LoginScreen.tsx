@@ -28,7 +28,10 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export const LoginScreen = () => {
   const { login, isLoginPending } = useAuth();
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  // Select authentication state from store
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+
   const { t } = useTranslation();
 
   const {
@@ -52,6 +55,8 @@ export const LoginScreen = () => {
   useEffect(() => {
     if (isAuthenticated) {
       router.replace('/');
+    } else {
+      // Not authenticated, stay on login screen
     }
   }, [isAuthenticated]);
 

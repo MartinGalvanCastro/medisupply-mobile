@@ -1,14 +1,14 @@
-import { Pressable, StyleSheet } from 'react-native';
-import { Box } from '@/components/ui/box';
-import { HStack } from '@/components/ui/hstack';
-import { VStack } from '@/components/ui/vstack';
-import { Heading } from '@/components/ui/heading';
-import { Text } from '@/components/ui/text';
 import { Badge, BadgeText } from '@/components/ui/badge';
-import { ChevronRight, Calendar, MapPin } from 'lucide-react-native';
-import { formatDateTime } from '@/utils/formatDate';
+import { Box } from '@/components/ui/box';
+import { Heading } from '@/components/ui/heading';
+import { HStack } from '@/components/ui/hstack';
+import { Text } from '@/components/ui/text';
+import { VStack } from '@/components/ui/vstack';
 import { useTranslation } from '@/i18n/hooks';
+import { formatDateTime } from '@/utils/formatDate';
 import { getVisitStatusBadgeAction } from '@/utils/getVisitStatusBadgeAction';
+import { Calendar, ChevronRight, MapPin } from 'lucide-react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
 interface VisitCardProps {
   visit: {

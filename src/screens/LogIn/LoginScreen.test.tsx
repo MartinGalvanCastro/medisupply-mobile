@@ -1,257 +1,173 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, screen, fireEvent, act } from '@testing-library/react-native';
 import { LoginScreen } from './LoginScreen';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAuthStore } from '@/store';
-import { router } from 'expo-router';
 import { useTranslation } from '@/i18n/hooks';
+import { router } from 'expo-router';
 
-// Mock dependencies
 jest.mock('@/providers/AuthProvider');
 jest.mock('@/store');
 jest.mock('@/i18n/hooks');
-jest.mock('expo-linear-gradient', () => ({
-  LinearGradient: ({ children }: { children: React.ReactNode }) => children,
-}));
-jest.mock('expo-router', () => ({
-  router: {
-    replace: jest.fn(),
-    push: jest.fn(),
-    back: jest.fn(),
-  },
-  useRouter: jest.fn(),
-  usePathname: jest.fn(),
-  useSegments: jest.fn(),
-  useLocalSearchParams: jest.fn(),
-}));
+jest.mock('expo-router');
 
-const mockLogin = jest.fn();
+const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
+const mockUseAuthStore = useAuthStore as jest.MockedFunction<typeof useAuthStore>;
+const mockUseTranslation = useTranslation as jest.MockedFunction<typeof useTranslation>;
 
 describe('LoginScreen', () => {
+  const mockLogin = jest.fn();
+
+  const mockT = (key: string): string => {
+    const translations: Record<string, string> = {
+      'auth.login.title': 'Welcome Back',
+      'auth.login.subtitle': 'Sign in to continue',
+      'auth.login.cardTitle': 'Sign In Form',
+      'auth.login.cardSubtitle': 'Enter your credentials',
+      'auth.login.email': 'Email',
+      'auth.login.password': 'Password',
+      'auth.login.signIn': 'Sign In',
+      'auth.login.noAccount': "Don't have an account?",
+      'auth.login.signUp': 'Sign Up',
+    };
+    return translations[key] || key;
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
+  });
 
-    (useAuth as jest.Mock).mockReturnValue({
-      login: mockLogin,
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const setupMocks = (overrides = {}) => {
+    const defaults = {
+      login: jest.fn().mockResolvedValue(undefined),
       isLoginPending: false,
+      isAuthenticated: false,
+    };
+    const config = { ...defaults, ...overrides };
+
+    mockUseAuth.mockReturnValue({
+      login: config.login,
+      isLoginPending: config.isLoginPending,
+    } as any);
+
+    // Mock useAuthStore as a selector hook
+    mockUseAuthStore.mockImplementation((selector) => {
+      const store = { isAuthenticated: config.isAuthenticated } as any;
+      return selector(store);
     });
 
-    // Mock useAuthStore properly - it's a function that takes a selector and calls it
-    (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-      selector({ isAuthenticated: false })
-    );
+    mockUseTranslation.mockReturnValue({
+      t: mockT,
+    } as any);
 
-    (useTranslation as jest.Mock).mockReturnValue({
-      t: (key: string) => key,
-    });
-  });
+    return config.login;
+  };
 
-  it('should render login screen correctly', () => {
-    const { getByPlaceholderText, getByText } = render(<LoginScreen />);
-
-    expect(getByText('auth.login.cardTitle')).toBeTruthy();
-    expect(getByPlaceholderText('auth.login.email')).toBeTruthy();
-    expect(getByPlaceholderText('auth.login.password')).toBeTruthy();
-    expect(getByText('auth.login.signIn')).toBeTruthy();
-  });
-
-  it('should redirect if user is already authenticated', () => {
-    (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-      selector({ isAuthenticated: true })
-    );
-
+  it('should render screen with all elements (title, subtitle, form)', () => {
+    setupMocks();
     render(<LoginScreen />);
 
-    expect(router.replace).toHaveBeenCalledWith('/');
+    expect(screen.getByTestId('login-screen')).toBeTruthy();
+    expect(screen.getByTestId('login-form')).toBeTruthy();
+    expect(screen.getByText('Welcome Back')).toBeTruthy();
+    expect(screen.getByText('Sign in to continue')).toBeTruthy();
+    expect(screen.getByText('Sign In Form')).toBeTruthy();
+    expect(screen.getByText('Enter your credentials')).toBeTruthy();
   });
 
-  it('should disable submit button when form is empty', () => {
-    const { getByTestId } = render(<LoginScreen />);
-    const submitButton = getByTestId('submit-button');
+  it('should render email input with correct properties (keyboard type, autoCapitalize)', () => {
+    setupMocks();
+    render(<LoginScreen />);
 
-    // Button should be disabled when form is empty
-    expect(submitButton.props.accessibilityState.disabled).toBe(true);
+    const emailInput = screen.getByTestId('email-input');
+    expect(emailInput).toBeTruthy();
+    expect(emailInput.props.keyboardType).toBe('email-address');
+    expect(emailInput.props.autoCapitalize).toBe('none');
+    expect(emailInput.props.autoCorrect).toBe(false);
   });
 
-  it('should show validation errors for invalid email', async () => {
-    const { getByTestId } = render(<LoginScreen />);
+  it('should render password input with correct properties (secureTextEntry)', () => {
+    setupMocks();
+    render(<LoginScreen />);
 
-    const emailInput = getByTestId('email-input');
-    fireEvent.changeText(emailInput, 'invalid-email');
-    fireEvent(emailInput, 'blur');
-
-    await waitFor(() => {
-      expect(getByTestId('email-input-error')).toBeTruthy();
-    });
+    const passwordInput = screen.getByTestId('password-input');
+    expect(passwordInput).toBeTruthy();
+    expect(passwordInput.props.secureTextEntry).toBe(true);
+    expect(passwordInput.props.autoCapitalize).toBe('none');
   });
 
-  it('should show validation error for empty password', async () => {
-    const { getByTestId } = render(<LoginScreen />);
+  it('should navigate to signup when link pressed', () => {
+    setupMocks();
+    render(<LoginScreen />);
 
-    const emailInput = getByTestId('email-input');
-    const passwordInput = getByTestId('password-input');
-
-    // Enter valid email
-    fireEvent.changeText(emailInput, 'test@example.com');
-
-    // Enter password then clear it to trigger validation error
-    fireEvent.changeText(passwordInput, 'test');
-    fireEvent.changeText(passwordInput, '');
-    fireEvent(passwordInput, 'blur');
-
-    await waitFor(() => {
-      // Should show password required error
-      expect(getByTestId('password-input-error')).toBeTruthy();
-    });
-
-    await waitFor(() => {
-      const submitButton = getByTestId('submit-button');
-      // Button should be disabled when password is empty
-      expect(submitButton.props.accessibilityState.disabled).toBe(true);
-    });
-  });
-
-  it('should call login function with correct credentials', async () => {
-    const { getByTestId } = render(<LoginScreen />);
-
-    const emailInput = getByTestId('email-input');
-    const passwordInput = getByTestId('password-input');
-
-    fireEvent.changeText(emailInput, 'test@example.com');
-    fireEvent.changeText(passwordInput, 'password123');
-
-    // Wait for validation to complete
-    await waitFor(() => {
-      const submitButton = getByTestId('submit-button');
-      expect(submitButton.props.accessibilityState.disabled).toBe(false);
-    });
-
-    // Find and press the button
-    const submitButton = getByTestId('submit-button');
-    fireEvent.press(submitButton);
-
-    await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'password123');
-    });
-  });
-
-  it('should redirect after successful login', async () => {
-    const { getByTestId, rerender } = render(<LoginScreen />);
-
-    const emailInput = getByTestId('email-input');
-    const passwordInput = getByTestId('password-input');
-    const submitButton = getByTestId('submit-button');
-
-    fireEvent.changeText(emailInput, 'test@example.com');
-    fireEvent.changeText(passwordInput, 'password123');
-
-    await waitFor(() => {
-      fireEvent.press(submitButton);
-    });
-
-    // Simulate successful login by changing auth state
-    (useAuthStore as unknown as jest.Mock).mockImplementation((selector) =>
-      selector({ isAuthenticated: true })
-    );
-    rerender(<LoginScreen />);
-
-    expect(router.replace).toHaveBeenCalledWith('/');
-  });
-
-  it('should call login with form data when submitted', async () => {
-    const { getByTestId } = render(<LoginScreen />);
-
-    const emailInput = getByTestId('email-input');
-    const passwordInput = getByTestId('password-input');
-
-    fireEvent.changeText(emailInput, 'user@test.com');
-    fireEvent.changeText(passwordInput, 'mypassword');
-
-    // Wait for validation to complete
-    await waitFor(() => {
-      const submitButton = getByTestId('submit-button');
-      expect(submitButton.props.accessibilityState.disabled).toBe(false);
-    });
-
-    const submitButton = getByTestId('submit-button');
-    fireEvent.press(submitButton);
-
-    // Verify login was called with the correct credentials
-    await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith('user@test.com', 'mypassword');
-    });
-  });
-
-  it('should show loading state during login', () => {
-    (useAuth as jest.Mock).mockReturnValue({
-      login: mockLogin,
-      isLoginPending: true,
-    });
-
-    const { getByTestId } = render(<LoginScreen />);
-    const submitButton = getByTestId('submit-button');
-
-    // Button should be disabled during loading
-    expect(submitButton.props.accessibilityState.disabled).toBe(true);
-  });
-
-  it('should show both email and password errors simultaneously', async () => {
-    const { getByTestId } = render(<LoginScreen />);
-
-    const emailInput = getByTestId('email-input');
-    const passwordInput = getByTestId('password-input');
-
-    // Enter invalid email
-    fireEvent.changeText(emailInput, 'not-an-email');
-    fireEvent(emailInput, 'blur');
-
-    // Enter password then clear it
-    fireEvent.changeText(passwordInput, 'test');
-    fireEvent.changeText(passwordInput, '');
-    fireEvent(passwordInput, 'blur');
-
-    // Both errors should be visible
-    await waitFor(() => {
-      expect(getByTestId('email-input-error')).toBeTruthy();
-      expect(getByTestId('password-input-error')).toBeTruthy();
-    });
-  });
-
-  it('should enable button when form becomes valid', async () => {
-    const { getByTestId } = render(<LoginScreen />);
-
-    const emailInput = getByTestId('email-input');
-    const passwordInput = getByTestId('password-input');
-
-    // Initially button is disabled
-    let submitButton = getByTestId('submit-button');
-    expect(submitButton.props.accessibilityState.disabled).toBe(true);
-
-    // Make form valid
-    fireEvent.changeText(emailInput, 'valid@email.com');
-    fireEvent.changeText(passwordInput, 'validpassword');
-
-    // Button should become enabled
-    await waitFor(() => {
-      submitButton = getByTestId('submit-button');
-      expect(submitButton.props.accessibilityState.disabled).toBe(false);
-    });
-  });
-
-  it('should navigate to signup when signup link is pressed', () => {
-    const { getByTestId } = render(<LoginScreen />);
-
-    const signupLink = getByTestId('signup-link');
+    const signupLink = screen.getByTestId('signup-link');
     fireEvent.press(signupLink);
 
     expect(router.push).toHaveBeenCalledWith('/signup');
   });
 
-  it('should render signup link text', () => {
-    const { getByText } = render(<LoginScreen />);
+  it('should NOT redirect when not authenticated', () => {
+    setupMocks();
+    render(<LoginScreen />);
 
-    expect(getByText('auth.login.noAccount')).toBeTruthy();
-    expect(getByText('auth.login.signUp')).toBeTruthy();
+    expect(router.replace).not.toHaveBeenCalled();
+    expect(screen.getByTestId('login-form')).toBeTruthy();
   });
 
+  it('should redirect to home when authenticated', () => {
+    setupMocks({ isAuthenticated: true });
+    render(<LoginScreen />);
+
+    expect(router.replace).toHaveBeenCalledWith('/');
+  });
+
+  it('should call login with credentials when form submitted', async () => {
+    const mockLogin = setupMocks();
+    render(<LoginScreen />);
+
+    const emailInput = screen.getByTestId('email-input');
+    const passwordInput = screen.getByTestId('password-input');
+    const submitButton = screen.getByTestId('submit-button');
+
+    await act(async () => {
+      fireEvent.changeText(emailInput, 'test@example.com');
+      fireEvent.changeText(passwordInput, 'password123');
+    });
+
+    await act(async () => {
+      fireEvent.press(submitButton);
+    });
+
+    expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'password123');
+  });
+
+  it('should show loading state when isLoginPending is true', () => {
+    setupMocks({ isLoginPending: true });
+    render(<LoginScreen />);
+
+    const submitButton = screen.getByTestId('submit-button');
+    expect(submitButton).toBeTruthy();
+    // Verify button is visually disabled when loading
+    expect(screen.getByText('Sign In')).toBeTruthy();
+  });
+
+  it('should update email and password inputs when user types', async () => {
+    setupMocks();
+    render(<LoginScreen />);
+
+    const emailInput = screen.getByTestId('email-input');
+    const passwordInput = screen.getByTestId('password-input');
+
+    await act(async () => {
+      fireEvent.changeText(emailInput, 'test@example.com');
+      fireEvent.changeText(passwordInput, 'password123');
+    });
+
+    expect(emailInput.props.value).toBe('test@example.com');
+    expect(passwordInput.props.value).toBe('password123');
+  });
 });

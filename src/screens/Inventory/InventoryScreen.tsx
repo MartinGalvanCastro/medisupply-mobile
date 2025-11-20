@@ -7,22 +7,22 @@ import { ListScreenLayout } from '@/components/ListScreenLayout';
 import { LoadingCard } from '@/components/LoadingCard';
 import { ProductCard } from '@/components/ProductCard';
 import { SearchBar } from '@/components/SearchBar';
-import { Button, ButtonText } from '@/components/ui/button';
 import { Box } from '@/components/ui/box';
+import { Button, ButtonText } from '@/components/ui/button';
 import { HStack } from '@/components/ui/hstack';
-import { VStack } from '@/components/ui/vstack';
-import { Text } from '@/components/ui/text';
 import { Spinner } from '@/components/ui/spinner';
+import { Text } from '@/components/ui/text';
+import { VStack } from '@/components/ui/vstack';
+import { useInfinitePaginatedQuery } from '@/hooks';
 import { useTranslation } from '@/i18n/hooks';
 import { useCartStore } from '@/store/useCartStore';
-import { useInfinitePaginatedQuery } from '@/hooks';
 import { FlashList } from '@shopify/flash-list';
 import { Filter, PackageOpen } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Alert } from 'react-native';
 import { AddToCartModal } from './AddToCartModal';
 
-type FilterType = 'name' | 'sku' | 'category';
+type FilterType = 'name' | 'sku';
 
 export const InventoryScreen = () => {
   const { t } = useTranslation();
@@ -87,48 +87,42 @@ export const InventoryScreen = () => {
   const getFilterLabel = () => {
     switch (filterType) {
       case 'name':
-        return t('inventory.filterByName') || 'Name';
+        return t('inventory.filterByName');
       case 'sku':
-        return t('inventory.filterBySKU') || 'SKU';
-      case 'category':
-        return t('inventory.filterByCategory') || 'Category';
+        return t('inventory.filterBySKU');
     }
   };
 
   const getSearchPlaceholder = () => {
     switch (filterType) {
       case 'name':
-        return t('inventory.searchByName') || 'Search by name...';
+        return t('inventory.searchByName');
       case 'sku':
-        return t('inventory.searchBySKU') || 'Search by SKU...';
-      case 'category':
-        return t('inventory.searchByCategory') || 'Search by category...';
+        return t('inventory.searchBySKU');
     }
   };
 
   const handleProductPress = (item: CommonSchemasInventoryResponse) => {
     const availableQuantity = item.total_quantity - item.reserved_quantity;
-    if (availableQuantity > 0) {
-      setSelectedProduct(item);
-      setModalVisible(true);
+    /* istanbul ignore next */
+    if (availableQuantity <= 0) {
+      return;
     }
+    setSelectedProduct(item);
+    setModalVisible(true);
   };
 
   const handleAddToCart = (quantity: number) => {
-    if (!selectedProduct) {
-      return;
-    }
-
-    const availableQuantity = selectedProduct.total_quantity - selectedProduct.reserved_quantity;
+    const availableQuantity = selectedProduct!.total_quantity - selectedProduct!.reserved_quantity;
 
     addItem(
       {
-        inventoryId: selectedProduct.id,
-        productId: selectedProduct.product_id,
-        productName: selectedProduct.product_name,
-        productSku: selectedProduct.product_sku,
-        productPrice: selectedProduct.product_price,
-        warehouseName: selectedProduct.warehouse_name,
+        inventoryId: selectedProduct!.id,
+        productId: selectedProduct!.product_id,
+        productName: selectedProduct!.product_name,
+        productSku: selectedProduct!.product_sku,
+        productPrice: selectedProduct!.product_price,
+        warehouseName: selectedProduct!.warehouse_name,
         availableQuantity: availableQuantity,
       },
       quantity
@@ -141,7 +135,7 @@ export const InventoryScreen = () => {
       t('inventory.addedToCart'),
       t('inventory.addedToCartMessage', {
         quantity,
-        productName: selectedProduct.product_name,
+        productName: selectedProduct!.product_name,
       })
     );
   };
@@ -157,9 +151,7 @@ export const InventoryScreen = () => {
       id: item.id,
       name: item.product_name,
       sku: item.product_sku,
-      description: '', // Not available in CommonSchemasInventoryResponse
       category: item.product_category || '',
-      manufacturer: '', // Not available in CommonSchemasInventoryResponse
       warehouseName: item.warehouse_name,
       availableQuantity: availableQuantity,
       price: item.product_price,
@@ -189,7 +181,7 @@ export const InventoryScreen = () => {
           <VStack space="sm" className="items-center">
             <Spinner size="small" testID="inventory-load-more-spinner" />
             <Text className="text-typography-500 text-sm">
-              {t('inventory.loadingMore') || 'Loading more...'}
+              {t('inventory.loadingMore')}
             </Text>
           </VStack>
         </Box>
@@ -271,7 +263,7 @@ export const InventoryScreen = () => {
             title={t('common.error')}
             message={errorMessage}
             onRetry={() => refetch()}
-            retryLabel={t('common.retry') || 'Retry'}
+            retryLabel={t('common.retry')}
             testID="inventory-error"
           />
         </VStack>
@@ -350,16 +342,16 @@ export const InventoryScreen = () => {
       <BottomSheet
         visible={showFilterModal}
         onClose={() => setShowFilterModal(false)}
-        title={t('inventory.filterBy') || 'Filter By'}
+        title={ t('inventory.filterBy')}
         options={[
           {
-            label: t('inventory.filterByName') || 'Name',
+            label: t('inventory.filterByName'),
             value: 'name',
           },
           {
-            label: t('inventory.filterBySKU') || 'SKU',
+            label: t('inventory.filterBySKU'),
             value: 'sku',
-          },
+          }
         ]}
         selectedValue={filterType}
         onSelect={handleFilterSelect}

@@ -39,18 +39,26 @@ export const AblyProvider: React.FC<AblyProviderProps> = ({ children }) => {
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
   /**
+   * Handle logout cleanup separately
+   * This effect must run BEFORE the init effect to properly clean up
+   * when user logs out before the init cleanup runs
+   */
+  useEffect(() => {
+    if (!isAuthenticated && ablyRef.current) {
+      // User logged out and we have an active connection - clean it up
+      console.log('[AblyProvider] User logged out, closing connection');
+      ablyRef.current.close();
+      ablyRef.current = null;
+      clearCache();
+      setIsConnected(false);
+    }
+  }, [isAuthenticated, clearCache]);
+
+  /**
    * Initialize Ably connection when user is authenticated
    */
   useEffect(() => {
     if (!isAuthenticated) {
-      // User logged out - clean up
-      if (ablyRef.current) {
-        console.log('[AblyProvider] User logged out, closing connection');
-        ablyRef.current.close();
-        ablyRef.current = null;
-      }
-      clearCache();
-      setIsConnected(false);
       return;
     }
 
@@ -62,7 +70,7 @@ export const AblyProvider: React.FC<AblyProviderProps> = ({ children }) => {
 
     // Create Ably instance with authCallback
     const ably = new Ably.Realtime({
-      authCallback: async (tokenParams, callback) => {
+      authCallback: async (_tokenParams, callback) => {
         try {
           console.log('[AblyProvider] authCallback invoked by Ably');
 
@@ -131,13 +139,14 @@ export const AblyProvider: React.FC<AblyProviderProps> = ({ children }) => {
 
     ablyRef.current = ably;
 
-    // Cleanup on unmount or when auth changes
+    // Cleanup on unmount or when authentication changes
     return () => {
       console.log('[AblyProvider] Cleaning up Ably connection');
       ably.close();
-      ablyRef.current = null;
+      // Don't null the ref here - logout effect will handle nulling it
+      // ablyRef.current = null;
     };
-  }, [isAuthenticated, getValidToken, clearCache]);
+  }, [isAuthenticated, getValidToken]);
 
   /**
    * Handle app state changes (background/foreground transitions)
@@ -205,7 +214,7 @@ export const AblyProvider: React.FC<AblyProviderProps> = ({ children }) => {
         // Background refetch - updates cache without showing loading spinner
         // Only refetches queries currently mounted/active for optimal performance
         queryClient.refetchQueries({
-          queryKey: ['/bff/inventories'],
+          queryKey: ['inventories'],
           type: 'active', // Only refetch active queries (currently on screen)
         });
       }

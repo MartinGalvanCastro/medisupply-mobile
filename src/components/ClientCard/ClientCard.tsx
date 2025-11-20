@@ -1,11 +1,11 @@
-import { Pressable, StyleSheet } from 'react-native';
-import { Box } from '@/components/ui/box';
-import { HStack } from '@/components/ui/hstack';
-import { VStack } from '@/components/ui/vstack';
-import { Heading } from '@/components/ui/heading';
-import { Text } from '@/components/ui/text';
 import { Badge, BadgeText } from '@/components/ui/badge';
+import { Box } from '@/components/ui/box';
+import { Heading } from '@/components/ui/heading';
+import { HStack } from '@/components/ui/hstack';
+import { Text } from '@/components/ui/text';
+import { VStack } from '@/components/ui/vstack';
 import { ChevronRight } from 'lucide-react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
 interface ClientCardProps {
   client: {
@@ -30,6 +30,13 @@ const getInstitutionTypeBadgeAction = (institutionType: string) => {
   return typeMap[institutionType?.toLowerCase()] || 'muted';
 };
 
+export const getPressedStyle = (pressed: boolean) => {
+  if (pressed) {
+    return styles.pressed;
+  }
+  return null;
+};
+
 export const ClientCard = ({ client, onPress, testID }: ClientCardProps) => {
   return (
     <Pressable
@@ -37,8 +44,7 @@ export const ClientCard = ({ client, onPress, testID }: ClientCardProps) => {
       testID={testID}
       style={({ pressed }) => [
         styles.pressable,
-        /* istanbul ignore next */
-        pressed && styles.pressed,
+        getPressedStyle(pressed),
       ]}
     >
       <Box className="bg-white rounded-lg my-2 mx-0" style={styles.card}>

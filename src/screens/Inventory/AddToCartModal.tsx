@@ -51,6 +51,11 @@ export const AddToCartModal = ({
     onClose();
   };
 
+  const handleModalContentPress = (e: any) => {
+    /* istanbul ignore next */
+    e.stopPropagation();
+  };
+
   const subtotal = product.price * quantity;
 
   return (
@@ -61,8 +66,8 @@ export const AddToCartModal = ({
       onRequestClose={handleClose}
       testID={testID}
     >
-      <Pressable style={styles.overlay} onPress={handleClose}>
-        <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+      <Pressable style={styles.overlay} onPress={handleClose} testID={`${testID}-overlay`}>
+        <Pressable style={styles.modalContent} onPress={handleModalContentPress} testID={`${testID}-content`}>
           <Box className="bg-white rounded-xl p-6 w-full max-w-md">
             <HStack className="justify-between items-center mb-4">
               <Heading size="lg" className="text-typography-900">

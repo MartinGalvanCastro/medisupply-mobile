@@ -15,6 +15,14 @@ export interface CartItemCardProps {
   testID?: string;
 }
 
+export const getRemoveButtonStyle = (pressed: boolean) => {
+  const baseStyle: any[] = [styles.removeButton];
+  if (pressed) {
+    baseStyle.push(styles.pressed);
+  }
+  return baseStyle;
+};
+
 export const CartItemCard = ({
   item,
   onQuantityChange,
@@ -59,8 +67,7 @@ export const CartItemCard = ({
           <Pressable
             onPress={handleRemove}
             testID={`${testID}-remove-button`}
-            /* istanbul ignore next */
-            style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}
+            style={({ pressed }) => getRemoveButtonStyle(pressed)}
           >
             <Box className="bg-error-50 rounded-lg p-2 items-center justify-center">
               <Trash2 size={20} color="#dc2626" />

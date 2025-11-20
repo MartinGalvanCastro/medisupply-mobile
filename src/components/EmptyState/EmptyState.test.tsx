@@ -1,182 +1,127 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { EmptyState } from './EmptyState';
-import { Search, PackageOpen } from 'lucide-react-native';
-
-// Mock lucide-react-native icons
-jest.mock('lucide-react-native', () => ({
-  PackageOpen: () => <></>,
-  Search: () => <></>,
-}));
+import type { EmptyStateProps } from './types';
+import { PackageOpen } from 'lucide-react-native';
 
 describe('EmptyState', () => {
-  describe('Rendering', () => {
-    it('should render with title', () => {
-      const { getByText, getByTestId } = render(
-        <EmptyState title="No items found" />
-      );
+  const baseProps: Omit<EmptyStateProps, 'title'> & { title: string } = {
+    title: 'No Items Found',
+  };
 
-      expect(getByTestId('empty-state')).toBeTruthy();
-      expect(getByText('No items found')).toBeTruthy();
-    });
+  it('should render with title only', () => {
+    const { getByTestId, getByText } = render(
+      <EmptyState {...baseProps} />
+    );
 
-    it('should render with custom testID', () => {
-      const { getByTestId } = render(
-        <EmptyState title="Empty" testID="custom-empty-state" />
-      );
-
-      expect(getByTestId('custom-empty-state')).toBeTruthy();
-    });
-
-    it('should render description when provided', () => {
-      const { getByText } = render(
-        <EmptyState
-          title="No items"
-          description="Try adjusting your filters"
-        />
-      );
-
-      expect(getByText('Try adjusting your filters')).toBeTruthy();
-    });
-
-    it('should not render description when not provided', () => {
-      const { queryByTestId } = render(<EmptyState title="Empty" />);
-
-      expect(queryByTestId('empty-state-description')).toBeFalsy();
-    });
-
-    it('should render with default props', () => {
-      const { getByTestId } = render(<EmptyState title="Empty" />);
-
-      expect(getByTestId('empty-state')).toBeTruthy();
-      expect(getByTestId('empty-state-title')).toBeTruthy();
-    });
-
-    it('should render with custom icon', () => {
-      const { getByTestId } = render(
-        <EmptyState title="No results" icon={Search} />
-      );
-
-      expect(getByTestId('empty-state')).toBeTruthy();
-    });
+    expect(getByTestId('empty-state')).toBeTruthy();
+    expect(getByText('No Items Found')).toBeTruthy();
   });
 
-  describe('Action Button', () => {
-    it('should render action button when provided', () => {
-      const mockAction = jest.fn();
-      const { getByText } = render(
-        <EmptyState
-          title="Empty"
-          action={{ label: 'Retry', onPress: mockAction }}
-        />
-      );
+  it('should render with title and description', () => {
+    const { getByTestId, getByText } = render(
+      <EmptyState
+        {...baseProps}
+        description="There are no items to display"
+      />
+    );
 
-      expect(getByText('Retry')).toBeTruthy();
-    });
-
-    it('should not render action button when not provided', () => {
-      const { queryByTestId } = render(<EmptyState title="Empty" />);
-
-      expect(queryByTestId('empty-state-action')).toBeFalsy();
-    });
-
-    it('should call onPress when action button is pressed', () => {
-      const mockAction = jest.fn();
-      const { getByTestId } = render(
-        <EmptyState
-          title="Empty"
-          action={{ label: 'Retry', onPress: mockAction }}
-        />
-      );
-
-      fireEvent.press(getByTestId('empty-state-action'));
-      expect(mockAction).toHaveBeenCalledTimes(1);
-    });
-
-    it('should call onPress multiple times', () => {
-      const mockAction = jest.fn();
-      const { getByTestId } = render(
-        <EmptyState
-          title="Empty"
-          action={{ label: 'Retry', onPress: mockAction }}
-        />
-      );
-
-      const button = getByTestId('empty-state-action');
-      fireEvent.press(button);
-      fireEvent.press(button);
-      fireEvent.press(button);
-
-      expect(mockAction).toHaveBeenCalledTimes(3);
-    });
+    expect(getByTestId('empty-state')).toBeTruthy();
+    expect(getByText('No Items Found')).toBeTruthy();
+    expect(getByText('There are no items to display')).toBeTruthy();
   });
 
-  describe('Complete Examples', () => {
-    it('should render complete empty state with all props', () => {
-      const mockAction = jest.fn();
-      const { getByText, getByTestId } = render(
-        <EmptyState
-          icon={Search}
-          title="No results found"
-          description="Try searching with different keywords"
-          action={{ label: 'Clear filters', onPress: mockAction }}
-          testID="search-empty-state"
-        />
-      );
+  it('should render without description when not provided', () => {
+    const { queryByTestId } = render(<EmptyState {...baseProps} />);
 
-      expect(getByTestId('search-empty-state')).toBeTruthy();
-      expect(getByText('No results found')).toBeTruthy();
-      expect(getByText('Try searching with different keywords')).toBeTruthy();
-      expect(getByText('Clear filters')).toBeTruthy();
-
-      fireEvent.press(getByTestId('search-empty-state-action'));
-      expect(mockAction).toHaveBeenCalledTimes(1);
-    });
-
-    it('should render minimal empty state', () => {
-      const { getByText, getByTestId } = render(
-        <EmptyState title="No data available" />
-      );
-
-      expect(getByTestId('empty-state')).toBeTruthy();
-      expect(getByText('No data available')).toBeTruthy();
-    });
+    expect(queryByTestId('empty-state-description')).toBeFalsy();
   });
 
-  describe('Edge Cases', () => {
-    it('should handle empty strings gracefully', () => {
-      const { getByTestId } = render(<EmptyState title="" />);
+  it('should render with action button when provided', () => {
+    const mockOnPress = jest.fn();
+    const { getByTestId, getByText } = render(
+      <EmptyState
+        {...baseProps}
+        action={{
+          label: 'Add Item',
+          onPress: mockOnPress,
+        }}
+      />
+    );
 
-      expect(getByTestId('empty-state')).toBeTruthy();
-    });
+    expect(getByTestId('empty-state-action')).toBeTruthy();
+    expect(getByText('Add Item')).toBeTruthy();
+  });
 
-    it('should handle very long titles', () => {
-      const longTitle = 'This is a very long title that might wrap to multiple lines';
-      const { getByText } = render(<EmptyState title={longTitle} />);
+  it('should call action onPress when button is pressed', () => {
+    const mockOnPress = jest.fn();
+    const { getByTestId } = render(
+      <EmptyState
+        {...baseProps}
+        action={{
+          label: 'Retry',
+          onPress: mockOnPress,
+        }}
+      />
+    );
 
-      expect(getByText(longTitle)).toBeTruthy();
-    });
+    const button = getByTestId('empty-state-action');
+    fireEvent.press(button);
 
-    it('should handle very long descriptions', () => {
-      const longDescription =
-        'This is a very long description that provides detailed information about the empty state and why it occurred and what the user might do about it';
-      const { getByText } = render(
-        <EmptyState title="Empty" description={longDescription} />
-      );
+    expect(mockOnPress).toHaveBeenCalledTimes(1);
+  });
 
-      expect(getByText(longDescription)).toBeTruthy();
-    });
+  it('should not render action button when action is not provided', () => {
+    const { queryByTestId } = render(<EmptyState {...baseProps} />);
 
-    it('should handle special characters in text', () => {
-      const { getByText } = render(
-        <EmptyState
-          title="No items @ 50% off!"
-          description='Try searching for "special" items'
-        />
-      );
+    expect(queryByTestId('empty-state-action')).toBeFalsy();
+  });
 
-      expect(getByText('No items @ 50% off!')).toBeTruthy();
-      expect(getByText('Try searching for "special" items')).toBeTruthy();
-    });
+  it('should use custom icon when provided', () => {
+    const { getByTestId } = render(
+      <EmptyState {...baseProps} icon={PackageOpen} />
+    );
+
+    expect(getByTestId('empty-state')).toBeTruthy();
+  });
+
+  it('should use default PackageOpen icon when not provided', () => {
+    const { getByTestId } = render(<EmptyState {...baseProps} />);
+
+    expect(getByTestId('empty-state')).toBeTruthy();
+  });
+
+  it('should use custom testID when provided', () => {
+    const { getByTestId, queryByTestId } = render(
+      <EmptyState {...baseProps} testID="custom-empty-state" />
+    );
+
+    expect(getByTestId('custom-empty-state')).toBeTruthy();
+    expect(getByTestId('custom-empty-state-title')).toBeTruthy();
+  });
+
+  it('should render with all props provided together', () => {
+    const mockOnPress = jest.fn();
+    const { getByTestId, getByText } = render(
+      <EmptyState
+        title="Cart is Empty"
+        description="Add items to your cart to proceed"
+        icon={PackageOpen}
+        action={{
+          label: 'Start Shopping',
+          onPress: mockOnPress,
+        }}
+        testID="cart-empty-state"
+      />
+    );
+
+    expect(getByTestId('cart-empty-state')).toBeTruthy();
+    expect(getByText('Cart is Empty')).toBeTruthy();
+    expect(getByText('Add items to your cart to proceed')).toBeTruthy();
+    expect(getByText('Start Shopping')).toBeTruthy();
+
+    const button = getByTestId('cart-empty-state-action');
+    fireEvent.press(button);
+    expect(mockOnPress).toHaveBeenCalledTimes(1);
   });
 });

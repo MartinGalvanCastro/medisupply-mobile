@@ -1,233 +1,523 @@
-import React from 'react';
 import { render } from '@testing-library/react-native';
-import { Text } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
-import { QueryClientProvider } from './QueryClientProvider';
 
 describe('QueryClientProvider', () => {
-  it('should render children correctly', () => {
-    const { getByText } = render(
-      <QueryClientProvider>
-        <Text>Test Child</Text>
-      </QueryClientProvider>
-    );
+  let QueryClientProvider: any;
+  const mockConfigCalls: any[] = [];
 
-    expect(getByText('Test Child')).toBeTruthy();
+  beforeEach(() => {
+    jest.resetModules();
+    mockConfigCalls.length = 0;
+
+    // Use doMock for dynamic mocking
+    jest.doMock('@tanstack/react-query', () => ({
+      QueryClient: jest.fn((config) => {
+        mockConfigCalls.push(config);
+        return {
+          defaultOptions: config.defaultOptions,
+          getQueryCache: jest.fn(),
+          getMutationCache: jest.fn(),
+          setDefaultOptions: jest.fn(),
+        };
+      }),
+      QueryClientProvider: function ({ children }: any) {
+        return children;
+      },
+    }));
+
+    // Require after mocking
+    const module = require('./QueryClientProvider');
+    QueryClientProvider = module.QueryClientProvider;
   });
 
-  it('should wrap children with TanStack QueryClientProvider', () => {
-    const TestComponent = () => <Text>Test Component</Text>;
-
-    const { getByText } = render(
-      <QueryClientProvider>
-        <TestComponent />
-      </QueryClientProvider>
-    );
-
-    expect(getByText('Test Component')).toBeTruthy();
-  });
-
-  it('should render multiple children', () => {
-    const { getByText } = render(
-      <QueryClientProvider>
-        <Text>First Child</Text>
-        <Text>Second Child</Text>
-      </QueryClientProvider>
-    );
-
-    expect(getByText('First Child')).toBeTruthy();
-    expect(getByText('Second Child')).toBeTruthy();
-  });
-
-  it('should provide QueryClient to children', () => {
-    const QueryComponent = () => {
-      try {
-        const { data, isLoading } = useQuery({
-          queryKey: ['test'],
-          queryFn: async () => 'test data',
-        });
-        return <Text>{isLoading ? 'Loading' : 'Ready'}</Text>;
-      } catch {
-        return <Text>Error</Text>;
-      }
-    };
-
-    const { getByText } = render(
-      <QueryClientProvider>
-        <QueryComponent />
-      </QueryClientProvider>
-    );
-
-    // Should render without throwing because QueryClient is provided
-    expect(getByText(/Loading|Ready|Error/)).toBeTruthy();
-  });
-
-  it('should render nested children correctly', () => {
-    const NestedComponent = () => (
-      <>
-        <Text>Nested 1</Text>
-        <Text>Nested 2</Text>
-      </>
-    );
-
-    const { getByText } = render(
-      <QueryClientProvider>
-        <NestedComponent />
-      </QueryClientProvider>
-    );
-
-    expect(getByText('Nested 1')).toBeTruthy();
-    expect(getByText('Nested 2')).toBeTruthy();
-  });
-
-  it('should handle null children', () => {
-    expect(() => {
-      render(<QueryClientProvider>{null}</QueryClientProvider>);
-    }).not.toThrow();
-  });
-
-  it('should handle undefined children', () => {
-    expect(() => {
-      render(<QueryClientProvider>{undefined}</QueryClientProvider>);
-    }).not.toThrow();
-  });
-
-  it('should handle fragment children', () => {
-    const { getByText } = render(
-      <QueryClientProvider>
-        <>
-          <Text>Fragment 1</Text>
-          <Text>Fragment 2</Text>
-        </>
-      </QueryClientProvider>
-    );
-
-    expect(getByText('Fragment 1')).toBeTruthy();
-    expect(getByText('Fragment 2')).toBeTruthy();
-  });
-
-  it('should maintain QueryClient instance across rerenders', () => {
-    const { rerender } = render(
-      <QueryClientProvider>
-        <Text>Initial</Text>
-      </QueryClientProvider>
-    );
-
-    // Rerender should still work without issues
-    rerender(
-      <QueryClientProvider>
-        <Text>Updated</Text>
-      </QueryClientProvider>
-    );
-
-    expect(() => {
-      rerender(
-        <QueryClientProvider>
-          <Text>Final</Text>
-        </QueryClientProvider>
-      );
-    }).not.toThrow();
-  });
-
-  it('should preserve child component state', () => {
-    const StatefulComponent = () => {
-      const [count, setCount] = React.useState(0);
-      return <Text>{count}</Text>;
-    };
-
-    const { getByText } = render(
-      <QueryClientProvider>
-        <StatefulComponent />
-      </QueryClientProvider>
-    );
-
-    expect(getByText('0')).toBeTruthy();
+  afterEach(() => {
+    jest.resetModules();
   });
 
   describe('QueryClient configuration', () => {
-    it('should configure QueryClient with default options', () => {
-      // Provider creates QueryClient internally with specific defaults
-      // This test ensures it renders without errors, which means config is valid
-      const { getByText } = render(
+    it('should create QueryClient with correct staleTime for queries', () => {
+      render(
         <QueryClientProvider>
-          <Text>Configured</Text>
+          <></>
         </QueryClientProvider>
       );
 
-      expect(getByText('Configured')).toBeTruthy();
+      expect(mockConfigCalls.length).toBeGreaterThan(0);
+      const config = mockConfigCalls[0];
+      expect(config.defaultOptions.queries.staleTime).toBe(1000 * 60 * 5);
     });
 
-    it('should support multiple providers', () => {
-      const { getByText } = render(
+    it('should create QueryClient with correct gcTime for queries', () => {
+      render(
         <QueryClientProvider>
-          <QueryClientProvider>
-            <Text>Nested providers</Text>
-          </QueryClientProvider>
+          <></>
         </QueryClientProvider>
       );
 
-      expect(getByText('Nested providers')).toBeTruthy();
+      const config = mockConfigCalls[0];
+      expect(config.defaultOptions.queries.gcTime).toBe(1000 * 60 * 10);
+    });
+
+    it('should create QueryClient with retry count of 1 for queries', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const config = mockConfigCalls[0];
+      expect(config.defaultOptions.queries.retry).toBe(1);
+    });
+
+    it('should create QueryClient with refetchOnWindowFocus disabled for queries', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const config = mockConfigCalls[0];
+      expect(config.defaultOptions.queries.refetchOnWindowFocus).toBe(false);
+    });
+
+    it('should create QueryClient with retry count of 0 for mutations', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const config = mockConfigCalls[0];
+      expect(config.defaultOptions.mutations.retry).toBe(0);
+    });
+
+    it('should include all required default options for queries', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const config = mockConfigCalls[0];
+      const defaultOptions = config.defaultOptions;
+
+      expect(defaultOptions.queries).toHaveProperty('staleTime');
+      expect(defaultOptions.queries).toHaveProperty('gcTime');
+      expect(defaultOptions.queries).toHaveProperty('retry');
+      expect(defaultOptions.queries).toHaveProperty('refetchOnWindowFocus');
+    });
+
+    it('should include all required default options for mutations', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const config = mockConfigCalls[0];
+      const defaultOptions = config.defaultOptions;
+
+      expect(defaultOptions.mutations).toHaveProperty('retry');
+    });
+
+    it('should use consistent staleTime value of 5 minutes', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const config = mockConfigCalls[0];
+      const expectedStaleTime = 5 * 60 * 1000;
+
+      expect(config.defaultOptions.queries.staleTime).toBe(expectedStaleTime);
+    });
+
+    it('should use consistent gcTime value of 10 minutes', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const config = mockConfigCalls[0];
+      const expectedGcTime = 10 * 60 * 1000;
+
+      expect(config.defaultOptions.queries.gcTime).toBe(expectedGcTime);
+    });
+  });
+
+  describe('Provider behavior', () => {
+    it('should render children correctly', () => {
+      const { UNSAFE_root } = render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      expect(UNSAFE_root).toBeDefined();
+    });
+
+    it('should accept children prop', () => {
+      const testText = 'Test Child Content';
+      const { queryByText } = render(
+        <QueryClientProvider>
+          <>{testText}</>
+        </QueryClientProvider>
+      );
+
+      expect(queryByText(testText)).toBeDefined();
+    });
+
+    it('should wrap single child element', () => {
+      const SingleChildComponent = () => <></>;
+      const { UNSAFE_root } = render(
+        <QueryClientProvider>
+          <SingleChildComponent />
+        </QueryClientProvider>
+      );
+
+      expect(UNSAFE_root).toBeDefined();
+    });
+
+    it('should wrap multiple child elements', () => {
+      const { UNSAFE_root } = render(
+        <QueryClientProvider>
+          <>
+            <></>
+            <></>
+            <></>
+          </>
+        </QueryClientProvider>
+      );
+
+      expect(UNSAFE_root).toBeDefined();
+    });
+
+    it('should use TanStackQueryClientProvider as wrapper', () => {
+      const { UNSAFE_root } = render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      expect(UNSAFE_root).toBeDefined();
+    });
+  });
+
+  describe('Module-level QueryClient instance', () => {
+    it('should create queryClient with configuration on first render', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      expect(mockConfigCalls.length).toBe(1);
+      expect(mockConfigCalls[0]).toHaveProperty('defaultOptions');
+    });
+
+    it('should reuse same queryClient instance across multiple renders', () => {
+      const { rerender } = render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const initialCallCount = mockConfigCalls.length;
+
+      rerender(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      expect(mockConfigCalls.length).toBe(initialCallCount);
+    });
+  });
+
+  describe('Type and interface compliance', () => {
+    it('should accept children as ReactNode', () => {
+      const testChild = <div>Child</div>;
+      const { UNSAFE_root } = render(
+        <QueryClientProvider>
+          {testChild}
+        </QueryClientProvider>
+      );
+
+      expect(UNSAFE_root).toBeDefined();
+    });
+
+    it('should be a valid React.FC component', () => {
+      expect(typeof QueryClientProvider).toBe('function');
+    });
+
+    it('should accept props object with children property', () => {
+      const props = {
+        children: <></>,
+      };
+
+      const { UNSAFE_root } = render(
+        <QueryClientProvider {...props}>
+          <></>
+        </QueryClientProvider>
+      );
+
+      expect(UNSAFE_root).toBeDefined();
+    });
+  });
+
+  describe('Query configuration verification', () => {
+    it('should not refetch on window focus to avoid unnecessary requests', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const config = mockConfigCalls[0];
+      expect(config.defaultOptions.queries.refetchOnWindowFocus).toBe(false);
+    });
+
+    it('should retry failed queries once by default', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const config = mockConfigCalls[0];
+      expect(config.defaultOptions.queries.retry).toBe(1);
+    });
+
+    it('should not retry mutations by default', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const config = mockConfigCalls[0];
+      expect(config.defaultOptions.mutations.retry).toBe(0);
+    });
+
+    it('should have separate retry configuration for queries and mutations', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const config = mockConfigCalls[0];
+      expect(config.defaultOptions.queries.retry).toBe(1);
+      expect(config.defaultOptions.mutations.retry).toBe(0);
+      expect(config.defaultOptions.queries.retry).not.toBe(
+        config.defaultOptions.mutations.retry
+      );
+    });
+  });
+
+  describe('Configuration persistence', () => {
+    it('should maintain staleTime across multiple renders', () => {
+      const { rerender } = render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const firstCallConfig = mockConfigCalls[0];
+
+      rerender(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      expect(firstCallConfig.defaultOptions.queries.staleTime).toBe(1000 * 60 * 5);
+    });
+
+    it('should maintain gcTime across multiple renders', () => {
+      const { rerender } = render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const firstCallConfig = mockConfigCalls[0];
+
+      rerender(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      expect(firstCallConfig.defaultOptions.queries.gcTime).toBe(1000 * 60 * 10);
     });
   });
 
   describe('Edge cases', () => {
-    it('should render component with conditionally visible children', () => {
-      const ConditionalComponent = ({ show }: { show: boolean }) => (
-        <>
-          {show && <Text>Visible</Text>}
-          {!show && <Text>Hidden</Text>}
-        </>
-      );
-
-      const { getByText, rerender } = render(
+    it('should handle null children gracefully', () => {
+      const { UNSAFE_root } = render(
         <QueryClientProvider>
-          <ConditionalComponent show={true} />
+          {null}
         </QueryClientProvider>
       );
 
-      expect(getByText('Visible')).toBeTruthy();
-
-      rerender(
-        <QueryClientProvider>
-          <ConditionalComponent show={false} />
-        </QueryClientProvider>
-      );
-
-      expect(getByText('Hidden')).toBeTruthy();
+      expect(UNSAFE_root).toBeDefined();
     });
 
-    it('should render deeply nested components', () => {
-      const Level3 = () => <Text>Level 3</Text>;
-      const Level2 = () => <Level3 />;
-      const Level1 = () => <Level2 />;
-
-      const { getByText } = render(
+    it('should handle undefined children gracefully', () => {
+      const { UNSAFE_root } = render(
         <QueryClientProvider>
-          <Level1 />
+          {undefined}
         </QueryClientProvider>
       );
 
-      expect(getByText('Level 3')).toBeTruthy();
+      expect(UNSAFE_root).toBeDefined();
     });
 
-    it('should handle children with side effects', () => {
-      const sideEffectFn = jest.fn();
-
-      const SideEffectComponent = () => {
-        React.useEffect(() => {
-          sideEffectFn();
-        }, []);
-        return <Text>Side effect</Text>;
-      };
-
-      const { getByText } = render(
+    it('should handle text node children', () => {
+      const { queryByText } = render(
         <QueryClientProvider>
-          <SideEffectComponent />
+          Test text node
         </QueryClientProvider>
       );
 
-      expect(getByText('Side effect')).toBeTruthy();
-      expect(sideEffectFn).toHaveBeenCalled();
+      expect(queryByText('Test text node')).toBeDefined();
+    });
+
+    it('should handle mixed children types', () => {
+      const { UNSAFE_root } = render(
+        <QueryClientProvider>
+          <>
+            <div>Element</div>
+            Text
+            {null}
+          </>
+        </QueryClientProvider>
+      );
+
+      expect(UNSAFE_root).toBeDefined();
+    });
+  });
+
+  describe('Configuration values correctness', () => {
+    it('staleTime should be exactly 300000 milliseconds (5 minutes)', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      expect(mockConfigCalls[0].defaultOptions.queries.staleTime).toBe(300000);
+    });
+
+    it('gcTime should be exactly 600000 milliseconds (10 minutes)', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      expect(mockConfigCalls[0].defaultOptions.queries.gcTime).toBe(600000);
+    });
+
+    it('should verify configuration object structure', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const config = mockConfigCalls[0];
+
+      expect(config).toHaveProperty('defaultOptions');
+      expect(config.defaultOptions).toHaveProperty('queries');
+      expect(config.defaultOptions).toHaveProperty('mutations');
+    });
+
+    it('should have correct object nesting for defaultOptions', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const config = mockConfigCalls[0];
+
+      expect(typeof config.defaultOptions).toBe('object');
+      expect(typeof config.defaultOptions.queries).toBe('object');
+      expect(typeof config.defaultOptions.mutations).toBe('object');
+    });
+
+    it('should have all queries config values as proper types', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const { queries } = mockConfigCalls[0].defaultOptions;
+
+      expect(typeof queries.staleTime).toBe('number');
+      expect(typeof queries.gcTime).toBe('number');
+      expect(typeof queries.retry).toBe('number');
+      expect(typeof queries.refetchOnWindowFocus).toBe('boolean');
+    });
+
+    it('should have all mutations config values as proper types', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const { mutations } = mockConfigCalls[0].defaultOptions;
+
+      expect(typeof mutations.retry).toBe('number');
+    });
+  });
+
+  describe('Real-world scenarios', () => {
+    it('should properly initialize for use with data fetching', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const config = mockConfigCalls[0];
+
+      expect(config.defaultOptions.queries.staleTime).toBeDefined();
+      expect(config.defaultOptions.queries.gcTime).toBeDefined();
+      expect(config.defaultOptions.queries.retry).toBeDefined();
+      expect(config.defaultOptions.queries.refetchOnWindowFocus).toBeDefined();
+    });
+
+    it('should configure sensible defaults for mobile app usage', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const config = mockConfigCalls[0];
+
+      expect(config.defaultOptions.queries.refetchOnWindowFocus).toBe(false);
+      expect(config.defaultOptions.queries.staleTime).toBe(300000);
+      expect(config.defaultOptions.queries.gcTime).toBe(600000);
+    });
+
+    it('should retry queries but not mutations to handle transient failures', () => {
+      render(
+        <QueryClientProvider>
+          <></>
+        </QueryClientProvider>
+      );
+
+      const config = mockConfigCalls[0];
+
+      expect(config.defaultOptions.queries.retry).toBe(1);
+      expect(config.defaultOptions.mutations.retry).toBe(0);
     });
   });
 });

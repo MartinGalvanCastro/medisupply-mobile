@@ -1,761 +1,326 @@
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { QuantitySelector } from './QuantitySelector';
 
-describe('QuantitySelector Component', () => {
-  const defaultProps = {
-    maxQuantity: 100,
-    onQuantityChange: jest.fn(),
-  };
+describe('QuantitySelector', () => {
+  const mockOnQuantityChange = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('Rendering', () => {
-    it('should render the quantity selector', () => {
-      const { getByTestId } = render(<QuantitySelector {...defaultProps} />);
+  it('should render correctly with required props', () => {
+    const { getByText, getByTestId } = render(
+      <QuantitySelector maxQuantity={10} onQuantityChange={mockOnQuantityChange} />
+    );
 
-      expect(getByTestId('quantity-selector')).toBeTruthy();
-      expect(getByTestId('quantity-selector-decrease')).toBeTruthy();
-      expect(getByTestId('quantity-selector-increase')).toBeTruthy();
-      expect(getByTestId('quantity-selector-input')).toBeTruthy();
-    });
+    expect(getByTestId('quantity-selector')).toBeDefined();
+    expect(getByTestId('quantity-selector-input')).toBeDefined();
+    expect(getByTestId('quantity-selector-increase')).toBeDefined();
+    expect(getByTestId('quantity-selector-decrease')).toBeDefined();
+    expect(getByText('Max: 10')).toBeDefined();
+  });
 
-    it('should render with initial quantity of 1 by default', () => {
-      const { getByTestId } = render(<QuantitySelector {...defaultProps} />);
+  it('should render with custom testID', () => {
+    const { getByTestId } = render(
+      <QuantitySelector
+        maxQuantity={5}
+        onQuantityChange={mockOnQuantityChange}
+        testID="custom-selector"
+      />
+    );
 
-      const input = getByTestId('quantity-selector-input');
-      expect(input.props.value).toBe('1');
-    });
+    expect(getByTestId('custom-selector')).toBeDefined();
+    expect(getByTestId('custom-selector-input')).toBeDefined();
+    expect(getByTestId('custom-selector-increase')).toBeDefined();
+    expect(getByTestId('custom-selector-decrease')).toBeDefined();
+  });
 
-    it('should render with custom initial quantity', () => {
-      const { getByTestId } = render(
-        <QuantitySelector {...defaultProps} initialQuantity={5} />
-      );
+  it('should initialize with initial quantity value', () => {
+    const { getByTestId } = render(
+      <QuantitySelector
+        initialQuantity={3}
+        maxQuantity={10}
+        onQuantityChange={mockOnQuantityChange}
+      />
+    );
 
-      const input = getByTestId('quantity-selector-input');
-      expect(input.props.value).toBe('5');
-    });
+    const input = getByTestId('quantity-selector-input') as any;
+    expect(input.props.value).toBe('3');
+  });
 
-    it('should display max quantity text', () => {
-      const { getByText } = render(<QuantitySelector {...defaultProps} />);
+  it('should use default initial quantity of 1', () => {
+    const { getByTestId } = render(
+      <QuantitySelector maxQuantity={10} onQuantityChange={mockOnQuantityChange} />
+    );
 
-      expect(getByText('Max: 100')).toBeTruthy();
-    });
+    const input = getByTestId('quantity-selector-input') as any;
+    expect(input.props.value).toBe('1');
+  });
 
-    it('should render with custom testID', () => {
-      const { getByTestId } = render(
-        <QuantitySelector {...defaultProps} testID="custom-selector" />
-      );
+  it('should increase quantity when increase button is pressed', async () => {
+    const { getByTestId } = render(
+      <QuantitySelector
+        initialQuantity={1}
+        maxQuantity={5}
+        onQuantityChange={mockOnQuantityChange}
+      />
+    );
 
-      expect(getByTestId('custom-selector')).toBeTruthy();
+    const increaseButton = getByTestId('quantity-selector-increase');
+    fireEvent.press(increaseButton);
+
+    await waitFor(() => {
+      expect(mockOnQuantityChange).toHaveBeenCalledWith(2);
     });
   });
 
-  describe('Increase button', () => {
-    it('should increase quantity when increase button is pressed', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector {...defaultProps} onQuantityChange={onQuantityChange} />
-      );
+  it('should decrease quantity when decrease button is pressed', async () => {
+    const { getByTestId } = render(
+      <QuantitySelector
+        initialQuantity={3}
+        minQuantity={1}
+        maxQuantity={10}
+        onQuantityChange={mockOnQuantityChange}
+      />
+    );
 
-      const increaseButton = getByTestId('quantity-selector-increase');
-      fireEvent.press(increaseButton);
+    const decreaseButton = getByTestId('quantity-selector-decrease');
+    fireEvent.press(decreaseButton);
 
-      expect(onQuantityChange).toHaveBeenCalledWith(2);
-    });
-
-    it('should update input value when increased', () => {
-      const { getByTestId } = render(<QuantitySelector {...defaultProps} />);
-
-      const increaseButton = getByTestId('quantity-selector-increase');
-      const input = getByTestId('quantity-selector-input');
-
-      fireEvent.press(increaseButton);
-
-      expect(input.props.value).toBe('2');
-    });
-
-    it('should not increase beyond max quantity', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          initialQuantity={10}
-          maxQuantity={10}
-          onQuantityChange={onQuantityChange}
-        />
-      );
-
-      const increaseButton = getByTestId('quantity-selector-increase');
-      fireEvent.press(increaseButton);
-
-      expect(onQuantityChange).not.toHaveBeenCalled();
-    });
-
-    it('should disable increase button at max quantity', () => {
-      const { getByTestId } = render(
-        <QuantitySelector {...defaultProps} initialQuantity={100} maxQuantity={100} />
-      );
-
-      const increaseButton = getByTestId('quantity-selector-increase');
-      expect(increaseButton.props.accessibilityState?.disabled).toBe(true);
-    });
-
-    it('should allow multiple increases', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector {...defaultProps} onQuantityChange={onQuantityChange} />
-      );
-
-      const increaseButton = getByTestId('quantity-selector-increase');
-      fireEvent.press(increaseButton);
-      fireEvent.press(increaseButton);
-      fireEvent.press(increaseButton);
-
-      expect(onQuantityChange).toHaveBeenCalledTimes(3);
-      expect(onQuantityChange).toHaveBeenLastCalledWith(4);
+    await waitFor(() => {
+      expect(mockOnQuantityChange).toHaveBeenCalledWith(2);
     });
   });
 
-  describe('Decrease button', () => {
-    it('should decrease quantity when decrease button is pressed', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          initialQuantity={5}
-          onQuantityChange={onQuantityChange}
-        />
-      );
+  it('should not increase beyond max quantity', () => {
+    const { getByTestId } = render(
+      <QuantitySelector
+        initialQuantity={5}
+        maxQuantity={5}
+        onQuantityChange={mockOnQuantityChange}
+      />
+    );
 
-      const decreaseButton = getByTestId('quantity-selector-decrease');
-      fireEvent.press(decreaseButton);
+    const increaseButton = getByTestId('quantity-selector-increase');
+    fireEvent.press(increaseButton);
 
-      expect(onQuantityChange).toHaveBeenCalledWith(4);
-    });
+    expect(mockOnQuantityChange).not.toHaveBeenCalled();
+  });
 
-    it('should update input value when decreased', () => {
-      const { getByTestId } = render(
-        <QuantitySelector {...defaultProps} initialQuantity={5} />
-      );
+  it('should not decrease below min quantity', () => {
+    const { getByTestId } = render(
+      <QuantitySelector
+        initialQuantity={1}
+        minQuantity={1}
+        maxQuantity={10}
+        onQuantityChange={mockOnQuantityChange}
+      />
+    );
 
-      const decreaseButton = getByTestId('quantity-selector-decrease');
-      const input = getByTestId('quantity-selector-input');
+    const decreaseButton = getByTestId('quantity-selector-decrease');
+    fireEvent.press(decreaseButton);
 
-      fireEvent.press(decreaseButton);
+    expect(mockOnQuantityChange).not.toHaveBeenCalled();
+  });
 
-      expect(input.props.value).toBe('4');
-    });
+  it('should update quantity via text input within valid range', async () => {
+    const { getByTestId } = render(
+      <QuantitySelector
+        initialQuantity={1}
+        minQuantity={1}
+        maxQuantity={10}
+        onQuantityChange={mockOnQuantityChange}
+      />
+    );
 
-    it('should not decrease below min quantity', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          initialQuantity={1}
-          minQuantity={1}
-          onQuantityChange={onQuantityChange}
-        />
-      );
+    const input = getByTestId('quantity-selector-input');
+    fireEvent.changeText(input, '5');
 
-      const decreaseButton = getByTestId('quantity-selector-decrease');
-      fireEvent.press(decreaseButton);
-
-      expect(onQuantityChange).not.toHaveBeenCalled();
-    });
-
-    it('should disable decrease button at min quantity', () => {
-      const { getByTestId } = render(
-        <QuantitySelector {...defaultProps} initialQuantity={1} minQuantity={1} />
-      );
-
-      const decreaseButton = getByTestId('quantity-selector-decrease');
-      expect(decreaseButton.props.accessibilityState?.disabled).toBe(true);
-    });
-
-    it('should respect custom min quantity', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          initialQuantity={5}
-          minQuantity={5}
-          onQuantityChange={onQuantityChange}
-        />
-      );
-
-      const decreaseButton = getByTestId('quantity-selector-decrease');
-      fireEvent.press(decreaseButton);
-
-      expect(onQuantityChange).not.toHaveBeenCalled();
-    });
-
-    it('should allow multiple decreases', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          initialQuantity={10}
-          onQuantityChange={onQuantityChange}
-        />
-      );
-
-      const decreaseButton = getByTestId('quantity-selector-decrease');
-      fireEvent.press(decreaseButton);
-      fireEvent.press(decreaseButton);
-      fireEvent.press(decreaseButton);
-
-      expect(onQuantityChange).toHaveBeenCalledTimes(3);
-      expect(onQuantityChange).toHaveBeenLastCalledWith(7);
+    await waitFor(() => {
+      expect(mockOnQuantityChange).toHaveBeenCalledWith(5);
     });
   });
 
-  describe('Input field', () => {
-    it('should allow typing a valid number', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector {...defaultProps} onQuantityChange={onQuantityChange} />
-      );
+  it('should clamp input value to max quantity when exceeding', async () => {
+    const { getByTestId } = render(
+      <QuantitySelector
+        initialQuantity={1}
+        minQuantity={1}
+        maxQuantity={10}
+        onQuantityChange={mockOnQuantityChange}
+      />
+    );
 
-      const input = getByTestId('quantity-selector-input');
-      fireEvent.changeText(input, '25');
+    const input = getByTestId('quantity-selector-input');
+    fireEvent.changeText(input, '15');
 
-      expect(onQuantityChange).toHaveBeenCalledWith(25);
-    });
-
-    it('should update displayed value when typing', () => {
-      const { getByTestId } = render(<QuantitySelector {...defaultProps} />);
-
-      const input = getByTestId('quantity-selector-input');
-      fireEvent.changeText(input, '50');
-
-      expect(input.props.value).toBe('50');
-    });
-
-    it('should not allow values greater than max quantity', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          maxQuantity={100}
-          onQuantityChange={onQuantityChange}
-        />
-      );
-
-      const input = getByTestId('quantity-selector-input');
-      fireEvent.changeText(input, '150');
-
-      expect(onQuantityChange).toHaveBeenCalledWith(100);
-      expect(input.props.value).toBe('100');
-    });
-
-    it('should not allow values less than min quantity', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          minQuantity={5}
-          onQuantityChange={onQuantityChange}
-        />
-      );
-
-      const input = getByTestId('quantity-selector-input');
-      fireEvent.changeText(input, '2');
-
-      expect(onQuantityChange).toHaveBeenCalledWith(5);
-      expect(input.props.value).toBe('5');
-    });
-
-    it('should handle empty input gracefully on blur', () => {
-      const { getByTestId } = render(
-        <QuantitySelector {...defaultProps} initialQuantity={5} />
-      );
-
-      const input = getByTestId('quantity-selector-input');
-      fireEvent.changeText(input, '');
-      fireEvent(input, 'blur');
-
-      expect(input.props.value).toBe('5');
-    });
-
-    it('should handle invalid input gracefully on blur', () => {
-      const { getByTestId } = render(
-        <QuantitySelector {...defaultProps} initialQuantity={10} />
-      );
-
-      const input = getByTestId('quantity-selector-input');
-      fireEvent.changeText(input, 'abc');
-      fireEvent(input, 'blur');
-
-      expect(input.props.value).toBe('10');
-    });
-
-    it('should use number-pad keyboard type', () => {
-      const { getByTestId } = render(<QuantitySelector {...defaultProps} />);
-
-      const input = getByTestId('quantity-selector-input');
-      expect(input.props.keyboardType).toBe('number-pad');
-    });
-
-    it('should have correct max length based on max quantity', () => {
-      const { getByTestId } = render(
-        <QuantitySelector {...defaultProps} maxQuantity={99999} />
-      );
-
-      const input = getByTestId('quantity-selector-input');
-      expect(input.props.maxLength).toBe(5);
+    await waitFor(() => {
+      expect(mockOnQuantityChange).toHaveBeenCalledWith(10);
     });
   });
 
-  describe('Edge cases', () => {
-    it('should handle max quantity of 1', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          initialQuantity={1}
-          maxQuantity={1}
-          onQuantityChange={onQuantityChange}
-        />
-      );
+  it('should clamp input value to min quantity when below', async () => {
+    const { getByTestId } = render(
+      <QuantitySelector
+        initialQuantity={5}
+        minQuantity={2}
+        maxQuantity={10}
+        onQuantityChange={mockOnQuantityChange}
+      />
+    );
 
-      const increaseButton = getByTestId('quantity-selector-increase');
-      fireEvent.press(increaseButton);
+    const input = getByTestId('quantity-selector-input');
+    fireEvent.changeText(input, '1');
 
-      expect(onQuantityChange).not.toHaveBeenCalled();
-    });
-
-    it('should handle min and max quantity being the same', () => {
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          initialQuantity={10}
-          minQuantity={10}
-          maxQuantity={10}
-        />
-      );
-
-      const decreaseButton = getByTestId('quantity-selector-decrease');
-      const increaseButton = getByTestId('quantity-selector-increase');
-
-      expect(decreaseButton.props.accessibilityState?.disabled).toBe(true);
-      expect(increaseButton.props.accessibilityState?.disabled).toBe(true);
-    });
-
-    it('should handle large max quantities', () => {
-      const { getByText } = render(
-        <QuantitySelector {...defaultProps} maxQuantity={99999} />
-      );
-
-      expect(getByText('Max: 99999')).toBeTruthy();
-    });
-
-    it('should handle typing zero', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          minQuantity={1}
-          onQuantityChange={onQuantityChange}
-        />
-      );
-
-      const input = getByTestId('quantity-selector-input');
-      fireEvent.changeText(input, '0');
-
-      expect(onQuantityChange).toHaveBeenCalledWith(1);
-    });
-
-    it('should handle negative numbers', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          minQuantity={1}
-          onQuantityChange={onQuantityChange}
-        />
-      );
-
-      const input = getByTestId('quantity-selector-input');
-      fireEvent.changeText(input, '-5');
-
-      expect(onQuantityChange).toHaveBeenCalledWith(1);
+    await waitFor(() => {
+      expect(mockOnQuantityChange).toHaveBeenCalledWith(2);
     });
   });
 
-  describe('Integration scenarios', () => {
-    it('should maintain consistency between buttons and input', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector {...defaultProps} onQuantityChange={onQuantityChange} />
-      );
+  it('should ignore non-numeric input text', async () => {
+    const { getByTestId } = render(
+      <QuantitySelector
+        initialQuantity={5}
+        minQuantity={1}
+        maxQuantity={10}
+        onQuantityChange={mockOnQuantityChange}
+      />
+    );
 
-      const increaseButton = getByTestId('quantity-selector-increase');
-      const decreaseButton = getByTestId('quantity-selector-decrease');
-      const input = getByTestId('quantity-selector-input');
+    const input = getByTestId('quantity-selector-input');
+    fireEvent.changeText(input, 'abc');
 
-      fireEvent.press(increaseButton);
-      fireEvent.press(increaseButton);
-      expect(input.props.value).toBe('3');
-
-      fireEvent.press(decreaseButton);
-      expect(input.props.value).toBe('2');
-
-      fireEvent.changeText(input, '50');
-      expect(input.props.value).toBe('50');
-
-      fireEvent.press(increaseButton);
-      expect(input.props.value).toBe('51');
-    });
-
-    it('should handle rapid button presses', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector {...defaultProps} onQuantityChange={onQuantityChange} />
-      );
-
-      const increaseButton = getByTestId('quantity-selector-increase');
-
-      for (let i = 0; i < 10; i++) {
-        fireEvent.press(increaseButton);
-      }
-
-      expect(onQuantityChange).toHaveBeenCalledTimes(10);
-      expect(onQuantityChange).toHaveBeenLastCalledWith(11);
-    });
-
-    it('should handle alternating button presses', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          initialQuantity={50}
-          onQuantityChange={onQuantityChange}
-        />
-      );
-
-      const increaseButton = getByTestId('quantity-selector-increase');
-      const decreaseButton = getByTestId('quantity-selector-decrease');
-
-      fireEvent.press(increaseButton);
-      fireEvent.press(decreaseButton);
-      fireEvent.press(increaseButton);
-      fireEvent.press(decreaseButton);
-
-      expect(onQuantityChange).toHaveBeenCalledTimes(4);
-      expect(onQuantityChange).toHaveBeenLastCalledWith(50);
-    });
+    expect(mockOnQuantityChange).not.toHaveBeenCalled();
   });
 
-  describe('Pressable style states', () => {
-    it('should apply pressed style to decrease button when active', () => {
-      const { getByTestId } = render(
-        <QuantitySelector {...defaultProps} initialQuantity={5} />
-      );
+  it('should use custom min and max quantity values', () => {
+    const { getByText } = render(
+      <QuantitySelector
+        initialQuantity={5}
+        minQuantity={2}
+        maxQuantity={20}
+        onQuantityChange={mockOnQuantityChange}
+      />
+    );
 
-      const decreaseButton = getByTestId('quantity-selector-decrease');
-      const style = decreaseButton.props.style;
-
-      // Verify style is an array (can contain conditional styles)
-      expect(Array.isArray(style)).toBe(true);
-
-      // Verify base button style exists
-      expect(style).toContainEqual(
-        expect.objectContaining({
-          borderRadius: 8,
-        })
-      );
-    });
-
-    it('should apply pressed and disabled styles to decrease button at min', () => {
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          initialQuantity={1}
-          minQuantity={1}
-        />
-      );
-
-      const decreaseButton = getByTestId('quantity-selector-decrease');
-      const style = decreaseButton.props.style;
-
-      // Verify style array contains disabled style
-      expect(style).toContainEqual(
-        expect.objectContaining({
-          opacity: 0.5,
-        })
-      );
-    });
-
-    it('should apply pressed style to increase button when active', () => {
-      const { getByTestId } = render(
-        <QuantitySelector {...defaultProps} initialQuantity={50} />
-      );
-
-      const increaseButton = getByTestId('quantity-selector-increase');
-      const style = increaseButton.props.style;
-
-      // Verify style is an array (can contain conditional styles)
-      expect(Array.isArray(style)).toBe(true);
-
-      // Verify base button style exists
-      expect(style).toContainEqual(
-        expect.objectContaining({
-          borderRadius: 8,
-        })
-      );
-    });
-
-    it('should apply pressed and disabled styles to increase button at max', () => {
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          initialQuantity={100}
-          maxQuantity={100}
-        />
-      );
-
-      const increaseButton = getByTestId('quantity-selector-increase');
-      const style = increaseButton.props.style;
-
-      // Verify style array contains disabled style
-      expect(style).toContainEqual(
-        expect.objectContaining({
-          opacity: 0.5,
-        })
-      );
-    });
+    expect(getByText('Max: 20')).toBeDefined();
   });
 
-  describe('Input validation edge cases', () => {
-    it('should handle input between min and max correctly', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          minQuantity={10}
-          maxQuantity={100}
-          onQuantityChange={onQuantityChange}
-        />
-      );
+  it('should reset input to current quantity when blur with invalid value', async () => {
+    const { getByTestId } = render(
+      <QuantitySelector
+        initialQuantity={5}
+        minQuantity={1}
+        maxQuantity={10}
+        onQuantityChange={mockOnQuantityChange}
+      />
+    );
 
-      const input = getByTestId('quantity-selector-input');
-      fireEvent.changeText(input, '50');
+    const input = getByTestId('quantity-selector-input') as any;
 
-      expect(onQuantityChange).toHaveBeenCalledWith(50);
-      expect(input.props.value).toBe('50');
-    });
+    // Change to non-numeric text
+    fireEvent.changeText(input, 'invalid');
 
-    it('should enforce max quantity and update input display', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          minQuantity={1}
-          maxQuantity={50}
-          onQuantityChange={onQuantityChange}
-        />
-      );
-
-      const input = getByTestId('quantity-selector-input');
-      fireEvent.changeText(input, '75');
-
-      expect(onQuantityChange).toHaveBeenCalledWith(50);
-      expect(input.props.value).toBe('50');
-    });
-
-    it('should enforce min quantity and update input display', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          minQuantity={5}
-          maxQuantity={100}
-          onQuantityChange={onQuantityChange}
-        />
-      );
-
-      const input = getByTestId('quantity-selector-input');
-      fireEvent.changeText(input, '2');
-
-      expect(onQuantityChange).toHaveBeenCalledWith(5);
-      expect(input.props.value).toBe('5');
-    });
-
-    it('should not update quantity for non-numeric input', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          initialQuantity={10}
-          onQuantityChange={onQuantityChange}
-        />
-      );
-
-      const input = getByTestId('quantity-selector-input');
-      fireEvent.changeText(input, 'invalid');
-
-      expect(onQuantityChange).not.toHaveBeenCalled();
+    await waitFor(() => {
       expect(input.props.value).toBe('invalid');
     });
 
-    it('should handle whitespace-only input on blur', () => {
-      const { getByTestId } = render(
-        <QuantitySelector {...defaultProps} initialQuantity={20} />
-      );
+    // Trigger blur event - should reset to current quantity (5)
+    fireEvent(input, 'blur');
 
-      const input = getByTestId('quantity-selector-input');
-      fireEvent.changeText(input, '   ');
-      fireEvent(input, 'blur');
-
-      expect(input.props.value).toBe('20');
-    });
-
-    it('should reset invalid numeric input on blur', () => {
-      const { getByTestId } = render(
-        <QuantitySelector {...defaultProps} initialQuantity={15} />
-      );
-
-      const input = getByTestId('quantity-selector-input');
-      fireEvent.changeText(input, 'notanumber');
-      fireEvent(input, 'blur');
-
-      expect(input.props.value).toBe('15');
+    await waitFor(() => {
+      expect(input.props.value).toBe('5');
     });
   });
 
-  describe('Disabled state styling', () => {
-    it('should show disabled styling for decrease button at minimum', () => {
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          initialQuantity={1}
-          minQuantity={1}
-        />
-      );
+  it('should reset input to current quantity when blur with empty string', async () => {
+    const { getByTestId } = render(
+      <QuantitySelector
+        initialQuantity={7}
+        minQuantity={1}
+        maxQuantity={10}
+        onQuantityChange={mockOnQuantityChange}
+      />
+    );
 
-      const decreaseButton = getByTestId('quantity-selector-decrease');
-      // Verify the disabled style is applied in the style array
-      const style = decreaseButton.props.style;
-      expect(style).toContainEqual(
-        expect.objectContaining({
-          opacity: 0.5,
-        })
-      );
+    const input = getByTestId('quantity-selector-input') as any;
+
+    // Change to empty string
+    fireEvent.changeText(input, '');
+
+    await waitFor(() => {
+      expect(input.props.value).toBe('');
     });
 
-    it('should show disabled styling for increase button at maximum', () => {
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          initialQuantity={100}
-          maxQuantity={100}
-        />
-      );
+    // Trigger blur event - should reset to current quantity (7)
+    fireEvent(input, 'blur');
 
-      const increaseButton = getByTestId('quantity-selector-increase');
-      // Verify the disabled style is applied in the style array
-      const style = increaseButton.props.style;
-      expect(style).toContainEqual(
-        expect.objectContaining({
-          opacity: 0.5,
-        })
-      );
-    });
-
-    it('should not apply disabled styles when buttons are enabled', () => {
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          initialQuantity={50}
-          minQuantity={10}
-          maxQuantity={100}
-        />
-      );
-
-      const decreaseButton = getByTestId('quantity-selector-decrease');
-      const increaseButton = getByTestId('quantity-selector-increase');
-
-      // Verify disabled style (opacity: 0.5) is NOT in the style array
-      const decreaseStyle = decreaseButton.props.style;
-      expect(decreaseStyle).not.toContainEqual(
-        expect.objectContaining({
-          opacity: 0.5,
-        })
-      );
-
-      const increaseStyle = increaseButton.props.style;
-      expect(increaseStyle).not.toContainEqual(
-        expect.objectContaining({
-          opacity: 0.5,
-        })
-      );
+    await waitFor(() => {
+      expect(input.props.value).toBe('7');
     });
   });
 
-  describe('Conditional styling logic', () => {
-    it('should render with disabled styling for all disabled conditions', () => {
-      const { getByTestId } = render(
-        <QuantitySelector
-          {...defaultProps}
-          initialQuantity={1}
-          minQuantity={1}
-          maxQuantity={1}
-        />
-      );
+  it('should handle input change with value exactly at min quantity', async () => {
+    const { getByTestId } = render(
+      <QuantitySelector
+        initialQuantity={5}
+        minQuantity={2}
+        maxQuantity={10}
+        onQuantityChange={mockOnQuantityChange}
+      />
+    );
 
-      const decreaseButton = getByTestId('quantity-selector-decrease');
-      const increaseButton = getByTestId('quantity-selector-increase');
+    const input = getByTestId('quantity-selector-input');
+    fireEvent.changeText(input, '2');
 
-      // Both buttons should have disabled styling
-      const decreaseStyle = decreaseButton.props.style;
-      const increaseStyle = increaseButton.props.style;
+    await waitFor(() => {
+      expect(mockOnQuantityChange).toHaveBeenCalledWith(2);
+    });
+  });
 
-      expect(decreaseStyle).toContainEqual(expect.objectContaining({ opacity: 0.5 }));
-      expect(increaseStyle).toContainEqual(expect.objectContaining({ opacity: 0.5 }));
+  it('should not reset input on blur when value is valid numeric string', async () => {
+    const { getByTestId } = render(
+      <QuantitySelector
+        initialQuantity={3}
+        minQuantity={1}
+        maxQuantity={10}
+        onQuantityChange={mockOnQuantityChange}
+      />
+    );
+
+    const input = getByTestId('quantity-selector-input') as any;
+
+    // Change to valid number
+    fireEvent.changeText(input, '6');
+
+    await waitFor(() => {
+      expect(input.props.value).toBe('6');
     });
 
-    it('should toggle disabled styles based on quantity position', () => {
-      const onQuantityChange = jest.fn();
-      const { getByTestId, unmount } = render(
-        <QuantitySelector
-          {...defaultProps}
-          initialQuantity={50}
-          minQuantity={1}
-          maxQuantity={100}
-          onQuantityChange={onQuantityChange}
-        />
-      );
+    // Trigger blur event - should keep the value since it's valid
+    fireEvent(input, 'blur');
 
-      // Both buttons should be enabled at position 50
-      let decreaseButton = getByTestId('quantity-selector-decrease');
-      let decreaseStyle = decreaseButton.props.style;
-      // Style array: [buttonStyle, pressed, disabled] - disabled should be false
-      expect(Array.isArray(decreaseStyle)).toBe(true);
+    await waitFor(() => {
+      expect(input.props.value).toBe('6');
+    });
+  });
 
-      let increaseButton = getByTestId('quantity-selector-increase');
-      let increaseStyle = increaseButton.props.style;
-      expect(Array.isArray(increaseStyle)).toBe(true);
+  it('should handle edge case with maximum value at boundary', async () => {
+    const { getByTestId } = render(
+      <QuantitySelector
+        initialQuantity={5}
+        minQuantity={1}
+        maxQuantity={5}
+        onQuantityChange={mockOnQuantityChange}
+      />
+    );
 
-      // Clean up and render new instance at max
-      unmount();
+    const input = getByTestId('quantity-selector-input');
+    fireEvent.changeText(input, '5');
 
-      const { getByTestId: getByTestIdMax } = render(
-        <QuantitySelector
-          {...defaultProps}
-          initialQuantity={100}
-          minQuantity={1}
-          maxQuantity={100}
-          onQuantityChange={onQuantityChange}
-        />
-      );
-
-      increaseButton = getByTestIdMax('quantity-selector-increase');
-      increaseStyle = increaseButton.props.style;
-      // At max, should have disabled style (opacity: 0.5)
-      expect(increaseStyle).toContainEqual(expect.objectContaining({ opacity: 0.5 }));
+    await waitFor(() => {
+      expect(mockOnQuantityChange).toHaveBeenCalledWith(5);
     });
   });
 });

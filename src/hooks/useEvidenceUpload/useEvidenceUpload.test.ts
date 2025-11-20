@@ -1,385 +1,217 @@
 import { renderHook, act } from '@testing-library/react-native';
-import { useEvidenceUpload } from '../useEvidenceUpload';
+import { useEvidenceUpload } from './useEvidenceUpload';
 import type { MediaFile } from '@/hooks/useMediaFileManager';
-import type { UploadResult } from './types';
 
-// Mock the generated API hooks
+// Mock the API hooks
+const mockGenerateUrlMutation = {
+  mutateAsync: jest.fn(),
+};
+
+const mockConfirmUploadMutation = {
+  mutateAsync: jest.fn(),
+};
+
 jest.mock('@/api/generated/sellers-app/sellers-app', () => ({
-  useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost: jest.fn(() => ({
-    mutateAsync: jest.fn(),
-  })),
-  useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost: jest.fn(() => ({
-    mutateAsync: jest.fn(),
-  })),
+  useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost: jest.fn(
+    () => mockGenerateUrlMutation
+  ),
+  useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost: jest.fn(
+    () => mockConfirmUploadMutation
+  ),
 }));
 
-// Mock global fetch
+// Mock fetch
 global.fetch = jest.fn();
 
 describe('useEvidenceUpload', () => {
+  const mockVisitId = 'visit-123';
+  const mockUploadUrl = 'https://s3.amazonaws.com/bucket/upload';
+  const mockS3Url = 'https://s3.amazonaws.com/bucket/file.jpg';
+
+  const mockPhotoFile: MediaFile = {
+    id: 'photo-1',
+    uri: 'file:///path/to/photo.jpg',
+    type: 'photo',
+    name: 'photo.jpg',
+  };
+
+  const mockVideoFile: MediaFile = {
+    id: 'video-1',
+    uri: 'file:///path/to/video.mp4',
+    type: 'video',
+    name: 'video.mp4',
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // Setup fetch mock
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      statusText: 'OK',
+    });
   });
 
-  const visitId = 'visit-123';
+  describe('Initial State', () => {
+    it('should initialize with empty progress', () => {
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
 
-  describe('initial state', () => {
-    it('should initialize with default progress state', () => {
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
-
-      expect(result.current.progress.uploadedCount).toBe(0);
-      expect(result.current.progress.totalCount).toBe(0);
-      expect(result.current.progress.currentFile).toBeNull();
-      expect(result.current.progress.isUploading).toBe(false);
+      expect(result.current.progress).toEqual({
+        uploadedCount: 0,
+        totalCount: 0,
+        currentFile: null,
+        isUploading: false,
+      });
     });
 
-    it('should have isUploading as false initially', () => {
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
+    it('should initialize isUploading as false', () => {
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
 
       expect(result.current.isUploading).toBe(false);
     });
 
-    it('should have uploadFiles function', () => {
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
+    it('should expose uploadFiles function', () => {
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
 
       expect(typeof result.current.uploadFiles).toBe('function');
     });
+  });
 
-    it('should have progress property', () => {
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
+  describe('uploadFiles - Single File Success', () => {
+    it('should successfully upload a single photo file', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: { key: 'file-key', policy: 'policy-value' },
+        s3_url: mockS3Url,
+      });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
 
-      expect(result.current).toHaveProperty('progress');
-      expect(result.current.progress).toHaveProperty('uploadedCount');
-      expect(result.current.progress).toHaveProperty('totalCount');
-      expect(result.current.progress).toHaveProperty('currentFile');
-      expect(result.current.progress).toHaveProperty('isUploading');
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      let uploadResult: any;
+      await act(async () => {
+        uploadResult = await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(uploadResult?.success).toBe(true);
+      expect(uploadResult?.uploadedUrls).toContain(mockS3Url);
+      expect(uploadResult?.errors).toHaveLength(0);
+    });
+
+    it('should successfully upload a single video file', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: { key: 'file-key', policy: 'policy-value' },
+        s3_url: mockS3Url,
+      });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      let uploadResult: any;
+      await act(async () => {
+        uploadResult = await result.current.uploadFiles([mockVideoFile]);
+      });
+
+      expect(uploadResult?.success).toBe(true);
+      expect(uploadResult?.uploadedUrls).toContain(mockS3Url);
+    });
+
+    it('should set isUploading to false after upload completes', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: {},
+        s3_url: mockS3Url,
+      });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      await act(async () => {
+        await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(result.current.progress.isUploading).toBe(false);
+    });
+
+    it('should update progress with correct total count', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: {},
+        s3_url: mockS3Url,
+      });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      await act(async () => {
+        await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(result.current.progress.totalCount).toBe(1);
+    });
+
+    it('should update progress with correct uploaded count after successful upload', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: {},
+        s3_url: mockS3Url,
+      });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      await act(async () => {
+        await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(result.current.progress.uploadedCount).toBe(1);
     });
   });
 
-  describe('uploadFiles', () => {
-    it('should upload single file successfully', async () => {
-      const mockGenerateUrl = jest.fn().mockResolvedValue({
-        upload_url: 'https://s3.amazonaws.com/bucket/presigned-url',
-        fields: { key: 'field-value' },
-        s3_url: 'https://s3.amazonaws.com/bucket/file.jpg',
-      });
-
-      const mockConfirmUpload = jest.fn().mockResolvedValue({});
-
-      const {
-        useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost,
-        useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost,
-      } = require('@/api/generated/sellers-app/sellers-app');
-
-      useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost.mockReturnValue({
-        mutateAsync: mockGenerateUrl,
-      });
-
-      useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost.mockReturnValue({
-        mutateAsync: mockConfirmUpload,
-      });
-
-      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-      });
-
-      const file: MediaFile = {
-        id: 'file-1',
-        uri: 'file:///path/to/image.jpg',
-        type: 'photo',
-        name: 'image.jpg',
-      };
-
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
-
-      let uploadResult: UploadResult | undefined;
-      await act(async () => {
-        uploadResult = await result.current.uploadFiles([file]);
-      });
-
-      expect(uploadResult).toBeDefined();
-      expect(uploadResult?.success).toBe(true);
-      expect(uploadResult?.uploadedUrls).toHaveLength(1);
-      expect(uploadResult?.errors).toHaveLength(0);
-    });
-
+  describe('uploadFiles - Multiple Files', () => {
     it('should upload multiple files successfully', async () => {
-      const mockGenerateUrl = jest.fn().mockResolvedValue({
-        upload_url: 'https://s3.amazonaws.com/bucket/presigned-url',
-        fields: { key: 'field-value' },
-        s3_url: 'https://s3.amazonaws.com/bucket/file.jpg',
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: {},
+        s3_url: mockS3Url,
       });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
 
-      const mockConfirmUpload = jest.fn().mockResolvedValue({});
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
 
-      const {
-        useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost,
-        useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost,
-      } = require('@/api/generated/sellers-app/sellers-app');
-
-      useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost.mockReturnValue({
-        mutateAsync: mockGenerateUrl,
-      });
-
-      useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost.mockReturnValue({
-        mutateAsync: mockConfirmUpload,
-      });
-
-      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-      });
-
-      const files: MediaFile[] = [
-        {
-          id: 'file-1',
-          uri: 'file:///path/to/image1.jpg',
-          type: 'photo',
-          name: 'image1.jpg',
-        },
-        {
-          id: 'file-2',
-          uri: 'file:///path/to/image2.jpg',
-          type: 'photo',
-          name: 'image2.jpg',
-        },
-        {
-          id: 'file-3',
-          uri: 'file:///path/to/video.mp4',
-          type: 'video',
-          name: 'video.mp4',
-        },
-      ];
-
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
-
-      let uploadResult: UploadResult | undefined;
+      let uploadResult: any;
       await act(async () => {
-        uploadResult = await result.current.uploadFiles(files);
+        uploadResult = await result.current.uploadFiles([mockPhotoFile, mockVideoFile]);
       });
 
-      expect(uploadResult?.success).toBe(true);
-      expect(uploadResult?.uploadedUrls).toHaveLength(3);
-      expect(uploadResult?.errors).toHaveLength(0);
-      expect(mockGenerateUrl).toHaveBeenCalledTimes(3);
-      expect(mockConfirmUpload).toHaveBeenCalledTimes(3);
-    });
-
-    it('should handle upload URL generation failure', async () => {
-      const mockGenerateUrl = jest
-        .fn()
-        .mockRejectedValue(new Error('Failed to generate upload URL'));
-
-      const mockConfirmUpload = jest.fn();
-
-      const {
-        useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost,
-        useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost,
-      } = require('@/api/generated/sellers-app/sellers-app');
-
-      useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost.mockReturnValue({
-        mutateAsync: mockGenerateUrl,
-      });
-
-      useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost.mockReturnValue({
-        mutateAsync: mockConfirmUpload,
-      });
-
-      const file: MediaFile = {
-        id: 'file-1',
-        uri: 'file:///path/to/image.jpg',
-        type: 'photo',
-        name: 'image.jpg',
-      };
-
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
-
-      let uploadResult: UploadResult | undefined;
-      await act(async () => {
-        uploadResult = await result.current.uploadFiles([file]);
-      });
-
-      expect(uploadResult?.success).toBe(false);
-      expect(uploadResult?.uploadedUrls).toHaveLength(0);
-      expect(uploadResult?.errors.length).toBeGreaterThan(0);
-      expect(uploadResult?.errors[0]).toContain('Failed to generate upload URL');
-    });
-
-    it('should handle S3 upload failure', async () => {
-      const mockGenerateUrl = jest.fn().mockResolvedValue({
-        upload_url: 'https://s3.amazonaws.com/bucket/presigned-url',
-        fields: { key: 'field-value' },
-        s3_url: 'https://s3.amazonaws.com/bucket/file.jpg',
-      });
-
-      const mockConfirmUpload = jest.fn();
-
-      const {
-        useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost,
-        useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost,
-      } = require('@/api/generated/sellers-app/sellers-app');
-
-      useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost.mockReturnValue({
-        mutateAsync: mockGenerateUrl,
-      });
-
-      useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost.mockReturnValue({
-        mutateAsync: mockConfirmUpload,
-      });
-
-      (global.fetch as jest.Mock)
-        .mockResolvedValueOnce({
-          blob: jest.fn().mockResolvedValue(new Blob()),
-        })
-        .mockResolvedValueOnce({
-          ok: false,
-          status: 400,
-          statusText: 'Bad Request',
-        });
-
-      const file: MediaFile = {
-        id: 'file-1',
-        uri: 'file:///path/to/image.jpg',
-        type: 'photo',
-        name: 'image.jpg',
-      };
-
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
-
-      let uploadResult: UploadResult | undefined;
-      await act(async () => {
-        uploadResult = await result.current.uploadFiles([file]);
-      });
-
-      expect(uploadResult?.success).toBe(false);
-      expect(uploadResult?.uploadedUrls).toHaveLength(0);
-      expect(uploadResult?.errors.length).toBeGreaterThan(0);
-    });
-
-    it('should handle confirm upload failure but continue', async () => {
-      const mockGenerateUrl = jest.fn().mockResolvedValue({
-        upload_url: 'https://s3.amazonaws.com/bucket/presigned-url',
-        fields: { key: 'field-value' },
-        s3_url: 'https://s3.amazonaws.com/bucket/file.jpg',
-      });
-
-      const mockConfirmUpload = jest
-        .fn()
-        .mockRejectedValue(new Error('Failed to confirm upload'));
-
-      const {
-        useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost,
-        useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost,
-      } = require('@/api/generated/sellers-app/sellers-app');
-
-      useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost.mockReturnValue({
-        mutateAsync: mockGenerateUrl,
-      });
-
-      useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost.mockReturnValue({
-        mutateAsync: mockConfirmUpload,
-      });
-
-      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-      });
-
-      const file: MediaFile = {
-        id: 'file-1',
-        uri: 'file:///path/to/image.jpg',
-        type: 'photo',
-        name: 'image.jpg',
-      };
-
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
-
-      let uploadResult: UploadResult | undefined;
-      await act(async () => {
-        uploadResult = await result.current.uploadFiles([file]);
-      });
-
-      expect(uploadResult?.success).toBe(false);
-      expect(uploadResult?.errors.length).toBeGreaterThan(0);
-    });
-
-    it('should continue uploading remaining files after one fails', async () => {
-      const mockGenerateUrl = jest
-        .fn()
-        .mockResolvedValueOnce({
-          upload_url: 'https://s3.amazonaws.com/bucket/presigned-url-1',
-          fields: { key: 'field-value' },
-          s3_url: 'https://s3.amazonaws.com/bucket/file1.jpg',
-        })
-        .mockRejectedValueOnce(new Error('Failed to generate URL'))
-        .mockResolvedValueOnce({
-          upload_url: 'https://s3.amazonaws.com/bucket/presigned-url-3',
-          fields: { key: 'field-value' },
-          s3_url: 'https://s3.amazonaws.com/bucket/file3.jpg',
-        });
-
-      const mockConfirmUpload = jest.fn().mockResolvedValue({});
-
-      const {
-        useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost,
-        useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost,
-      } = require('@/api/generated/sellers-app/sellers-app');
-
-      useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost.mockReturnValue({
-        mutateAsync: mockGenerateUrl,
-      });
-
-      useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost.mockReturnValue({
-        mutateAsync: mockConfirmUpload,
-      });
-
-      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-      });
-
-      const files: MediaFile[] = [
-        {
-          id: 'file-1',
-          uri: 'file:///path/to/image1.jpg',
-          type: 'photo',
-          name: 'image1.jpg',
-        },
-        {
-          id: 'file-2',
-          uri: 'file:///path/to/image2.jpg',
-          type: 'photo',
-          name: 'image2.jpg',
-        },
-        {
-          id: 'file-3',
-          uri: 'file:///path/to/image3.jpg',
-          type: 'photo',
-          name: 'image3.jpg',
-        },
-      ];
-
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
-
-      let uploadResult: UploadResult | undefined;
-      await act(async () => {
-        uploadResult = await result.current.uploadFiles(files);
-      });
-
-      expect(uploadResult?.success).toBe(false);
       expect(uploadResult?.uploadedUrls).toHaveLength(2);
-      expect(uploadResult?.errors).toHaveLength(1);
+      expect(mockGenerateUrlMutation.mutateAsync).toHaveBeenCalledTimes(2);
+      expect(mockConfirmUploadMutation.mutateAsync).toHaveBeenCalledTimes(2);
     });
 
-    it('should return empty files on empty input', async () => {
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
+    it('should update progress count correctly for multiple files', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: {},
+        s3_url: mockS3Url,
+      });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
 
-      let uploadResult: UploadResult | undefined;
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      await act(async () => {
+        await result.current.uploadFiles([mockPhotoFile, mockVideoFile]);
+      });
+
+      expect(result.current.progress.totalCount).toBe(2);
+      expect(result.current.progress.uploadedCount).toBe(2);
+    });
+
+    it('should handle empty file array', async () => {
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      let uploadResult: any;
       await act(async () => {
         uploadResult = await result.current.uploadFiles([]);
       });
@@ -387,598 +219,443 @@ describe('useEvidenceUpload', () => {
       expect(uploadResult?.success).toBe(true);
       expect(uploadResult?.uploadedUrls).toHaveLength(0);
       expect(uploadResult?.errors).toHaveLength(0);
-    });
-
-    it('should set correct MIME type for photos', async () => {
-      const mockGenerateUrl = jest.fn().mockResolvedValue({
-        upload_url: 'https://s3.amazonaws.com/bucket/presigned-url',
-        fields: { key: 'field-value' },
-        s3_url: 'https://s3.amazonaws.com/bucket/file.jpg',
-      });
-
-      const mockConfirmUpload = jest.fn().mockResolvedValue({});
-
-      const {
-        useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost,
-        useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost,
-      } = require('@/api/generated/sellers-app/sellers-app');
-
-      useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost.mockReturnValue({
-        mutateAsync: mockGenerateUrl,
-      });
-
-      useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost.mockReturnValue({
-        mutateAsync: mockConfirmUpload,
-      });
-
-      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-      });
-
-      const file: MediaFile = {
-        id: 'file-1',
-        uri: 'file:///path/to/image.jpg',
-        type: 'photo',
-        name: 'image.jpg',
-      };
-
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
-
-      await act(async () => {
-        await result.current.uploadFiles([file]);
-      });
-
-      const generateUrlCall = mockGenerateUrl.mock.calls[0];
-      expect(generateUrlCall[0].data.content_type).toBe('image/jpeg');
-    });
-
-    it('should set correct MIME type for videos', async () => {
-      const mockGenerateUrl = jest.fn().mockResolvedValue({
-        upload_url: 'https://s3.amazonaws.com/bucket/presigned-url',
-        fields: { key: 'field-value' },
-        s3_url: 'https://s3.amazonaws.com/bucket/file.mp4',
-      });
-
-      const mockConfirmUpload = jest.fn().mockResolvedValue({});
-
-      const {
-        useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost,
-        useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost,
-      } = require('@/api/generated/sellers-app/sellers-app');
-
-      useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost.mockReturnValue({
-        mutateAsync: mockGenerateUrl,
-      });
-
-      useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost.mockReturnValue({
-        mutateAsync: mockConfirmUpload,
-      });
-
-      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-      });
-
-      const file: MediaFile = {
-        id: 'file-1',
-        uri: 'file:///path/to/video.mp4',
-        type: 'video',
-        name: 'video.mp4',
-      };
-
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
-
-      await act(async () => {
-        await result.current.uploadFiles([file]);
-      });
-
-      const generateUrlCall = mockGenerateUrl.mock.calls[0];
-      expect(generateUrlCall[0].data.content_type).toBe('video/mp4');
+      expect(result.current.progress.totalCount).toBe(0);
     });
   });
 
-  describe('progress tracking', () => {
-    it('should update progress during upload', async () => {
-      const mockGenerateUrl = jest.fn().mockResolvedValue({
-        upload_url: 'https://s3.amazonaws.com/bucket/presigned-url',
-        fields: { key: 'field-value' },
-        s3_url: 'https://s3.amazonaws.com/bucket/file.jpg',
-      });
+  describe('uploadFiles - Error Handling', () => {
+    it('should handle URL generation failure gracefully', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockRejectedValue(
+        new Error('Failed to generate upload URL')
+      );
 
-      const mockConfirmUpload = jest.fn().mockResolvedValue({});
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
 
-      const {
-        useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost,
-        useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost,
-      } = require('@/api/generated/sellers-app/sellers-app');
-
-      useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost.mockReturnValue({
-        mutateAsync: mockGenerateUrl,
-      });
-
-      useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost.mockReturnValue({
-        mutateAsync: mockConfirmUpload,
-      });
-
-      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-      });
-
-      const files: MediaFile[] = Array.from({ length: 3 }, (_, i) => ({
-        id: `file-${i + 1}`,
-        uri: `file:///path/to/image${i + 1}.jpg`,
-        type: 'photo' as const,
-        name: `image${i + 1}.jpg`,
-      }));
-
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
-
-      let intermediateProgress: any[] = [];
-
-      mockGenerateUrl.mockImplementation(async (...args) => {
-        intermediateProgress.push({ ...result.current.progress });
-        return {
-          upload_url: 'https://s3.amazonaws.com/bucket/presigned-url',
-          fields: { key: 'field-value' },
-          s3_url: 'https://s3.amazonaws.com/bucket/file.jpg',
-        };
-      });
-
+      let uploadResult: any;
       await act(async () => {
-        await result.current.uploadFiles(files);
-      });
-
-      // Progress should have been updated
-      expect(result.current.progress.uploadedCount).toBe(3);
-      expect(result.current.progress.totalCount).toBe(3);
-      expect(result.current.progress.isUploading).toBe(false);
-    });
-
-    it('should set isUploading to false after upload', async () => {
-      const mockGenerateUrl = jest.fn().mockResolvedValue({
-        upload_url: 'https://s3.amazonaws.com/bucket/presigned-url',
-        fields: { key: 'field-value' },
-        s3_url: 'https://s3.amazonaws.com/bucket/file.jpg',
-      });
-
-      const mockConfirmUpload = jest.fn().mockResolvedValue({});
-
-      const {
-        useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost,
-        useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost,
-      } = require('@/api/generated/sellers-app/sellers-app');
-
-      useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost.mockReturnValue({
-        mutateAsync: mockGenerateUrl,
-      });
-
-      useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost.mockReturnValue({
-        mutateAsync: mockConfirmUpload,
-      });
-
-      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-      });
-
-      const file: MediaFile = {
-        id: 'file-1',
-        uri: 'file:///path/to/image.jpg',
-        type: 'photo',
-        name: 'image.jpg',
-      };
-
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
-
-      expect(result.current.progress.isUploading).toBe(false);
-
-      await act(async () => {
-        await result.current.uploadFiles([file]);
-      });
-
-      expect(result.current.progress.isUploading).toBe(false);
-      expect(result.current.isUploading).toBe(false);
-    });
-
-    it('should set currentFile during upload', async () => {
-      let capturedProgress: any[] = [];
-
-      const mockGenerateUrl = jest.fn().mockImplementation(async (params) => {
-        capturedProgress.push({ ...params });
-        return {
-          upload_url: 'https://s3.amazonaws.com/bucket/presigned-url',
-          fields: { key: 'field-value' },
-          s3_url: 'https://s3.amazonaws.com/bucket/file.jpg',
-        };
-      });
-
-      const mockConfirmUpload = jest.fn().mockResolvedValue({});
-
-      const {
-        useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost,
-        useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost,
-      } = require('@/api/generated/sellers-app/sellers-app');
-
-      useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost.mockReturnValue({
-        mutateAsync: mockGenerateUrl,
-      });
-
-      useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost.mockReturnValue({
-        mutateAsync: mockConfirmUpload,
-      });
-
-      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-      });
-
-      const file: MediaFile = {
-        id: 'file-1',
-        uri: 'file:///path/to/image.jpg',
-        type: 'photo',
-        name: 'image.jpg',
-      };
-
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
-
-      await act(async () => {
-        await result.current.uploadFiles([file]);
-      });
-
-      // currentFile should be cleared after upload
-      expect(result.current.progress.currentFile).toBeNull();
-    });
-
-    it('should track uploadedCount correctly', async () => {
-      const mockGenerateUrl = jest.fn().mockResolvedValue({
-        upload_url: 'https://s3.amazonaws.com/bucket/presigned-url',
-        fields: { key: 'field-value' },
-        s3_url: 'https://s3.amazonaws.com/bucket/file.jpg',
-      });
-
-      const mockConfirmUpload = jest.fn().mockResolvedValue({});
-
-      const {
-        useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost,
-        useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost,
-      } = require('@/api/generated/sellers-app/sellers-app');
-
-      useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost.mockReturnValue({
-        mutateAsync: mockGenerateUrl,
-      });
-
-      useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost.mockReturnValue({
-        mutateAsync: mockConfirmUpload,
-      });
-
-      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-      });
-
-      const files: MediaFile[] = Array.from({ length: 5 }, (_, i) => ({
-        id: `file-${i + 1}`,
-        uri: `file:///path/to/image${i + 1}.jpg`,
-        type: 'photo' as const,
-        name: `image${i + 1}.jpg`,
-      }));
-
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
-
-      await act(async () => {
-        await result.current.uploadFiles(files);
-      });
-
-      expect(result.current.progress.uploadedCount).toBe(5);
-      expect(result.current.progress.totalCount).toBe(5);
-    });
-  });
-
-  describe('upload result', () => {
-    it('should return success true when all files uploaded', async () => {
-      const mockGenerateUrl = jest.fn().mockResolvedValue({
-        upload_url: 'https://s3.amazonaws.com/bucket/presigned-url',
-        fields: { key: 'field-value' },
-        s3_url: 'https://s3.amazonaws.com/bucket/file.jpg',
-      });
-
-      const mockConfirmUpload = jest.fn().mockResolvedValue({});
-
-      const {
-        useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost,
-        useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost,
-      } = require('@/api/generated/sellers-app/sellers-app');
-
-      useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost.mockReturnValue({
-        mutateAsync: mockGenerateUrl,
-      });
-
-      useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost.mockReturnValue({
-        mutateAsync: mockConfirmUpload,
-      });
-
-      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-      });
-
-      const file: MediaFile = {
-        id: 'file-1',
-        uri: 'file:///path/to/image.jpg',
-        type: 'photo',
-        name: 'image.jpg',
-      };
-
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
-
-      let uploadResult: UploadResult | undefined;
-      await act(async () => {
-        uploadResult = await result.current.uploadFiles([file]);
-      });
-
-      expect(uploadResult?.success).toBe(true);
-    });
-
-    it('should return success false when any file fails', async () => {
-      const mockGenerateUrl = jest
-        .fn()
-        .mockResolvedValueOnce({
-          upload_url: 'https://s3.amazonaws.com/bucket/presigned-url',
-          fields: { key: 'field-value' },
-          s3_url: 'https://s3.amazonaws.com/bucket/file1.jpg',
-        })
-        .mockRejectedValueOnce(new Error('Upload failed'));
-
-      const mockConfirmUpload = jest.fn().mockResolvedValue({});
-
-      const {
-        useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost,
-        useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost,
-      } = require('@/api/generated/sellers-app/sellers-app');
-
-      useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost.mockReturnValue({
-        mutateAsync: mockGenerateUrl,
-      });
-
-      useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost.mockReturnValue({
-        mutateAsync: mockConfirmUpload,
-      });
-
-      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-      });
-
-      const files: MediaFile[] = [
-        {
-          id: 'file-1',
-          uri: 'file:///path/to/image1.jpg',
-          type: 'photo',
-          name: 'image1.jpg',
-        },
-        {
-          id: 'file-2',
-          uri: 'file:///path/to/image2.jpg',
-          type: 'photo',
-          name: 'image2.jpg',
-        },
-      ];
-
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
-
-      let uploadResult: UploadResult | undefined;
-      await act(async () => {
-        uploadResult = await result.current.uploadFiles(files);
+        uploadResult = await result.current.uploadFiles([mockPhotoFile]);
       });
 
       expect(uploadResult?.success).toBe(false);
+      expect(uploadResult?.uploadedUrls).toHaveLength(0);
+      expect(uploadResult?.errors).toHaveLength(1);
+      expect(uploadResult?.errors[0]).toContain('Failed to upload photo.jpg');
     });
 
-    it('should include uploaded URLs in result', async () => {
-      const uploadUrl1 = 'https://s3.amazonaws.com/bucket/file1.jpg';
-      const uploadUrl2 = 'https://s3.amazonaws.com/bucket/file2.jpg';
+    it('should handle S3 upload failure gracefully', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: {},
+        s3_url: mockS3Url,
+      });
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: false,
+        statusText: 'Forbidden',
+      });
 
-      const mockGenerateUrl = jest
-        .fn()
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      let uploadResult: any;
+      await act(async () => {
+        uploadResult = await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(uploadResult?.success).toBe(false);
+      expect(uploadResult?.errors).toHaveLength(1);
+      expect(uploadResult?.errors[0]).toContain('S3 upload failed');
+    });
+
+    it('should handle confirmation failure gracefully', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: {},
+        s3_url: mockS3Url,
+      });
+      mockConfirmUploadMutation.mutateAsync.mockRejectedValue(
+        new Error('Failed to confirm upload')
+      );
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      let uploadResult: any;
+      await act(async () => {
+        uploadResult = await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(uploadResult?.success).toBe(false);
+      expect(uploadResult?.errors).toHaveLength(1);
+      expect(uploadResult?.errors[0]).toContain('Failed to confirm upload');
+    });
+
+    it('should continue uploading other files if one fails', async () => {
+      mockGenerateUrlMutation.mutateAsync
+        .mockRejectedValueOnce(new Error('URL generation failed'))
         .mockResolvedValueOnce({
-          upload_url: 'https://s3.amazonaws.com/bucket/presigned-url-1',
-          fields: { key: 'field-value' },
-          s3_url: uploadUrl1,
-        })
-        .mockResolvedValueOnce({
-          upload_url: 'https://s3.amazonaws.com/bucket/presigned-url-2',
-          fields: { key: 'field-value' },
-          s3_url: uploadUrl2,
+          upload_url: mockUploadUrl,
+          fields: {},
+          s3_url: mockS3Url,
         });
 
-      const mockConfirmUpload = jest.fn().mockResolvedValue({});
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
 
-      const {
-        useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost,
-        useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost,
-      } = require('@/api/generated/sellers-app/sellers-app');
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
 
-      useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost.mockReturnValue({
-        mutateAsync: mockGenerateUrl,
-      });
-
-      useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost.mockReturnValue({
-        mutateAsync: mockConfirmUpload,
-      });
-
-      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-      });
-
-      const files: MediaFile[] = [
-        {
-          id: 'file-1',
-          uri: 'file:///path/to/image1.jpg',
-          type: 'photo',
-          name: 'image1.jpg',
-        },
-        {
-          id: 'file-2',
-          uri: 'file:///path/to/image2.jpg',
-          type: 'photo',
-          name: 'image2.jpg',
-        },
-      ];
-
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
-
-      let uploadResult: UploadResult | undefined;
+      let uploadResult: any;
       await act(async () => {
-        uploadResult = await result.current.uploadFiles(files);
+        uploadResult = await result.current.uploadFiles([mockPhotoFile, mockVideoFile]);
       });
 
-      expect(uploadResult?.uploadedUrls).toContain(uploadUrl1);
-      expect(uploadResult?.uploadedUrls).toContain(uploadUrl2);
-    });
-
-    it('should include error messages in result', async () => {
-      const errorMessage = 'Failed to upload file';
-      const mockGenerateUrl = jest
-        .fn()
-        .mockRejectedValue(new Error(errorMessage));
-
-      const mockConfirmUpload = jest.fn();
-
-      const {
-        useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost,
-        useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost,
-      } = require('@/api/generated/sellers-app/sellers-app');
-
-      useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost.mockReturnValue({
-        mutateAsync: mockGenerateUrl,
-      });
-
-      useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost.mockReturnValue({
-        mutateAsync: mockConfirmUpload,
-      });
-
-      const file: MediaFile = {
-        id: 'file-1',
-        uri: 'file:///path/to/image.jpg',
-        type: 'photo',
-        name: 'image.jpg',
-      };
-
-      const { result } = renderHook(() => useEvidenceUpload({ visitId }));
-
-      let uploadResult: UploadResult | undefined;
-      await act(async () => {
-        uploadResult = await result.current.uploadFiles([file]);
-      });
-
-      expect(uploadResult?.errors.length).toBeGreaterThan(0);
-      expect(uploadResult?.errors[0]).toContain(errorMessage);
+      expect(uploadResult?.uploadedUrls).toHaveLength(1);
+      expect(uploadResult?.errors).toHaveLength(1);
+      expect(uploadResult?.success).toBe(false);
     });
   });
 
-  describe('visitId parameter', () => {
-    it('should pass visitId to generate URL mutation', async () => {
-      const customVisitId = 'visit-999';
-      const mockGenerateUrl = jest.fn().mockResolvedValue({
-        upload_url: 'https://s3.amazonaws.com/bucket/presigned-url',
-        fields: { key: 'field-value' },
-        s3_url: 'https://s3.amazonaws.com/bucket/file.jpg',
+  describe('MIME Type Detection', () => {
+    it('should use image/jpeg for photo files', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: {},
+        s3_url: mockS3Url,
       });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
 
-      const mockConfirmUpload = jest.fn().mockResolvedValue({});
-
-      const {
-        useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost,
-        useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost,
-      } = require('@/api/generated/sellers-app/sellers-app');
-
-      useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost.mockReturnValue({
-        mutateAsync: mockGenerateUrl,
-      });
-
-      useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost.mockReturnValue({
-        mutateAsync: mockConfirmUpload,
-      });
-
-      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-      });
-
-      const file: MediaFile = {
-        id: 'file-1',
-        uri: 'file:///path/to/image.jpg',
-        type: 'photo',
-        name: 'image.jpg',
-      };
-
-      const { result } = renderHook(() => useEvidenceUpload({ visitId: customVisitId }));
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
 
       await act(async () => {
-        await result.current.uploadFiles([file]);
+        await result.current.uploadFiles([mockPhotoFile]);
       });
 
-      const generateUrlCall = mockGenerateUrl.mock.calls[0];
-      expect(generateUrlCall[0].visitId).toBe(customVisitId);
+      expect(mockGenerateUrlMutation.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            content_type: 'image/jpeg',
+          }),
+        })
+      );
     });
 
-    it('should pass visitId to confirm upload mutation', async () => {
-      const customVisitId = 'visit-999';
-      const mockGenerateUrl = jest.fn().mockResolvedValue({
-        upload_url: 'https://s3.amazonaws.com/bucket/presigned-url',
-        fields: { key: 'field-value' },
-        s3_url: 'https://s3.amazonaws.com/bucket/file.jpg',
+    it('should use video/mp4 for video files', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: {},
+        s3_url: mockS3Url,
       });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
 
-      const mockConfirmUpload = jest.fn().mockResolvedValue({});
-
-      const {
-        useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost,
-        useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost,
-      } = require('@/api/generated/sellers-app/sellers-app');
-
-      useGenerateEvidenceUploadUrlBffSellersAppVisitsVisitIdEvidenceUploadUrlPost.mockReturnValue({
-        mutateAsync: mockGenerateUrl,
-      });
-
-      useConfirmEvidenceUploadBffSellersAppVisitsVisitIdEvidenceConfirmPost.mockReturnValue({
-        mutateAsync: mockConfirmUpload,
-      });
-
-      // Mock S3 upload response (no longer need to mock file fetch since we use FormData directly)
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-      });
-
-      const file: MediaFile = {
-        id: 'file-1',
-        uri: 'file:///path/to/image.jpg',
-        type: 'photo',
-        name: 'image.jpg',
-      };
-
-      const { result } = renderHook(() => useEvidenceUpload({ visitId: customVisitId }));
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
 
       await act(async () => {
-        await result.current.uploadFiles([file]);
+        await result.current.uploadFiles([mockVideoFile]);
       });
 
-      const confirmUploadCall = mockConfirmUpload.mock.calls[0];
-      expect(confirmUploadCall[0].visitId).toBe(customVisitId);
+      expect(mockGenerateUrlMutation.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            content_type: 'video/mp4',
+          }),
+        })
+      );
+    });
+  });
+
+  describe('API Integration', () => {
+    it('should pass correct visitId to generateUrl mutation', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: {},
+        s3_url: mockS3Url,
+      });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      await act(async () => {
+        await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(mockGenerateUrlMutation.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          visitId: mockVisitId,
+        })
+      );
+    });
+
+    it('should pass correct filename to generateUrl mutation', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: {},
+        s3_url: mockS3Url,
+      });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      await act(async () => {
+        await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(mockGenerateUrlMutation.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            filename: mockPhotoFile.name,
+          }),
+        })
+      );
+    });
+
+    it('should pass s3_url to confirm mutation', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: {},
+        s3_url: mockS3Url,
+      });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      await act(async () => {
+        await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(mockConfirmUploadMutation.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            s3_url: mockS3Url,
+          }),
+        })
+      );
+    });
+
+    it('should pass visitId to confirm mutation', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: {},
+        s3_url: mockS3Url,
+      });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      await act(async () => {
+        await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(mockConfirmUploadMutation.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          visitId: mockVisitId,
+        })
+      );
+    });
+  });
+
+  describe('S3 Upload', () => {
+    it('should use correct HTTP method for S3 upload', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: { key: 'file-key' },
+        s3_url: mockS3Url,
+      });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      await act(async () => {
+        await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        mockUploadUrl,
+        expect.objectContaining({
+          method: 'POST',
+        })
+      );
+    });
+
+    it('should send FormData to correct S3 URL', async () => {
+      const expectedS3Url = 'https://s3.amazonaws.com/custom-bucket/upload';
+
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: expectedS3Url,
+        fields: { key: 'file-key' },
+        s3_url: mockS3Url,
+      });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      await act(async () => {
+        await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(expectedS3Url, expect.any(Object));
+    });
+
+    it('should throw error on S3 upload response not ok', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: {},
+        s3_url: mockS3Url,
+      });
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: false,
+        statusText: 'Bad Request',
+      });
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      let uploadResult: any;
+      await act(async () => {
+        uploadResult = await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(uploadResult?.errors[0]).toContain('S3 upload failed: Bad Request');
+    });
+  });
+
+  describe('Progress Tracking', () => {
+    it('should reset progress when upload starts', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: {},
+        s3_url: mockS3Url,
+      });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      // Do initial upload
+      await act(async () => {
+        await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(result.current.progress.uploadedCount).toBe(1);
+      expect(result.current.progress.totalCount).toBe(1);
+
+      // Start new upload
+      await act(async () => {
+        await result.current.uploadFiles([mockVideoFile]);
+      });
+
+      expect(result.current.progress.uploadedCount).toBe(1);
+      expect(result.current.progress.totalCount).toBe(1);
+    });
+
+    it('should set currentFile to null after upload completes', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: {},
+        s3_url: mockS3Url,
+      });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      await act(async () => {
+        await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(result.current.progress.currentFile).toBe(null);
+    });
+  });
+
+  describe('Return Values', () => {
+    it('should return correct structure on success', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockResolvedValue({
+        upload_url: mockUploadUrl,
+        fields: {},
+        s3_url: mockS3Url,
+      });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      let uploadResult: any;
+      await act(async () => {
+        uploadResult = await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(uploadResult).toHaveProperty('success');
+      expect(uploadResult).toHaveProperty('uploadedUrls');
+      expect(uploadResult).toHaveProperty('errors');
+      expect(Array.isArray(uploadResult?.uploadedUrls)).toBe(true);
+      expect(Array.isArray(uploadResult?.errors)).toBe(true);
+    });
+
+    it('should return URLs for successful uploads', async () => {
+      const mockS3Url1 = 'https://s3.amazonaws.com/bucket/file1.jpg';
+      const mockS3Url2 = 'https://s3.amazonaws.com/bucket/file2.mp4';
+
+      mockGenerateUrlMutation.mutateAsync
+        .mockResolvedValueOnce({
+          upload_url: mockUploadUrl,
+          fields: {},
+          s3_url: mockS3Url1,
+        })
+        .mockResolvedValueOnce({
+          upload_url: mockUploadUrl,
+          fields: {},
+          s3_url: mockS3Url2,
+        });
+      mockConfirmUploadMutation.mutateAsync.mockResolvedValue({});
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      let uploadResult: any;
+      await act(async () => {
+        uploadResult = await result.current.uploadFiles([mockPhotoFile, mockVideoFile]);
+      });
+
+      expect(uploadResult?.uploadedUrls).toContain(mockS3Url1);
+      expect(uploadResult?.uploadedUrls).toContain(mockS3Url2);
+    });
+
+    it('should return error messages for failed uploads', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockRejectedValue(
+        new Error('Network error')
+      );
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      let uploadResult: any;
+      await act(async () => {
+        uploadResult = await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(uploadResult?.errors).toHaveLength(1);
+      expect(typeof uploadResult?.errors[0]).toBe('string');
+      expect(uploadResult?.errors[0]).toContain('photo.jpg');
+    });
+  });
+
+  describe('Error Message Formatting', () => {
+    it('should include filename in error message', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockRejectedValue(
+        new Error('Upload failed')
+      );
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      let uploadResult: any;
+      await act(async () => {
+        uploadResult = await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(uploadResult?.errors[0]).toContain('photo.jpg');
+    });
+
+    it('should handle non-Error exceptions gracefully', async () => {
+      mockGenerateUrlMutation.mutateAsync.mockRejectedValue('String error');
+
+      const { result } = renderHook(() => useEvidenceUpload({ visitId: mockVisitId }));
+
+      let uploadResult: any;
+      await act(async () => {
+        uploadResult = await result.current.uploadFiles([mockPhotoFile]);
+      });
+
+      expect(uploadResult?.errors).toHaveLength(1);
+      expect(uploadResult?.errors[0]).toContain('Unknown error');
     });
   });
 });
