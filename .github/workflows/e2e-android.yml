@@ -1,0 +1,101 @@
+name: E2E Tests (Android)
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  e2e-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Build Android app and test APK
+        env:
+          EXPO_PUBLIC_API_URL: http://localhost:8000
+          GRADLE_OPTS: "-Xmx6144m -XX:MaxMetaspaceSize=1536m"
+        run: |
+          cd android
+          ./gradlew assembleRelease assembleAndroidTest -DtestBuildType=release \
+            -Dorg.gradle.jvmargs="-Xmx6144m -XX:MaxMetaspaceSize=1536m" \
+            --no-daemon --stacktrace --max-workers=2
+
+      - name: Run Detox E2E tests
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 31
+          arch: x86_64
+          target: google_apis
+          avd-name: Pixel_4_API_31
+          profile: pixel_4
+          disable-animations: true
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            # Start mock server in background
+            yarn e2e:mock-server &
+            MOCK_SERVER_PID=$!
+
+            # Wait for mock server to be ready
+            echo "Waiting for mock server to start..."
+            timeout 30 bash -c 'until curl -s http://localhost:8000/health > /dev/null 2>&1; do sleep 1; done' || echo "Mock server health check timed out, continuing anyway..."
+
+            # Run Detox tests
+            yarn detox test -c android.emu.release --headless --record-logs all
+
+            # Store exit code
+            DETOX_EXIT_CODE=$?
+
+            # Cleanup mock server
+            kill $MOCK_SERVER_PID || true
+
+            # Exit with Detox exit code
+            exit $DETOX_EXIT_CODE
+
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: detox-artifacts
+          path: e2e/artifacts/
+          retention-days: 7
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: detox-reports
+          path: e2e/reports/
+          retention-days: 7
