@@ -230,7 +230,7 @@ const server = http.createServer((req, res) => {
   });
 });
 
-const PORT = process.env.MOCK_SERVER_PORT || 8000;
+const PORT = process.env.MOCK_SERVER_PORT || 8010;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Mock API server running on http://0.0.0.0:${PORT}`);
 });
