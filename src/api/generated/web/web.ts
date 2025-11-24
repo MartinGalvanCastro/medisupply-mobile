@@ -27,6 +27,7 @@ import type {
   GetInventoriesBffWebInventoriesGetParams,
   GetProductsBffWebProductsGetParams,
   GetProvidersBffWebProvidersGetParams,
+  GetRoutesBffWebDeliveryRoutesGetParams,
   GetSalesPlansBffWebSalesPlansGetParams,
   GetSellerSalesPlansBffWebSellersSellerIdSalesPlansGetParams,
   GetSellersBffWebSellersGet200,
@@ -48,11 +49,24 @@ import type {
   ReportCreateRequest,
   ReportCreateResponse,
   ReportResponse,
+  RouteDetailResponse,
+  RouteGenerationRequest,
+  RouteGenerationResponse,
+  RouteResponse,
+  RouteStatusUpdateRequest,
+  RoutesListResponse,
   SalesPlanCreate,
   SalesPlanCreateResponse,
   SellerCreate,
   SellerCreateResponse,
+  ServiceUnavailableErrorResponse,
+  ShipmentResponse,
+  ShipmentStatusUpdateRequest,
   ValidationErrorResponse,
+  VehicleCreateRequest,
+  VehicleResponse,
+  VehicleUpdateRequest,
+  VehiclesListResponse,
   WarehouseCreate,
   WarehouseCreateResponse,
   WebSchemasInventorySchemasPaginatedInventoriesResponse,
@@ -2629,3 +2643,1344 @@ export function useGetReportBffWebReportsReportIdGet<
 
   return query;
 }
+
+/**
+ * Trigger route generation for a specific date.
+
+This endpoint initiates an asynchronous route generation process using
+the specified vehicles for deliveries scheduled on the given date.
+
+Args:
+    request: Route generation parameters including date and vehicle IDs
+    port: Delivery port for service communication
+    user: Authenticated user information
+
+Returns:
+    RouteGenerationResponse with confirmation of the operation
+ * @summary Generate Routes
+ */
+export const generateRoutesBffWebDeliveryRoutesGeneratePost = (
+  routeGenerationRequest: RouteGenerationRequest,
+  options?: SecondParameter<typeof customInstance>,
+  signal?: AbortSignal,
+) => {
+  return customInstance<RouteGenerationResponse>(
+    {
+      url: `/bff/web/delivery/routes/generate`,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      data: routeGenerationRequest,
+      signal,
+    },
+    options,
+  );
+};
+
+export const getGenerateRoutesBffWebDeliveryRoutesGeneratePostMutationOptions =
+  <
+    TError =
+      | ValidationErrorResponse
+      | void
+      | HTTPValidationError
+      | ServiceUnavailableErrorResponse,
+    TContext = unknown,
+  >(options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<typeof generateRoutesBffWebDeliveryRoutesGeneratePost>
+      >,
+      TError,
+      { data: RouteGenerationRequest },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  }): UseMutationOptions<
+    Awaited<ReturnType<typeof generateRoutesBffWebDeliveryRoutesGeneratePost>>,
+    TError,
+    { data: RouteGenerationRequest },
+    TContext
+  > => {
+    const mutationKey = ["generateRoutesBffWebDeliveryRoutesGeneratePost"];
+    const { mutation: mutationOptions, request: requestOptions } = options
+      ? options.mutation &&
+        "mutationKey" in options.mutation &&
+        options.mutation.mutationKey
+        ? options
+        : { ...options, mutation: { ...options.mutation, mutationKey } }
+      : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+      Awaited<
+        ReturnType<typeof generateRoutesBffWebDeliveryRoutesGeneratePost>
+      >,
+      { data: RouteGenerationRequest }
+    > = (props) => {
+      const { data } = props ?? {};
+
+      return generateRoutesBffWebDeliveryRoutesGeneratePost(
+        data,
+        requestOptions,
+      );
+    };
+
+    return { mutationFn, ...mutationOptions };
+  };
+
+export type GenerateRoutesBffWebDeliveryRoutesGeneratePostMutationResult =
+  NonNullable<
+    Awaited<ReturnType<typeof generateRoutesBffWebDeliveryRoutesGeneratePost>>
+  >;
+export type GenerateRoutesBffWebDeliveryRoutesGeneratePostMutationBody =
+  RouteGenerationRequest;
+export type GenerateRoutesBffWebDeliveryRoutesGeneratePostMutationError =
+  | ValidationErrorResponse
+  | void
+  | HTTPValidationError
+  | ServiceUnavailableErrorResponse;
+
+/**
+ * @summary Generate Routes
+ */
+export const useGenerateRoutesBffWebDeliveryRoutesGeneratePost = <
+  TError =
+    | ValidationErrorResponse
+    | void
+    | HTTPValidationError
+    | ServiceUnavailableErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<typeof generateRoutesBffWebDeliveryRoutesGeneratePost>
+      >,
+      TError,
+      { data: RouteGenerationRequest },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof generateRoutesBffWebDeliveryRoutesGeneratePost>>,
+  TError,
+  { data: RouteGenerationRequest },
+  TContext
+> => {
+  const mutationOptions =
+    getGenerateRoutesBffWebDeliveryRoutesGeneratePostMutationOptions(options);
+
+  return useMutation(mutationOptions, queryClient);
+};
+/**
+ * Retrieve routes with optional filters.
+
+Args:
+    fecha_ruta: Optional date filter for routes
+    estado_ruta: Optional status filter for routes
+    port: Delivery port for service communication
+    user: Authenticated user information
+
+Returns:
+    RoutesListResponse with list of routes matching the filters
+ * @summary Get Routes
+ */
+export const getRoutesBffWebDeliveryRoutesGet = (
+  params?: GetRoutesBffWebDeliveryRoutesGetParams,
+  options?: SecondParameter<typeof customInstance>,
+  signal?: AbortSignal,
+) => {
+  return customInstance<RoutesListResponse>(
+    { url: `/bff/web/delivery/routes`, method: "GET", params, signal },
+    options,
+  );
+};
+
+export const getGetRoutesBffWebDeliveryRoutesGetQueryKey = (
+  params?: GetRoutesBffWebDeliveryRoutesGetParams,
+) => {
+  return [`/bff/web/delivery/routes`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetRoutesBffWebDeliveryRoutesGetQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRoutesBffWebDeliveryRoutesGet>>,
+  TError = void | ValidationErrorResponse | ServiceUnavailableErrorResponse,
+>(
+  params?: GetRoutesBffWebDeliveryRoutesGetParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getRoutesBffWebDeliveryRoutesGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetRoutesBffWebDeliveryRoutesGetQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getRoutesBffWebDeliveryRoutesGet>>
+  > = ({ signal }) =>
+    getRoutesBffWebDeliveryRoutesGet(params, requestOptions, signal);
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRoutesBffWebDeliveryRoutesGet>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetRoutesBffWebDeliveryRoutesGetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRoutesBffWebDeliveryRoutesGet>>
+>;
+export type GetRoutesBffWebDeliveryRoutesGetQueryError =
+  | void
+  | ValidationErrorResponse
+  | ServiceUnavailableErrorResponse;
+
+export function useGetRoutesBffWebDeliveryRoutesGet<
+  TData = Awaited<ReturnType<typeof getRoutesBffWebDeliveryRoutesGet>>,
+  TError = void | ValidationErrorResponse | ServiceUnavailableErrorResponse,
+>(
+  params: undefined | GetRoutesBffWebDeliveryRoutesGetParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getRoutesBffWebDeliveryRoutesGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getRoutesBffWebDeliveryRoutesGet>>,
+          TError,
+          Awaited<ReturnType<typeof getRoutesBffWebDeliveryRoutesGet>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetRoutesBffWebDeliveryRoutesGet<
+  TData = Awaited<ReturnType<typeof getRoutesBffWebDeliveryRoutesGet>>,
+  TError = void | ValidationErrorResponse | ServiceUnavailableErrorResponse,
+>(
+  params?: GetRoutesBffWebDeliveryRoutesGetParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getRoutesBffWebDeliveryRoutesGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getRoutesBffWebDeliveryRoutesGet>>,
+          TError,
+          Awaited<ReturnType<typeof getRoutesBffWebDeliveryRoutesGet>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetRoutesBffWebDeliveryRoutesGet<
+  TData = Awaited<ReturnType<typeof getRoutesBffWebDeliveryRoutesGet>>,
+  TError = void | ValidationErrorResponse | ServiceUnavailableErrorResponse,
+>(
+  params?: GetRoutesBffWebDeliveryRoutesGetParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getRoutesBffWebDeliveryRoutesGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Get Routes
+ */
+
+export function useGetRoutesBffWebDeliveryRoutesGet<
+  TData = Awaited<ReturnType<typeof getRoutesBffWebDeliveryRoutesGet>>,
+  TError = void | ValidationErrorResponse | ServiceUnavailableErrorResponse,
+>(
+  params?: GetRoutesBffWebDeliveryRoutesGetParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getRoutesBffWebDeliveryRoutesGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getGetRoutesBffWebDeliveryRoutesGetQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey;
+
+  return query;
+}
+
+/**
+ * Get detailed information for a specific route.
+
+Args:
+    route_id: The UUID of the route to retrieve
+    port: Delivery port for service communication
+    user: Authenticated user information
+
+Returns:
+    RouteDetailResponse with route details and associated shipments
+ * @summary Get Route
+ */
+export const getRouteBffWebDeliveryRoutesRouteIdGet = (
+  routeId: string,
+  options?: SecondParameter<typeof customInstance>,
+  signal?: AbortSignal,
+) => {
+  return customInstance<RouteDetailResponse>(
+    { url: `/bff/web/delivery/routes/${routeId}`, method: "GET", signal },
+    options,
+  );
+};
+
+export const getGetRouteBffWebDeliveryRoutesRouteIdGetQueryKey = (
+  routeId?: string,
+) => {
+  return [`/bff/web/delivery/routes/${routeId}`] as const;
+};
+
+export const getGetRouteBffWebDeliveryRoutesRouteIdGetQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRouteBffWebDeliveryRoutesRouteIdGet>>,
+  TError =
+    | void
+    | NotFoundErrorResponse
+    | HTTPValidationError
+    | ServiceUnavailableErrorResponse,
+>(
+  routeId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getRouteBffWebDeliveryRoutesRouteIdGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetRouteBffWebDeliveryRoutesRouteIdGetQueryKey(routeId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getRouteBffWebDeliveryRoutesRouteIdGet>>
+  > = ({ signal }) =>
+    getRouteBffWebDeliveryRoutesRouteIdGet(routeId, requestOptions, signal);
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!routeId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRouteBffWebDeliveryRoutesRouteIdGet>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetRouteBffWebDeliveryRoutesRouteIdGetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRouteBffWebDeliveryRoutesRouteIdGet>>
+>;
+export type GetRouteBffWebDeliveryRoutesRouteIdGetQueryError =
+  | void
+  | NotFoundErrorResponse
+  | HTTPValidationError
+  | ServiceUnavailableErrorResponse;
+
+export function useGetRouteBffWebDeliveryRoutesRouteIdGet<
+  TData = Awaited<ReturnType<typeof getRouteBffWebDeliveryRoutesRouteIdGet>>,
+  TError =
+    | void
+    | NotFoundErrorResponse
+    | HTTPValidationError
+    | ServiceUnavailableErrorResponse,
+>(
+  routeId: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getRouteBffWebDeliveryRoutesRouteIdGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getRouteBffWebDeliveryRoutesRouteIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getRouteBffWebDeliveryRoutesRouteIdGet>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetRouteBffWebDeliveryRoutesRouteIdGet<
+  TData = Awaited<ReturnType<typeof getRouteBffWebDeliveryRoutesRouteIdGet>>,
+  TError =
+    | void
+    | NotFoundErrorResponse
+    | HTTPValidationError
+    | ServiceUnavailableErrorResponse,
+>(
+  routeId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getRouteBffWebDeliveryRoutesRouteIdGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getRouteBffWebDeliveryRoutesRouteIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getRouteBffWebDeliveryRoutesRouteIdGet>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetRouteBffWebDeliveryRoutesRouteIdGet<
+  TData = Awaited<ReturnType<typeof getRouteBffWebDeliveryRoutesRouteIdGet>>,
+  TError =
+    | void
+    | NotFoundErrorResponse
+    | HTTPValidationError
+    | ServiceUnavailableErrorResponse,
+>(
+  routeId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getRouteBffWebDeliveryRoutesRouteIdGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Get Route
+ */
+
+export function useGetRouteBffWebDeliveryRoutesRouteIdGet<
+  TData = Awaited<ReturnType<typeof getRouteBffWebDeliveryRoutesRouteIdGet>>,
+  TError =
+    | void
+    | NotFoundErrorResponse
+    | HTTPValidationError
+    | ServiceUnavailableErrorResponse,
+>(
+  routeId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getRouteBffWebDeliveryRoutesRouteIdGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getGetRouteBffWebDeliveryRoutesRouteIdGetQueryOptions(
+    routeId,
+    options,
+  );
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey;
+
+  return query;
+}
+
+/**
+ * Update the status of a route.
+
+Args:
+    route_id: The UUID of the route to update
+    request: New status data
+    port: Delivery port for service communication
+    user: Authenticated user information
+
+Returns:
+    RouteResponse with updated route information
+ * @summary Update Route Status
+ */
+export const updateRouteStatusBffWebDeliveryRoutesRouteIdStatusPatch = (
+  routeId: string,
+  routeStatusUpdateRequest: RouteStatusUpdateRequest,
+  options?: SecondParameter<typeof customInstance>,
+) => {
+  return customInstance<RouteResponse>(
+    {
+      url: `/bff/web/delivery/routes/${routeId}/status`,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      data: routeStatusUpdateRequest,
+    },
+    options,
+  );
+};
+
+export const getUpdateRouteStatusBffWebDeliveryRoutesRouteIdStatusPatchMutationOptions =
+  <
+    TError =
+      | ValidationErrorResponse
+      | void
+      | NotFoundErrorResponse
+      | HTTPValidationError
+      | ServiceUnavailableErrorResponse,
+    TContext = unknown,
+  >(options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<
+          typeof updateRouteStatusBffWebDeliveryRoutesRouteIdStatusPatch
+        >
+      >,
+      TError,
+      { routeId: string; data: RouteStatusUpdateRequest },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  }): UseMutationOptions<
+    Awaited<
+      ReturnType<typeof updateRouteStatusBffWebDeliveryRoutesRouteIdStatusPatch>
+    >,
+    TError,
+    { routeId: string; data: RouteStatusUpdateRequest },
+    TContext
+  > => {
+    const mutationKey = [
+      "updateRouteStatusBffWebDeliveryRoutesRouteIdStatusPatch",
+    ];
+    const { mutation: mutationOptions, request: requestOptions } = options
+      ? options.mutation &&
+        "mutationKey" in options.mutation &&
+        options.mutation.mutationKey
+        ? options
+        : { ...options, mutation: { ...options.mutation, mutationKey } }
+      : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+      Awaited<
+        ReturnType<
+          typeof updateRouteStatusBffWebDeliveryRoutesRouteIdStatusPatch
+        >
+      >,
+      { routeId: string; data: RouteStatusUpdateRequest }
+    > = (props) => {
+      const { routeId, data } = props ?? {};
+
+      return updateRouteStatusBffWebDeliveryRoutesRouteIdStatusPatch(
+        routeId,
+        data,
+        requestOptions,
+      );
+    };
+
+    return { mutationFn, ...mutationOptions };
+  };
+
+export type UpdateRouteStatusBffWebDeliveryRoutesRouteIdStatusPatchMutationResult =
+  NonNullable<
+    Awaited<
+      ReturnType<typeof updateRouteStatusBffWebDeliveryRoutesRouteIdStatusPatch>
+    >
+  >;
+export type UpdateRouteStatusBffWebDeliveryRoutesRouteIdStatusPatchMutationBody =
+  RouteStatusUpdateRequest;
+export type UpdateRouteStatusBffWebDeliveryRoutesRouteIdStatusPatchMutationError =
+
+    | ValidationErrorResponse
+    | void
+    | NotFoundErrorResponse
+    | HTTPValidationError
+    | ServiceUnavailableErrorResponse;
+
+/**
+ * @summary Update Route Status
+ */
+export const useUpdateRouteStatusBffWebDeliveryRoutesRouteIdStatusPatch = <
+  TError =
+    | ValidationErrorResponse
+    | void
+    | NotFoundErrorResponse
+    | HTTPValidationError
+    | ServiceUnavailableErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<
+          typeof updateRouteStatusBffWebDeliveryRoutesRouteIdStatusPatch
+        >
+      >,
+      TError,
+      { routeId: string; data: RouteStatusUpdateRequest },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<
+    ReturnType<typeof updateRouteStatusBffWebDeliveryRoutesRouteIdStatusPatch>
+  >,
+  TError,
+  { routeId: string; data: RouteStatusUpdateRequest },
+  TContext
+> => {
+  const mutationOptions =
+    getUpdateRouteStatusBffWebDeliveryRoutesRouteIdStatusPatchMutationOptions(
+      options,
+    );
+
+  return useMutation(mutationOptions, queryClient);
+};
+/**
+ * Retrieve all vehicles.
+
+Args:
+    port: Delivery port for service communication
+    user: Authenticated user information
+
+Returns:
+    VehiclesListResponse with list of all vehicles
+ * @summary Get Vehicles
+ */
+export const getVehiclesBffWebDeliveryVehiclesGet = (
+  options?: SecondParameter<typeof customInstance>,
+  signal?: AbortSignal,
+) => {
+  return customInstance<VehiclesListResponse>(
+    { url: `/bff/web/delivery/vehicles`, method: "GET", signal },
+    options,
+  );
+};
+
+export const getGetVehiclesBffWebDeliveryVehiclesGetQueryKey = () => {
+  return [`/bff/web/delivery/vehicles`] as const;
+};
+
+export const getGetVehiclesBffWebDeliveryVehiclesGetQueryOptions = <
+  TData = Awaited<ReturnType<typeof getVehiclesBffWebDeliveryVehiclesGet>>,
+  TError = void | ServiceUnavailableErrorResponse,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<
+      Awaited<ReturnType<typeof getVehiclesBffWebDeliveryVehiclesGet>>,
+      TError,
+      TData
+    >
+  >;
+  request?: SecondParameter<typeof customInstance>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetVehiclesBffWebDeliveryVehiclesGetQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getVehiclesBffWebDeliveryVehiclesGet>>
+  > = ({ signal }) =>
+    getVehiclesBffWebDeliveryVehiclesGet(requestOptions, signal);
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getVehiclesBffWebDeliveryVehiclesGet>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetVehiclesBffWebDeliveryVehiclesGetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getVehiclesBffWebDeliveryVehiclesGet>>
+>;
+export type GetVehiclesBffWebDeliveryVehiclesGetQueryError =
+  void | ServiceUnavailableErrorResponse;
+
+export function useGetVehiclesBffWebDeliveryVehiclesGet<
+  TData = Awaited<ReturnType<typeof getVehiclesBffWebDeliveryVehiclesGet>>,
+  TError = void | ServiceUnavailableErrorResponse,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getVehiclesBffWebDeliveryVehiclesGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getVehiclesBffWebDeliveryVehiclesGet>>,
+          TError,
+          Awaited<ReturnType<typeof getVehiclesBffWebDeliveryVehiclesGet>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetVehiclesBffWebDeliveryVehiclesGet<
+  TData = Awaited<ReturnType<typeof getVehiclesBffWebDeliveryVehiclesGet>>,
+  TError = void | ServiceUnavailableErrorResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getVehiclesBffWebDeliveryVehiclesGet>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getVehiclesBffWebDeliveryVehiclesGet>>,
+          TError,
+          Awaited<ReturnType<typeof getVehiclesBffWebDeliveryVehiclesGet>>
+        >,
+        "initialData"
+      >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useGetVehiclesBffWebDeliveryVehiclesGet<
+  TData = Awaited<ReturnType<typeof getVehiclesBffWebDeliveryVehiclesGet>>,
+  TError = void | ServiceUnavailableErrorResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getVehiclesBffWebDeliveryVehiclesGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+/**
+ * @summary Get Vehicles
+ */
+
+export function useGetVehiclesBffWebDeliveryVehiclesGet<
+  TData = Awaited<ReturnType<typeof getVehiclesBffWebDeliveryVehiclesGet>>,
+  TError = void | ServiceUnavailableErrorResponse,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof getVehiclesBffWebDeliveryVehiclesGet>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions =
+    getGetVehiclesBffWebDeliveryVehiclesGetQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey;
+
+  return query;
+}
+
+/**
+ * Create a new vehicle.
+
+Args:
+    request: Vehicle creation data
+    port: Delivery port for service communication
+    user: Authenticated user information
+
+Returns:
+    VehicleResponse with created vehicle information
+ * @summary Create Vehicle
+ */
+export const createVehicleBffWebDeliveryVehiclesPost = (
+  vehicleCreateRequest: VehicleCreateRequest,
+  options?: SecondParameter<typeof customInstance>,
+  signal?: AbortSignal,
+) => {
+  return customInstance<VehicleResponse>(
+    {
+      url: `/bff/web/delivery/vehicles`,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      data: vehicleCreateRequest,
+      signal,
+    },
+    options,
+  );
+};
+
+export const getCreateVehicleBffWebDeliveryVehiclesPostMutationOptions = <
+  TError = ValidationErrorResponse | void | ServiceUnavailableErrorResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createVehicleBffWebDeliveryVehiclesPost>>,
+    TError,
+    { data: VehicleCreateRequest },
+    TContext
+  >;
+  request?: SecondParameter<typeof customInstance>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createVehicleBffWebDeliveryVehiclesPost>>,
+  TError,
+  { data: VehicleCreateRequest },
+  TContext
+> => {
+  const mutationKey = ["createVehicleBffWebDeliveryVehiclesPost"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createVehicleBffWebDeliveryVehiclesPost>>,
+    { data: VehicleCreateRequest }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createVehicleBffWebDeliveryVehiclesPost(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateVehicleBffWebDeliveryVehiclesPostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createVehicleBffWebDeliveryVehiclesPost>>
+>;
+export type CreateVehicleBffWebDeliveryVehiclesPostMutationBody =
+  VehicleCreateRequest;
+export type CreateVehicleBffWebDeliveryVehiclesPostMutationError =
+  | ValidationErrorResponse
+  | void
+  | ServiceUnavailableErrorResponse;
+
+/**
+ * @summary Create Vehicle
+ */
+export const useCreateVehicleBffWebDeliveryVehiclesPost = <
+  TError = ValidationErrorResponse | void | ServiceUnavailableErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof createVehicleBffWebDeliveryVehiclesPost>>,
+      TError,
+      { data: VehicleCreateRequest },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof createVehicleBffWebDeliveryVehiclesPost>>,
+  TError,
+  { data: VehicleCreateRequest },
+  TContext
+> => {
+  const mutationOptions =
+    getCreateVehicleBffWebDeliveryVehiclesPostMutationOptions(options);
+
+  return useMutation(mutationOptions, queryClient);
+};
+/**
+ * Update an existing vehicle.
+
+Args:
+    vehicle_id: The UUID of the vehicle to update
+    request: Vehicle update data
+    port: Delivery port for service communication
+    user: Authenticated user information
+
+Returns:
+    VehicleResponse with updated vehicle information
+ * @summary Update Vehicle
+ */
+export const updateVehicleBffWebDeliveryVehiclesVehicleIdPut = (
+  vehicleId: string,
+  vehicleUpdateRequest: VehicleUpdateRequest,
+  options?: SecondParameter<typeof customInstance>,
+) => {
+  return customInstance<VehicleResponse>(
+    {
+      url: `/bff/web/delivery/vehicles/${vehicleId}`,
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      data: vehicleUpdateRequest,
+    },
+    options,
+  );
+};
+
+export const getUpdateVehicleBffWebDeliveryVehiclesVehicleIdPutMutationOptions =
+  <
+    TError =
+      | ValidationErrorResponse
+      | void
+      | NotFoundErrorResponse
+      | ServiceUnavailableErrorResponse,
+    TContext = unknown,
+  >(options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<typeof updateVehicleBffWebDeliveryVehiclesVehicleIdPut>
+      >,
+      TError,
+      { vehicleId: string; data: VehicleUpdateRequest },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  }): UseMutationOptions<
+    Awaited<ReturnType<typeof updateVehicleBffWebDeliveryVehiclesVehicleIdPut>>,
+    TError,
+    { vehicleId: string; data: VehicleUpdateRequest },
+    TContext
+  > => {
+    const mutationKey = ["updateVehicleBffWebDeliveryVehiclesVehicleIdPut"];
+    const { mutation: mutationOptions, request: requestOptions } = options
+      ? options.mutation &&
+        "mutationKey" in options.mutation &&
+        options.mutation.mutationKey
+        ? options
+        : { ...options, mutation: { ...options.mutation, mutationKey } }
+      : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+      Awaited<
+        ReturnType<typeof updateVehicleBffWebDeliveryVehiclesVehicleIdPut>
+      >,
+      { vehicleId: string; data: VehicleUpdateRequest }
+    > = (props) => {
+      const { vehicleId, data } = props ?? {};
+
+      return updateVehicleBffWebDeliveryVehiclesVehicleIdPut(
+        vehicleId,
+        data,
+        requestOptions,
+      );
+    };
+
+    return { mutationFn, ...mutationOptions };
+  };
+
+export type UpdateVehicleBffWebDeliveryVehiclesVehicleIdPutMutationResult =
+  NonNullable<
+    Awaited<ReturnType<typeof updateVehicleBffWebDeliveryVehiclesVehicleIdPut>>
+  >;
+export type UpdateVehicleBffWebDeliveryVehiclesVehicleIdPutMutationBody =
+  VehicleUpdateRequest;
+export type UpdateVehicleBffWebDeliveryVehiclesVehicleIdPutMutationError =
+  | ValidationErrorResponse
+  | void
+  | NotFoundErrorResponse
+  | ServiceUnavailableErrorResponse;
+
+/**
+ * @summary Update Vehicle
+ */
+export const useUpdateVehicleBffWebDeliveryVehiclesVehicleIdPut = <
+  TError =
+    | ValidationErrorResponse
+    | void
+    | NotFoundErrorResponse
+    | ServiceUnavailableErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<typeof updateVehicleBffWebDeliveryVehiclesVehicleIdPut>
+      >,
+      TError,
+      { vehicleId: string; data: VehicleUpdateRequest },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updateVehicleBffWebDeliveryVehiclesVehicleIdPut>>,
+  TError,
+  { vehicleId: string; data: VehicleUpdateRequest },
+  TContext
+> => {
+  const mutationOptions =
+    getUpdateVehicleBffWebDeliveryVehiclesVehicleIdPutMutationOptions(options);
+
+  return useMutation(mutationOptions, queryClient);
+};
+/**
+ * Delete a vehicle.
+
+Args:
+    vehicle_id: The UUID of the vehicle to delete
+    port: Delivery port for service communication
+    user: Authenticated user information
+
+Returns:
+    204 No Content on success
+ * @summary Delete Vehicle
+ */
+export const deleteVehicleBffWebDeliveryVehiclesVehicleIdDelete = (
+  vehicleId: string,
+  options?: SecondParameter<typeof customInstance>,
+) => {
+  return customInstance<void>(
+    { url: `/bff/web/delivery/vehicles/${vehicleId}`, method: "DELETE" },
+    options,
+  );
+};
+
+export const getDeleteVehicleBffWebDeliveryVehiclesVehicleIdDeleteMutationOptions =
+  <
+    TError =
+      | void
+      | NotFoundErrorResponse
+      | HTTPValidationError
+      | ServiceUnavailableErrorResponse,
+    TContext = unknown,
+  >(options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<typeof deleteVehicleBffWebDeliveryVehiclesVehicleIdDelete>
+      >,
+      TError,
+      { vehicleId: string },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  }): UseMutationOptions<
+    Awaited<
+      ReturnType<typeof deleteVehicleBffWebDeliveryVehiclesVehicleIdDelete>
+    >,
+    TError,
+    { vehicleId: string },
+    TContext
+  > => {
+    const mutationKey = ["deleteVehicleBffWebDeliveryVehiclesVehicleIdDelete"];
+    const { mutation: mutationOptions, request: requestOptions } = options
+      ? options.mutation &&
+        "mutationKey" in options.mutation &&
+        options.mutation.mutationKey
+        ? options
+        : { ...options, mutation: { ...options.mutation, mutationKey } }
+      : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+      Awaited<
+        ReturnType<typeof deleteVehicleBffWebDeliveryVehiclesVehicleIdDelete>
+      >,
+      { vehicleId: string }
+    > = (props) => {
+      const { vehicleId } = props ?? {};
+
+      return deleteVehicleBffWebDeliveryVehiclesVehicleIdDelete(
+        vehicleId,
+        requestOptions,
+      );
+    };
+
+    return { mutationFn, ...mutationOptions };
+  };
+
+export type DeleteVehicleBffWebDeliveryVehiclesVehicleIdDeleteMutationResult =
+  NonNullable<
+    Awaited<
+      ReturnType<typeof deleteVehicleBffWebDeliveryVehiclesVehicleIdDelete>
+    >
+  >;
+
+export type DeleteVehicleBffWebDeliveryVehiclesVehicleIdDeleteMutationError =
+  | void
+  | NotFoundErrorResponse
+  | HTTPValidationError
+  | ServiceUnavailableErrorResponse;
+
+/**
+ * @summary Delete Vehicle
+ */
+export const useDeleteVehicleBffWebDeliveryVehiclesVehicleIdDelete = <
+  TError =
+    | void
+    | NotFoundErrorResponse
+    | HTTPValidationError
+    | ServiceUnavailableErrorResponse,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<typeof deleteVehicleBffWebDeliveryVehiclesVehicleIdDelete>
+      >,
+      TError,
+      { vehicleId: string },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<
+    ReturnType<typeof deleteVehicleBffWebDeliveryVehiclesVehicleIdDelete>
+  >,
+  TError,
+  { vehicleId: string },
+  TContext
+> => {
+  const mutationOptions =
+    getDeleteVehicleBffWebDeliveryVehiclesVehicleIdDeleteMutationOptions(
+      options,
+    );
+
+  return useMutation(mutationOptions, queryClient);
+};
+/**
+ * Update the status of a shipment by order ID.
+
+Args:
+    order_id: The UUID of the order whose shipment status to update
+    request: New status data
+    port: Delivery port for service communication
+    user: Authenticated user information
+
+Returns:
+    ShipmentResponse with updated shipment information
+ * @summary Update Shipment Status
+ */
+export const updateShipmentStatusBffWebDeliveryShipmentsOrderIdStatusPatch = (
+  orderId: string,
+  shipmentStatusUpdateRequest: ShipmentStatusUpdateRequest,
+  options?: SecondParameter<typeof customInstance>,
+) => {
+  return customInstance<ShipmentResponse>(
+    {
+      url: `/bff/web/delivery/shipments/${orderId}/status`,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      data: shipmentStatusUpdateRequest,
+    },
+    options,
+  );
+};
+
+export const getUpdateShipmentStatusBffWebDeliveryShipmentsOrderIdStatusPatchMutationOptions =
+  <
+    TError =
+      | ValidationErrorResponse
+      | void
+      | NotFoundErrorResponse
+      | HTTPValidationError
+      | ServiceUnavailableErrorResponse,
+    TContext = unknown,
+  >(options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<
+          typeof updateShipmentStatusBffWebDeliveryShipmentsOrderIdStatusPatch
+        >
+      >,
+      TError,
+      { orderId: string; data: ShipmentStatusUpdateRequest },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  }): UseMutationOptions<
+    Awaited<
+      ReturnType<
+        typeof updateShipmentStatusBffWebDeliveryShipmentsOrderIdStatusPatch
+      >
+    >,
+    TError,
+    { orderId: string; data: ShipmentStatusUpdateRequest },
+    TContext
+  > => {
+    const mutationKey = [
+      "updateShipmentStatusBffWebDeliveryShipmentsOrderIdStatusPatch",
+    ];
+    const { mutation: mutationOptions, request: requestOptions } = options
+      ? options.mutation &&
+        "mutationKey" in options.mutation &&
+        options.mutation.mutationKey
+        ? options
+        : { ...options, mutation: { ...options.mutation, mutationKey } }
+      : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+      Awaited<
+        ReturnType<
+          typeof updateShipmentStatusBffWebDeliveryShipmentsOrderIdStatusPatch
+        >
+      >,
+      { orderId: string; data: ShipmentStatusUpdateRequest }
+    > = (props) => {
+      const { orderId, data } = props ?? {};
+
+      return updateShipmentStatusBffWebDeliveryShipmentsOrderIdStatusPatch(
+        orderId,
+        data,
+        requestOptions,
+      );
+    };
+
+    return { mutationFn, ...mutationOptions };
+  };
+
+export type UpdateShipmentStatusBffWebDeliveryShipmentsOrderIdStatusPatchMutationResult =
+  NonNullable<
+    Awaited<
+      ReturnType<
+        typeof updateShipmentStatusBffWebDeliveryShipmentsOrderIdStatusPatch
+      >
+    >
+  >;
+export type UpdateShipmentStatusBffWebDeliveryShipmentsOrderIdStatusPatchMutationBody =
+  ShipmentStatusUpdateRequest;
+export type UpdateShipmentStatusBffWebDeliveryShipmentsOrderIdStatusPatchMutationError =
+
+    | ValidationErrorResponse
+    | void
+    | NotFoundErrorResponse
+    | HTTPValidationError
+    | ServiceUnavailableErrorResponse;
+
+/**
+ * @summary Update Shipment Status
+ */
+export const useUpdateShipmentStatusBffWebDeliveryShipmentsOrderIdStatusPatch =
+  <
+    TError =
+      | ValidationErrorResponse
+      | void
+      | NotFoundErrorResponse
+      | HTTPValidationError
+      | ServiceUnavailableErrorResponse,
+    TContext = unknown,
+  >(
+    options?: {
+      mutation?: UseMutationOptions<
+        Awaited<
+          ReturnType<
+            typeof updateShipmentStatusBffWebDeliveryShipmentsOrderIdStatusPatch
+          >
+        >,
+        TError,
+        { orderId: string; data: ShipmentStatusUpdateRequest },
+        TContext
+      >;
+      request?: SecondParameter<typeof customInstance>;
+    },
+    queryClient?: QueryClient,
+  ): UseMutationResult<
+    Awaited<
+      ReturnType<
+        typeof updateShipmentStatusBffWebDeliveryShipmentsOrderIdStatusPatch
+      >
+    >,
+    TError,
+    { orderId: string; data: ShipmentStatusUpdateRequest },
+    TContext
+  > => {
+    const mutationOptions =
+      getUpdateShipmentStatusBffWebDeliveryShipmentsOrderIdStatusPatchMutationOptions(
+        options,
+      );
+
+    return useMutation(mutationOptions, queryClient);
+  };

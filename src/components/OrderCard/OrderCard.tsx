@@ -22,12 +22,7 @@ import {
 import { useState } from 'react';
 
 interface OrderCardProps {
-  order: OrderResponse & {
-    shipment_id?: string | null;
-    shipment_status?: string | null;
-    vehicle_plate?: string | null;
-    driver_name?: string | null;
-  };
+  order: OrderResponse;
 }
 
 const getOrderStatusBadgeAction = (
@@ -79,13 +74,13 @@ export const OrderCard = ({ order }: OrderCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Use shipment data from order or show as not available
-  const hasShipment = !!order.shipment_id;
-  const shipment = {
-    shipmentId: order.shipment_id || 'N/A',
-    vehiclePlate: order.vehicle_plate || 'N/A',
-    status: order.shipment_status || 'planned',
-    driverName: order.driver_name || 'N/A',
-  };
+  const hasShipment = !!order.shipment?.shipment_id;
+  const shipment = order.shipment ? {
+    shipmentId: order.shipment.shipment_id,
+    vehiclePlate: order.shipment.vehicle_plate || 'N/A',
+    status: order.shipment.shipment_status,
+    driverName: order.shipment.driver_name || 'N/A',
+  } : null;
   const deliveryDate = order.fecha_entrega_estimada
     ? new Date(order.fecha_entrega_estimada)
     : null;
@@ -143,7 +138,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
               <Divider className="my-2" />
 
               <VStack space="md">
-                {hasShipment ? (
+                {hasShipment && shipment ? (
                   <>
                     <HStack className="justify-between items-center">
                       <Text className="text-sm font-semibold text-typography-700 uppercase tracking-wide">
@@ -170,11 +165,11 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                       value={shipment.vehiclePlate}
                     />
 
-                    {order.driver_name && (
+                    {shipment.driverName !== 'N/A' && (
                       <InfoRow
                         icon={Truck}
                         label={t('orders.driver')}
-                        value={order.driver_name}
+                        value={shipment.driverName}
                       />
                     )}
                   </>
